@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="core.fs" />
+    <Compile Include="eval.fs" />
+    <Folder Include="scripts" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,4 @@
-﻿
+﻿﻿﻿
 module Local =
         
     type Res<'a, 'b> =
@@ -8,6 +8,8 @@ module Local =
     type Local<'value, 'state, 'reader> =
         Local of ('state option -> 'reader -> Res<'value, 'state>)
 
+    let run m = let (Local b) = m in b
+
     // TODO: seems to be impossible having a single case DU here?
     type LocalInput<'inp, 'value, 'state, 'reader> =
         'inp -> Local<'value, 'state, 'reader>
@@ -15,8 +17,11 @@ module Local =
     type StateAcc<'a, 'b> =
         { mine: 'a
           exess: 'b }
-    
-    let run m = let (Local b) = m in b
+
+
+    // -----
+    // Monad
+    // -----
 
     let bind (m: Local<'a, 'sa, 'r>) (f: 'a -> Local<'b, 'sb, 'r>): Local<'b, StateAcc<'sa, 'sb>, 'r> =
         let localFunc localState readerState =
@@ -45,6 +50,11 @@ module Local =
             { value = x
               state = () })
 
+
+    // -------
+    // Builder
+    // -------
+
     // TODO: Docu
     // TODO: other builder methods
     type LocalReaderBuilder<'a>() =
@@ -60,42 +70,10 @@ module Local =
 
     let local = LocalBuilder()
 
-    let kleisli (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>) : LocalInput<'a, 'c, _, _> =
-        fun x -> local {
-            let! f' = f x
-            return! g f'
-        }
-    let (>=>) = kleisli
-
-    let kleisliPipe (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>) : Local<'b, _, _> =
-        local {
-            let! f' = f
-            return! g f'
-        }
-    let (|=>) = kleisliPipe
-
-    let mapB local mapping =
-        let f' s r =
-            let res = (run local) s r
-            let mappedRes = mapping res.value
-            { value = mappedRes
-              state = res.state }
-        Local f'
-
-    /// map operator
-    let (<!>) = mapB
-
-    let apply (f: Local<'v1 -> 'v2, _, 'r>) (l: Local<'v1, _, 'r>): Local<'v2, _, 'r> =
-        local {
-            let! l' = l
-            let! f' = f
-            let result = f' l'
-            return result
-        }
-
-    /// apply operator        
-    let (<*>) = apply
-
+            
+    // ----------
+    // Arithmetik
+    // ----------
 
     let inline binOpLeftRight left right f =
         local {
@@ -138,32 +116,73 @@ module Local =
         static member inline (/) (left, right) = binOpRight left right (/)
 
 
+    // -------
+    // Kleisli
+    // -------
+
+    let kleisli (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>) : LocalInput<'a, 'c, _, _> =
+        fun x -> local {
+            let! f' = f x
+            return! g f'
+        }
+    let (>=>) = kleisli
+
+    let kleisliPipe (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>) : Local<'b, _, _> =
+        local {
+            let! f' = f
+            return! g f'
+        }
+    let (|=>) = kleisliPipe
+
+    
+    // -----------
+    // map / apply
+    // -----------
+
+    let map local mapping =
+        let f' s r =
+            let res = (run local) s r
+            let mappedRes = mapping res.value
+            { value = mappedRes
+              state = res.state }
+        Local f'
+
+    /// map operator
+    let (<!>) = map
+
+    let apply (f: Local<'v1 -> 'v2, _, 'r>) (l: Local<'v1, _, 'r>): Local<'v2, _, 'r> =
+        local {
+            let! l' = l
+            let! f' = f
+            let result = f' l'
+            return result
+        }
+
+    /// apply operator        
+    let (<*>) = apply
+
+
+    // ------
+    // Reader
+    // ------
+
     /// Reads the global state that is passed around to every loop function.
     let read() =
         Local(fun _ r ->
             { value = r
               state = () })
 
-    /// Lifts a function with an initial value.
-    let liftSeed seed block =
-        fun s r ->
-            let x =
-                match s with
-                | Some previousState -> previousState
-                | None -> seed
-            block x r
 
-
-[<AutoOpen>]
-module Feedback =
-
-    [<Struct>]
+    // --------
+    // Feedback
+    // --------
+    
     type Fbd<'a, 'b> =
         { feedback: 'a
           out: 'b }
 
     /// Feedback with reader state
-    let (++>) seed (f: 'a -> 'r -> Local<Fbd<'a, 'v>, 's, 'r>) =
+    let (<|>) seed (f: 'a -> 'r -> Local<Fbd<'a, 'v>, 's, 'r>) =
         let f1 =
             fun prev r ->
                 let myPrev, innerPrev =
@@ -171,29 +190,26 @@ module Feedback =
                     | None -> seed, None
                     | Some(my, inner) -> my, inner
 
-                let lRes = runBlock (f myPrev r) innerPrev r
+                let lRes = run (f myPrev r) innerPrev r
                 let feed = lRes.value
                 let innerState = lRes.state
                 { value = feed.out
                   state = feed.feedback, Some innerState }
         Local f1
 
-    /// Feedback without reader state
-    let (+->) seed f = (++>) seed (fun s _ -> f s)
+    // /// Feedback without reader state
+    // let (+->) seed f = (++>) seed (fun s _ -> f s)
 
-
-[<AutoOpen>]
-module Helper =
-
-    let listN x n =
-        x
-        |> Seq.take n
-        |> Seq.toList
 
 
 [<AutoOpen>]
 module Eval =
 
+    let listN x n =
+        x
+        |> Seq.take n
+        |> Seq.toList
+    
     let getValues (s: Res<_, _> seq) = s |> Seq.map (fun x -> x.value)
 
     let noReader = fun _ -> ()
@@ -207,7 +223,7 @@ module Eval =
             fun inputValues ->
                 inputValues
                 |> Seq.mapi (fun i v ->
-                    let block = blockWithInput v |> runBlock
+                    let block = blockWithInput v |> run
                     let res = block lastState (getReaderState i)
                     lastState <- Some res.state
                     res)
