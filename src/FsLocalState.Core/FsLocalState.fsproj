@@ -2,6 +2,18 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>SchlenkR.FsLocalState</PackageId>
+    <Authors>Ronald Schlenker</Authors>
+    <Title>SchlenkR.FsLocalState</Title>
+    <Description>A F# library for composing stateful functions</Description>
+    <Copyright>Ronald Schlenker</Copyright>
+    <PackageProjectUrl>https://github.com/ronaldschlenker/FsLocalState</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ronaldschlenker/FsLocalState</RepositoryUrl>
+    <PackageTags>f#</PackageTags>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Product>SchlenkR.FsLocalState</Product>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>0.0.1-preview1</Version>
   </PropertyGroup>
 
   <ItemGroup>

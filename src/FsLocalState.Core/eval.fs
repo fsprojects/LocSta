@@ -1,47 +1,53 @@
 ﻿module FsLocalState.Eval
 
-open Local
+open Core
 
-let listN x n =
-    x
+let noReader = ignore
+
+let getValue (x: Res<_, _>) = x.value
+
+/// Converts a local into a sequence with the given state.
+/// The getReaderState function is called for each evaluation.
+let toSeqi getReaderValue (localWithInput: LocalInput<_, _, _, _>) =
+    let mutable lastState: 'a option = None
+    fun inputValues ->
+        inputValues
+        |> Seq.mapi (fun i v ->
+            let local = localWithInput v |> run
+            let res = local lastState (getReaderValue i)
+            lastState <- Some res.state
+            res)
+
+/// Converts a local into a sequence with the given state.
+/// The getReaderState function is called for each evaluation.
+let toSeq getReaderValue (localWithInput: LocalInput<_, _, _, _>) =
+    toSeqi (fun _ -> getReaderValue ()) localWithInput
+
+/// Converts a local into a sequence with the given state.
+/// The getReaderState function is called for each evaluation.
+let toSeqValuesi getReaderValue (localWithInput: LocalInput<_, _, _, _>) =
+    fun inputValues ->
+        toSeqi getReaderValue localWithInput inputValues
+        |> Seq.map getValue
+
+/// Converts a local into a sequence with the given state.
+/// The getReaderState function is called for each evaluation.
+let toSeqValues getReaderValue (localWithInput: LocalInput<_, _, _, _>) =
+    fun inputValues ->
+        toSeq getReaderValue localWithInput inputValues
+        |> Seq.map getValue
+
+/// Converts a local into a sequence with the given state.
+/// The getReaderState function is called for each evaluation.
+let toSeqGen2 getReaderValue (local: Local<_, _, _>) =
+    Seq.initInfinite (fun _ -> ()) |> toSeq getReaderValue (fun () -> local)
+
+/// Converts a local into a sequence with the given state.
+/// The getReaderState function is called for each evaluation.
+let toSeqGen getReaderValue (local: Local<_, _, _>) =
+    toSeqGen2 getReaderValue local |> Seq.map getValue
+
+let pulln n seq =
+    seq
     |> Seq.take n
     |> Seq.toList
-
-let getValues (s: Res<_, _> seq) = s |> Seq.map (fun x -> x.value)
-
-let noReader = fun _ -> ()
-
-module Effect =
-
-    /// Converts a block into a sequence with the given state.
-    /// The getReaderState function is called for each evaluation.
-    let toSeqSV getReaderState (blockWithInput: 'inp -> Local<_, _, _>) =
-        let mutable lastState: 'a option = None
-        fun inputValues ->
-            inputValues
-            |> Seq.mapi (fun i v ->
-                let block = blockWithInput v |> run
-                let res = block lastState (getReaderState i)
-                lastState <- Some res.state
-                res)
-
-    /// Converts a block into a sequence with the given state.
-    /// The getReaderState function is called for each evaluation.
-    let toSeqV getReaderState (blockWithInput: 'inp -> Local<_, _, _>) =
-        fun inputValues -> toSeqSV getReaderState blockWithInput inputValues |> getValues
-
-module Generator =
-
-    /// Converts a block into a sequence with the given state.
-    /// The getReaderState function is called for each evaluation.
-    let toSeqSV getReaderState (blockWithInput: Local<_, _, _>) =
-        Effect.toSeqSV getReaderState (fun () -> blockWithInput) (Seq.initInfinite (fun _ -> ())) |> getValues
-
-    /// Converts a block into a sequence with the given state.
-    /// The getReaderState function is called for each evaluation.
-    let toSeqV getReaderState (blockWithInput: Local<_, _, _>) =
-        toSeqSV getReaderState blockWithInput |> getValues
-
-module Test =
-    let evalN block =
-        Generator.toSeqSV noReader block |> listN
