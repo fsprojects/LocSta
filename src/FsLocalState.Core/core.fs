@@ -1,6 +1,7 @@
 ﻿
 namespace FsLocalState
 
+[<AutoOpen>]
 module Core =
 
     type Res<'a, 'b> =
@@ -121,18 +122,18 @@ module Core =
     // Kleisli
     // -------
 
-    let kleisli (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>): LocalInput<'a, 'c, _, _> =
+    let fwdComp (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>): LocalInput<'a, 'c, _, _> =
         fun x ->
             local {
                 let! f' = f x
                 return! g f' }
-    let (>=>) = kleisli
+    let (>=>) = fwdComp
 
-    let kleisliPipe (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>): Local<'b, _, _> =
+    let pipeFwd (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>): Local<'b, _, _> =
         local {
             let! f' = f
             return! g f' }
-    let (|=>) = kleisliPipe
+    let (|=>) = pipeFwd
 
 
     // -----------
@@ -196,6 +197,3 @@ module Core =
                 { value = feed.out
                   state = feed.feedback, Some innerState }
         Local f1
-
-    // /// Feedback without reader state
-    // let (+->) seed f = (++>) seed (fun s _ -> f s)
