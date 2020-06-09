@@ -178,12 +178,8 @@ module Core =
     // Feedback
     // --------
 
-    type Fbd<'a, 'b> =
-        { feedback: 'a
-          out: 'b }
-
     /// Feedback with reader state
-    let (<|>) seed (f: 'a -> 'r -> Local<Fbd<'a, 'v>, 's, 'r>) =
+    let (<|>) seed (f: 'a -> 'r -> Local<Res<'v, 'a>, 's, 'r>) =
         let f1 =
             fun prev r ->
                 let myPrev, innerPrev =
@@ -194,6 +190,6 @@ module Core =
                 let lRes = run (f myPrev r) innerPrev r
                 let feed = lRes.value
                 let innerState = lRes.state
-                { value = feed.out
-                  state = feed.feedback, Some innerState }
+                { value = feed.value
+                  state = feed.state, Some innerState }
         Local f1
