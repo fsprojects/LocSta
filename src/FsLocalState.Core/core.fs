@@ -1,5 +1,4 @@
-﻿
-namespace FsLocalState
+﻿namespace FsLocalState
 
 [<AutoOpen>]
 module Core =
@@ -122,18 +121,18 @@ module Core =
     // Kleisli
     // -------
 
-    let fwdComp (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>): LocalInput<'a, 'c, _, _> =
+    let kleisli (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>): LocalInput<'a, 'c, _, _> =
         fun x ->
             local {
                 let! f' = f x
                 return! g f' }
-    let (>=>) = fwdComp
+    let (>=>) = kleisli
 
-    let pipeFwd (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>): Local<'b, _, _> =
+    let kleisliGen (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>): Local<'b, _, _> =
         local {
             let! f' = f
             return! g f' }
-    let (|=>) = pipeFwd
+    let (|=>) = kleisliGen
 
 
     // -----------
@@ -141,12 +140,12 @@ module Core =
     // -----------
 
     let map local mapping =
-        let f' s r =
+        fun s r ->
             let res = (run local) s r
             let mappedRes = mapping res.value
             { value = mappedRes
               state = res.state }
-        Local f'
+        |> Local
 
     /// map operator
     let (<!>) = map
@@ -169,9 +168,10 @@ module Core =
 
     /// Reads the global state that is passed around to every loop function.
     let read () =
-        Local(fun _ r ->
+        fun _ r ->
             { value = r
-              state = () })
+              state = () }
+        |> Local
 
 
     // --------
@@ -180,16 +180,15 @@ module Core =
 
     /// Feedback with reader state
     let (<|>) seed (f: 'a -> 'r -> Local<Res<'v, 'a>, 's, 'r>) =
-        let f1 =
-            fun prev r ->
-                let myPrev, innerPrev =
-                    match prev with
-                    | None -> seed, None
-                    | Some (my, inner) -> my, inner
+        fun s r ->
+            let feedbackState, innerState =
+                match s with
+                | None -> seed, None
+                | Some (my, inner) -> my, inner
 
-                let lRes = run (f myPrev r) innerPrev r
-                let feed = lRes.value
-                let innerState = lRes.state
-                { value = feed.value
-                  state = feed.state, Some innerState }
-        Local f1
+            let lRes = run (f feedbackState r) innerState r
+            let feed = lRes.value
+            let innerState = lRes.state
+            { value = feed.value
+              state = feed.state, Some innerState }
+        |> Local
