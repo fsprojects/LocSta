@@ -9,8 +9,9 @@ module Core =
 
     type Local<'value, 'state, 'reader> = Local of ('state option -> 'reader -> Res<'value, 'state>)
 
-    let run m =
-        let (Local b) = m in b
+    let run m = let (Local b) = m in b
+
+    let getValue (x: Res<_, _>) = x.value
 
     // TODO: seems to be impossible having a single case DU here?
     type LocalInput<'inp, 'value, 'state, 'reader> = 'inp -> Local<'value, 'state, 'reader>
@@ -70,6 +71,17 @@ module Core =
         member __.ReturnFrom x = x
 
     let local = LocalBuilder()
+
+
+    // -------------------
+    // Construction Helper
+    // -------------------
+    
+    let init seed f =
+        fun s r ->
+            let state = Option.defaultValue seed s
+            f state r
+        |> Local
 
 
     // ----------

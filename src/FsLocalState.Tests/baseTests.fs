@@ -1,6 +1,5 @@
 module BaseTests
 
-open System
 open FsLocalState
 open FsLocalState.Tests
 open Xunit
@@ -12,7 +11,7 @@ type Env = unit
 /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
 /// When max is reached, counting begins with min again.
 let counterGen exclMin inclMax =
-    exclMin <|> fun state (env: Env) ->
+    exclMin <|> fun state _ ->
         local {
             let newValue =
                 (if state = inclMax then exclMin else state)
@@ -23,7 +22,7 @@ let counterGen exclMin inclMax =
 
 /// An accumulator function summing up incoming values, starting with the given seed.
 let accuFx seed value =
-    seed <|> fun state (env: Env) ->
+    seed <|> fun state _ ->
         local {
             let newValue = state + value
             return { value = newValue
@@ -44,7 +43,7 @@ module Counter =
             let! i = counterGen counterMin counterMax
             return i
         }
-        |> TestHelper.toValuesN sampleCount
+        |> TestHelper.takeGenOnce sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
@@ -80,7 +79,7 @@ module CounterAndAccu =
             let! acc = accuFx accuSeed i
             return acc
         }
-        |> TestHelper.toValuesN sampleCount
+        |> TestHelper.takeGenOnce sampleCount
 
     [<Fact>]
     let ``Sample count`` () =

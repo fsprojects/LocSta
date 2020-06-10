@@ -19,7 +19,11 @@
   <ItemGroup>
     <Compile Include="core.fs" />
     <Compile Include="eval.fs" />
-    <Folder Include="scripts" />
   </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /Q /Y &quot;$(TargetDir)FsLocalState.dll&quot; &quot;$(SolutionDir)\..\docu\lib\&quot;" />
+  </Target>
+
 
 </Project>
