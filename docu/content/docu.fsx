@@ -88,6 +88,15 @@ let phasedCounter amount =
 
 
 //$ref: compositionKleisliSample1
+
+
+
+let x = counter <!> (fun x -> float x) |=> phaser 0.1
+let x' = counter |> Local.map (fun x -> float x) |> Local.kleisliGen (phaser 0.1)
+
+
+
+
 //
 // let fold n =
 //     

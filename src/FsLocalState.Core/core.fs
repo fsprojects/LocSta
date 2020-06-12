@@ -127,6 +127,10 @@ module Local =
     
     let ret local = Core.ret local
 
+    /// Lifts a generator to an effect    
+    let lift (local: Local<'s, 'r, 'o>): LocalInput<unit, 's, 'r, 'o> =
+        fun () -> local
+
     
     // ----------
     // Arithmetik
@@ -143,13 +147,13 @@ module Local =
     // Kleisli
     // -------
 
-    let kleisli (f: LocalInput<'a, 'b, _, _>) (g: LocalInput<'b, 'c, _, _>): LocalInput<'a, 'c, _, _> =
+    let kleisli (g: LocalInput<'b, 'c, _, _>) (f: LocalInput<'a, 'b, _, _>): LocalInput<'a, 'c, _, _> =
         fun x ->
             local {
                 let! f' = f x
                 return! g f' }
 
-    let kleisliGen (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>): Local<'b, _, _> =
+    let kleisliGen (g: LocalInput<'a, 'b, _, _>) (f: Local<'a, _, _>): Local<'b, _, _> =
         local {
             let! f' = f
             return! g f' }
@@ -216,7 +220,7 @@ module Local =
         
 [<AutoOpen>]
 module Operators =
-    
+
     /// Feedback with reader state
     let (<|>) seed f = Local.feedback f seed
 
@@ -226,6 +230,6 @@ module Operators =
     /// apply operator
     let (<*>) f l = Local.apply l f
 
-    let (>=>) = Local.kleisli
+    let (>=>) f g = Local.kleisli g f
 
-    let (|=>) = Local.kleisliGen
+    let (|=>) f g = Local.kleisliGen g f
