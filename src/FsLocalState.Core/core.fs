@@ -9,10 +9,6 @@ module Core =
 
     type Local<'value, 'state, 'reader> = Local of ('state option -> 'reader -> Res<'value, 'state>)
 
-    let run m = let (Local b) = m in b
-
-    let getValue (x: Res<_, _>) = x.value
-
     // TODO: seems to be impossible having a single case DU here?
     type LocalInput<'inp, 'value, 'state, 'reader> = 'inp -> Local<'value, 'state, 'reader>
 
@@ -25,7 +21,9 @@ module Core =
     // Monad
     // -----
 
-    let bind (m: Local<'a, 'sa, 'r>) (f: 'a -> Local<'b, 'sb, 'r>): Local<'b, StateAcc<'sa, 'sb>, 'r> =
+    let internal run local = let (Local b) = local in b
+
+    let internal bind (m: Local<'a, 'sa, 'r>) (f: 'a -> Local<'b, 'sb, 'r>): Local<'b, StateAcc<'sa, 'sb>, 'r> =
         let localFunc localState readerState =
             let unpackedLocalState =
                 match localState with
@@ -47,7 +45,7 @@ module Core =
 
         Local localFunc
 
-    let ret x =
+    let internal ret x =
         Local(fun _ _ ->
             { value = x
               state = () })
@@ -73,22 +71,11 @@ module Core =
     let local = LocalBuilder()
 
 
-    // -------------------
-    // Construction Helper
-    // -------------------
-    
-    let init seed f =
-        fun s r ->
-            let state = Option.defaultValue seed s
-            f state r
-        |> Local
-
-
     // ----------
     // Arithmetik
     // ----------
 
-    let inline binOpLeftRight left right f =
+    let inline internal binOpLeftRight left right f =
         local {
             let! l = left
             let! r = right
@@ -101,7 +88,7 @@ module Core =
         static member inline (/)(left, right) = binOpLeftRight left right (/)
         static member inline (%)(left, right) = binOpLeftRight left right (%)
 
-    let inline binOpLeft left right f =
+    let inline internal binOpLeft left right f =
         local {
             let l = left
             let! r = right
@@ -115,7 +102,7 @@ module Core =
         static member inline (/)(left, right) = binOpLeft left right (/)
         static member inline (%)(left, right) = binOpLeft left right (%)
 
-    let inline binOpRight left right f =
+    let inline internal binOpRight left right f =
         local {
             let! l = left
             let r = right
@@ -129,6 +116,29 @@ module Core =
         static member inline (/)(left, right) = binOpRight left right (/)
 
 
+
+module Local =
+    
+    let value (x: Res<_, _>) = x.value
+    
+    let run local = Core.run local
+    
+    let bind f local = Core.bind local f
+    
+    let ret local = Core.ret local
+
+    
+    // ----------
+    // Arithmetik
+    // ----------
+
+    let inline binOpLeftRight left right f = Core.binOpLeftRight left right f
+    
+    let inline binOpLeft left right f = Core.binOpLeft left right f
+    
+    let inline binOpRight left right f = Core.binOpRight left right f
+    
+
     // -------
     // Kleisli
     // -------
@@ -138,31 +148,26 @@ module Core =
             local {
                 let! f' = f x
                 return! g f' }
-    let (>=>) = kleisli
 
     let kleisliGen (f: Local<'a, _, _>) (g: LocalInput<'a, 'b, _, _>): Local<'b, _, _> =
         local {
             let! f' = f
             return! g f' }
-    let (|=>) = kleisliGen
 
 
     // -----------
     // map / apply
     // -----------
 
-    let map local mapping =
+    let map projection local =
         fun s r ->
             let res = (run local) s r
-            let mappedRes = mapping res.value
+            let mappedRes = projection res.value
             { value = mappedRes
               state = res.state }
         |> Local
 
-    /// map operator
-    let (<!>) = map
-
-    let apply (f: Local<'v1 -> 'v2, _, 'r>) (l: Local<'v1, _, 'r>): Local<'v2, _, 'r> =
+    let apply (l: Local<'v1, _, 'r>) (f: Local<'v1 -> 'v2, _, 'r>): Local<'v2, _, 'r> =
         local {
             let! l' = l
             let! f' = f
@@ -170,15 +175,12 @@ module Core =
             return result
         }
 
-    /// apply operator
-    let (<*>) = apply
-
 
     // ------
     // Reader
     // ------
 
-    /// Reads the global state that is passed around to every loop function.
+    /// Reads the global state.
     let read () =
         fun _ r ->
             { value = r
@@ -187,11 +189,18 @@ module Core =
 
 
     // --------
-    // Feedback
+    // Feedback / Init
     // --------
 
-    /// Feedback with reader state
-    let (<|>) seed (f: 'a -> 'r -> Local<Res<'v, 'a>, 's, 'r>) =
+    let init seed f =
+        fun s r ->
+            let state = Option.defaultValue seed s
+            f state r
+        |> Local
+
+    let init2 f seed = init f seed
+
+    let feedback (f: 'a -> 'r -> Local<Res<'v, 'a>, 's, 'r>) seed =
         fun s r ->
             let feedbackState, innerState =
                 match s with
@@ -204,3 +213,19 @@ module Core =
             { value = feed.value
               state = feed.state, Some innerState }
         |> Local
+        
+[<AutoOpen>]
+module Operators =
+    
+    /// Feedback with reader state
+    let (<|>) seed f = Local.feedback f seed
+
+    /// map operator
+    let (<!>) local projection = Local.map projection local
+
+    /// apply operator
+    let (<*>) f l = Local.apply l f
+
+    let (>=>) = Local.kleisli
+
+    let (|=>) = Local.kleisliGen

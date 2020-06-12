@@ -115,9 +115,6 @@ Imagine you want to count values and phase the output:
 
 $ref: compositionMonadSample
 
-We can evaluate this network (here, we have no input value, so the `phasedCounter` is a generator):
-
-$ref: compositionMonadEval
 
 
 ### Sequential Compositon (Kleisli)
@@ -134,3 +131,4 @@ TODO
                    |                         |                   |                         |
                    |                         |                   |                         |
                    +-------------------------+                   +-------------------------+
+

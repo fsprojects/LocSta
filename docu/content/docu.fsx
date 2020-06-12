@@ -31,7 +31,7 @@ let counter =
 
 //$ref: generatorEval1
 // (pass 'ignore' (fun i -> ()) to Gen.toEvaluableValues to construct a reader value for each evaluation cycle)
-let counterEval = counter |> Gen.toEvaluableValues (fun i -> ())
+let counterEval = counter |> Gen.toEvaluableValues ignore
 
 // [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]
 let ``numbers from 1 to 10`` = counterEval 10
@@ -48,7 +48,7 @@ let counter' =
         let newValue = state + 1
         { value = newValue
           state = newValue }
-    |> init 0
+    |> Local.init 0
 
 
 
@@ -61,13 +61,14 @@ let phaser amount (input: float) =
         let newValue = input + state * amount
         { value = newValue
           state = input }
-    |> init 0.0
+    |> Local.init 0.0
 
 //$ref: effectEval1
-let phaserAmount = 0.1
 let phaserEval =
+    let phaserAmount = 0.1
+
     phaser phaserAmount
-    |> Fx.toEvaluableValues (fun i -> ())
+    |> Fx.toEvaluableValues ignore
 
 // [1.0; 2.1; 3.2; 4.3]
 let phasedValues =
@@ -85,11 +86,12 @@ let phasedCounter amount =
         return phased
     }
 
-//$ref: compositionMonadEval
-let phasedCounterAmount = 0.1
-let phasedCounterEval =
-    phasedCounter phasedCounterAmount
-    |> Gen.toEvaluableValues (fun i -> ())
 
-// [1.0; 2.1; 3.2; 4.3; 5.4; 6.5; 7.6; 8.7; 9.8; 10.9]
-let phasedCounterValues = phasedCounterEval 10
+//$ref: compositionKleisliSample1
+//
+// let fold n =
+//     
+// let x = phaser 0.0 >=> phaser 0.1
+// x
+// |> Fx.toEvaluableValues (fun i -> ())
+// <| [ 1.0; 2.0; 3.0; 4.0 ]

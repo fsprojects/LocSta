@@ -4,7 +4,7 @@ open FsLocalState.Core
 
 module Eval =
     
-    let getValues s = s |> List.map getValue
+    let getValues s = s |> List.map Local.value
 
     module Fx =
 
