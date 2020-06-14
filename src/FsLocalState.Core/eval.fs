@@ -4,11 +4,11 @@ open FsLocalState.Core
 
 module Eval =
     
-    let getValues s = s |> List.map Local.value
+    let getValues s = s |> List.map Genfx.getValue
 
     module Fx =
 
-        let toEvaluable getReaderValue (localWithInput: LocalInput<_, _, _, _>) =
+        let toEvaluable getReaderValue (localWithInput: Fx<_, _, _, _>) =
             let mutable lastState: 'a option = None
             fun inputValues ->
                 inputValues
@@ -19,17 +19,17 @@ module Eval =
                     res)
                 |> Seq.toList
 
-        let toEvaluableValues getReaderValue (localWithInput: LocalInput<_, _, _, _>) =
+        let toEvaluableValues getReaderValue (localWithInput: Fx<_, _, _, _>) =
             let evaluable = toEvaluable getReaderValue localWithInput
             fun inputValues -> evaluable inputValues |> getValues
             
 
     module Gen =
 
-        let toEvaluable getReaderValue (local: Local<_, _, _>) =
+        let toEvaluable getReaderValue (local: Gen<_, _, _>) =
             
             // first. transform the gen to an effect
-            let fx : LocalInput<_, _, _, _> =
+            let fx : Fx<_, _, _, _> =
                 fun () -> local
 
             let evaluable = Fx.toEvaluable getReaderValue fx
@@ -40,6 +40,6 @@ module Eval =
                 let resultingValues = evaluable inputSeq
                 resultingValues
 
-        let toEvaluableValues getReaderValue (local: Local<_, _, _>) =
+        let toEvaluableValues getReaderValue (local: Gen<_, _, _>) =
             let evaluable = toEvaluable getReaderValue local
             fun n -> evaluable n |> getValues

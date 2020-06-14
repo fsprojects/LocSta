@@ -12,7 +12,7 @@ type Env = unit
 /// When max is reached, counting begins with min again.
 let counterGen exclMin inclMax =
     exclMin <|> fun state _ ->
-        local {
+        gen {
             let newValue =
                 (if state = inclMax then exclMin else state)
                 + 1
@@ -23,7 +23,7 @@ let counterGen exclMin inclMax =
 /// An accumulator function summing up incoming values, starting with the given seed.
 let accuFx seed value =
     seed <|> fun state _ ->
-        local {
+        gen {
             let newValue = state + value
             return { value = newValue
                      state = newValue }
@@ -39,7 +39,7 @@ let sampleCount = 1000
 module Counter =
 
     let counted =
-        local {
+        gen {
             let! i = counterGen counterMin counterMax
             return i
         }
@@ -74,7 +74,7 @@ module Counter =
 module CounterAndAccu =
 
     let accumulated =
-        local {
+        gen {
             let! i = counterGen counterMin counterMax
             let! acc = accuFx accuSeed i
             return acc

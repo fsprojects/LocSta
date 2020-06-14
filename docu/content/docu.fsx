@@ -26,7 +26,7 @@ let counter =
         // always return value and state.
         { value = newValue
           state = newValue }
-    |> Local
+    |> Gen
 
 
 //$ref: generatorEval1
@@ -48,7 +48,7 @@ let counter' =
         let newValue = state + 1
         { value = newValue
           state = newValue }
-    |> Local.init 0
+    |> Gen.init 0
 
 
 
@@ -61,7 +61,7 @@ let phaser amount (input: float) =
         let newValue = input + state * amount
         { value = newValue
           state = input }
-    |> Local.init 0.0
+    |> Gen.init 0.0
 
 //$ref: effectEval1
 let phaserEval =
@@ -80,7 +80,7 @@ let phasedValues =
 
 //$ref: compositionMonadSample
 let phasedCounter amount =
-    local {
+    gen {
         let! counted = counter
         let! phased = phaser amount (float counted)
         return phased
@@ -92,7 +92,7 @@ let phasedCounter amount =
 
 
 let x = counter <!> (fun x -> float x) |=> phaser 0.1
-let x' = counter |> Local.map (fun x -> float x) |> Local.kleisliGen (phaser 0.1)
+let x' = counter |> Gen.map (fun x -> float x) |> Gen.kleisliGen (phaser 0.1)
 
 
 

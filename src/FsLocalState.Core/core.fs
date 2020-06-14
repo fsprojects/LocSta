@@ -7,10 +7,10 @@ module Core =
         { value: 'a
           state: 'b }
 
-    type Local<'value, 'state, 'reader> = Local of ('state option -> 'reader -> Res<'value, 'state>)
+    type Gen<'value, 'state, 'reader> = Gen of ('state option -> 'reader -> Res<'value, 'state>)
 
     // TODO: seems to be impossible having a single case DU here?
-    type LocalInput<'inp, 'value, 'state, 'reader> = 'inp -> Local<'value, 'state, 'reader>
+    type Fx<'inp, 'value, 'state, 'reader> = 'inp -> Gen<'value, 'state, 'reader>
 
     type StateAcc<'a, 'b> =
         { mine: 'a
@@ -21,10 +21,10 @@ module Core =
     // Monad
     // -----
 
-    let internal run local = let (Local b) = local in b
+    let internal run gen = let (Gen b) = gen in b
 
-    let internal bind (m: Local<'a, 'sa, 'r>) (f: 'a -> Local<'b, 'sb, 'r>): Local<'b, StateAcc<'sa, 'sb>, 'r> =
-        let localFunc localState readerState =
+    let internal bind (m: Gen<'a, 'sa, 'r>) (f: 'a -> Gen<'b, 'sb, 'r>): Gen<'b, StateAcc<'sa, 'sb>, 'r> =
+        let genFunc localState readerState =
             let unpackedLocalState =
                 match localState with
                 | None ->
@@ -35,20 +35,21 @@ module Core =
                       exess = Some v.exess }
 
             let m' = (run m) unpackedLocalState.mine readerState
-            let fLocal = f m'.value
-            let f' = (run fLocal) unpackedLocalState.exess readerState
+            let fGen = f m'.value
+            let f' = (run fGen) unpackedLocalState.exess readerState
 
             { value = f'.value
               state =
                   { mine = m'.state
                     exess = f'.state } }
 
-        Local localFunc
+        Gen genFunc
 
     let internal ret x =
-        Local(fun _ _ ->
+        fun _ _ ->
             { value = x
-              state = () })
+              state = () }
+        |> Gen
 
 
     // -------
@@ -57,18 +58,18 @@ module Core =
 
     // TODO: Docu
     // TODO: other builder methods
-    type LocalReaderBuilder<'a>() =
-        member __.Bind(m: Local<_, _, 'a>, f) = bind m f
+    type GenBuilderEx<'a>() =
+        member __.Bind(m: Gen<_, _, 'a>, f) = bind m f
         member __.Return x = ret x
         member __.ReturnFrom x = x
 
     // TODO: other builder methods
-    type LocalBuilder() =
+    type GenBuilder() =
         member __.Bind(m, f) = bind m f
         member __.Return x = ret x
         member __.ReturnFrom x = x
 
-    let local = LocalBuilder()
+    let gen = GenBuilder()
 
 
     // ----------
@@ -76,12 +77,12 @@ module Core =
     // ----------
 
     let inline internal binOpLeftRight left right f =
-        local {
+        gen {
             let! l = left
             let! r = right
             return f l r }
 
-    type Local<'v, 's, 'r> with
+    type Gen<'v, 's, 'r> with
         static member inline (+)(left, right) = binOpLeftRight left right (+)
         static member inline (-)(left, right) = binOpLeftRight left right (-)
         static member inline (*)(left, right) = binOpLeftRight left right (*)
@@ -89,13 +90,13 @@ module Core =
         static member inline (%)(left, right) = binOpLeftRight left right (%)
 
     let inline internal binOpLeft left right f =
-        local {
+        gen {
             let l = left
             let! r = right
             return f l r
         }
 
-    type Local<'v, 's, 'r> with
+    type Gen<'v, 's, 'r> with
         static member inline (+)(left, right) = binOpLeft left right (+)
         static member inline (-)(left, right) = binOpLeft left right (-)
         static member inline (*)(left, right) = binOpLeft left right (*)
@@ -103,13 +104,13 @@ module Core =
         static member inline (%)(left, right) = binOpLeft left right (%)
 
     let inline internal binOpRight left right f =
-        local {
+        gen {
             let! l = left
             let r = right
             return f l r
         }
 
-    type Local<'v, 's, 'r> with
+    type Gen<'v, 's, 'r> with
         static member inline (+)(left, right) = binOpRight left right (+)
         static member inline (-)(left, right) = binOpRight left right (-)
         static member inline (*)(left, right) = binOpRight left right (*)
@@ -117,19 +118,20 @@ module Core =
 
 
 
-module Local =
-    
-    let value (x: Res<_, _>) = x.value
-    
-    let run local = Core.run local
-    
-    let bind f local = Core.bind local f
-    
-    let ret local = Core.ret local
+module Genfx =
 
-    /// Lifts a generator to an effect    
-    let lift (local: Local<'s, 'r, 'o>): LocalInput<unit, 's, 'r, 'o> =
-        fun () -> local
+    let getValue (x: Res<_, _>) = x.value
+    
+    let run gen = Core.run gen
+    
+    let bind f gen = Core.bind gen f
+
+    /// Return function.    
+    let ret gen = Core.ret gen
+
+    /// Lifts a generator function to an effect function.    
+    let toFx (gen: Gen<'s, 'r, 'o>): Fx<unit, 's, 'r, 'o> =
+        fun () -> gen
 
     
     // ----------
@@ -147,34 +149,32 @@ module Local =
     // Kleisli
     // -------
 
-    let kleisli (g: LocalInput<'b, 'c, _, _>) (f: LocalInput<'a, 'b, _, _>): LocalInput<'a, 'c, _, _> =
+    let kleisli (fxa: Fx<'b, 'c, _, _>) (fxb: Fx<'a, 'b, _, _>): Fx<'a, 'c, _, _> =
         fun x ->
-            local {
-                let! f' = f x
-                return! g f' }
+            gen {
+                let! f' = fxb x
+                return! fxa f' }
 
-    let kleisliGen (g: LocalInput<'a, 'b, _, _>) (f: Local<'a, _, _>): Local<'b, _, _> =
-        local {
-            let! f' = f
-            return! g f' }
+    let kleisliGen (fx: Fx<'a, 'b, _, _>) (gen: Gen<'a, _, _>): Fx<unit,'b, _, _> =
+        kleisli fx (toFx gen)
 
 
     // -----------
     // map / apply
     // -----------
 
-    let map projection local =
+    let map projection gen =
         fun s r ->
-            let res = (run local) s r
+            let res = (run gen) s r
             let mappedRes = projection res.value
             { value = mappedRes
               state = res.state }
-        |> Local
+        |> Gen
 
-    let apply (l: Local<'v1, _, 'r>) (f: Local<'v1 -> 'v2, _, 'r>): Local<'v2, _, 'r> =
-        local {
-            let! l' = l
-            let! f' = f
+    let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>): Gen<'v2, _, 'r> =
+        gen {
+            let! l' = xGen
+            let! f' = fGen
             let result = f' l'
             return result
         }
@@ -189,7 +189,7 @@ module Local =
         fun _ r ->
             { value = r
               state = () }
-        |> Local
+        |> Gen
 
 
     // --------
@@ -200,11 +200,11 @@ module Local =
         fun s r ->
             let state = Option.defaultValue seed s
             f state r
-        |> Local
+        |> Gen
 
     let init2 f seed = init f seed
 
-    let feedback (f: 'a -> 'r -> Local<Res<'v, 'a>, 's, 'r>) seed =
+    let feedback (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) seed =
         fun s r ->
             let feedbackState, innerState =
                 match s with
@@ -216,20 +216,18 @@ module Local =
             let innerState = lRes.state
             { value = feed.value
               state = feed.state, Some innerState }
-        |> Local
+        |> Gen
         
 [<AutoOpen>]
 module Operators =
 
     /// Feedback with reader state
-    let (<|>) seed f = Local.feedback f seed
+    let (<|>) seed f = Genfx.feedback f seed
 
     /// map operator
-    let (<!>) local projection = Local.map projection local
+    let (<!>) local projection = Genfx.map projection local
 
     /// apply operator
-    let (<*>) f l = Local.apply l f
+    let (<*>) f l = Genfx.apply l f
 
-    let (>=>) f g = Local.kleisli g f
-
-    let (|=>) f g = Local.kleisliGen g f
+    let (>=>) f fx = Genfx.kleisli fx f
