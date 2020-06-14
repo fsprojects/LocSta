@@ -1,6 +1,12 @@
 ﻿module FsLocalState.Tests.TestHelper
 
+open FsLocalState
 open FsLocalState.Eval
 
-let takeGenOnce count s =
-    (Gen.toEvaluableValues ignore s) count
+let takeOnceEff inputSeq s =
+    (Eval.Eff.toEvaluableV ignore s) inputSeq
+
+let takeOnceGen count s =
+    let inputSeq = Seq.replicate count ()
+    takeOnceEff inputSeq (Geneff.toEff s)
+   

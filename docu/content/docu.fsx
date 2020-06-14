@@ -4,7 +4,6 @@
 #r "../lib/FsLocalState.dll"
 
 open FsLocalState
-open FsLocalState.Eval
 
 
 //$ref: generatorSample
@@ -24,14 +23,13 @@ let counter =
         let newValue = state + 1
 
         // always return value and state.
-        { value = newValue
-          state = newValue }
+        { value = newValue; state = newValue }
     |> Gen
 
 
 //$ref: generatorEval1
-// (pass 'ignore' (fun i -> ()) to Gen.toEvaluableValues to construct a reader value for each evaluation cycle)
-let counterEval = counter |> Gen.toEvaluableValues ignore
+// (pass 'ignore' (fun i -> ()) to Eval.Gen.toEvaluableV to construct a reader value for each evaluation cycle)
+let counterEval = counter |> Eval.Gen.toEvaluableV ignore
 
 // [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]
 let ``numbers from 1 to 10`` = counterEval 10
@@ -41,14 +39,16 @@ let ``numbers from 1 to 10`` = counterEval 10
 // [11; 12; 13; 14; 15; 16; 17; 18; 19; 20]
 let ``numbers from 11 to 20`` = counterEval 10
 
+// [21; 22; 23; 24; 25; 26; 27; 28; 29; 30]
+let ``numbers from 21 to 30`` = counterEval 10
+
 
 //$ref: initComprehension
 let counter' =
     fun state (env: unit) ->
         let newValue = state + 1
-        { value = newValue
-          state = newValue }
-    |> Gen.init 0
+        { value = newValue; state = newValue }
+    |> Geneff.init 0
 
 
 
@@ -59,21 +59,17 @@ let counter' =
 let phaser amount (input: float) =
     fun state (env: unit) ->
         let newValue = input + state * amount
-        { value = newValue
-          state = input }
-    |> Gen.init 0.0
+        { value = newValue; state = input }
+    |> Geneff.init 0.0
 
 //$ref: effectEval1
 let phaserEval =
     let phaserAmount = 0.1
-
-    phaser phaserAmount
-    |> Fx.toEvaluableValues ignore
+    phaser phaserAmount |> Eval.Eff.toEvaluableV ignore
 
 // [1.0; 2.1; 3.2; 4.3]
-let phasedValues =
-    let inputValues = [ 1.0; 2.0; 3.0; 4.0 ]
-    phaserEval inputValues
+let phasedValues = [ 1.0; 2.0; 3.0; 4.0 ] |> phaserEval
+
 
 
 
@@ -90,12 +86,12 @@ let phasedCounter amount =
 //$ref: compositionKleisliSample1
 
 
-
 let x = counter <!> (fun x -> float x) |=> phaser 0.1
-let x' = counter |> Gen.map (fun x -> float x) |> Gen.kleisliGen (phaser 0.1)
+let x' = counter |> Geneff.map (fun x -> float x) |> Geneff.kleisliGen (phaser 0.1)
 
 
 
+//$ref: UNUSED
 
 //
 // let fold n =
@@ -104,3 +100,5 @@ let x' = counter |> Gen.map (fun x -> float x) |> Gen.kleisliGen (phaser 0.1)
 // x
 // |> Fx.toEvaluableValues (fun i -> ())
 // <| [ 1.0; 2.0; 3.0; 4.0 ]
+
+

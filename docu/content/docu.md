@@ -6,12 +6,16 @@ This article demonstrates how to use the FsLocalState library.
 TODO: Allgemein erklären, für was die Library gut ist. 
 TODO: Link to article
 
+
+
 Loading the library
 ---
 
 $ref: loadingLibrary
 
-Usage
+
+
+Tutorial
 ---
 
 ### Generators
@@ -57,21 +61,22 @@ $ref: generatorEval2
 
 #### Init comprehension
 
-There is the `init` function that simplifies construction of `Local` functions:
+There is the `init` function that simplifies construction of `Gen` functions: Instead of matching initial state optionality,
+you can specify a seed and pass it to the `init``function alongside with your computation function:
 
 $ref: initComprehension
 
 
 ### Effects
 
-Effects are functions that returns an inner generator function after all input parameters are applied.
+Effects are functions that returns an inner generator function after all input parameters are applied:
 
 
                            Effect
                        +-------------+
                        |             |
     input(s) +-------->+             +---------> output
-                       | slowCounter |
+                       |   phaser    |
            state +---->+             +-----+
                  |     |             |     |
                  |     +-------------+     |
@@ -96,16 +101,50 @@ We can now transform our counter function to a sequence that can be evaluated:
 $ref: effectEval1
 
 
-### Composition (Monad)
 
-Composing stateful functions is a key feature of FsLocalState:
+### Forward Compositon (Kleisli)
 
-Imagine you want to count values and phase the output:
+Composing stateful functions is a key feature of FsLocalState. Imagine you want to count values and phase the output:
 
                          +-------------+                               +-------------+
                          |             |                               |             |
+      input(s) +-------->+             +--------->   (>=>)   +-------->+             +---------> output
+                         |   counter   |                               |   phaser    |
+                   +---->+             +-----+                   +---->+             +-----+
+                   |     |             |     |                   |     |             |     |
+                   |     +-------------+     |                   |     +-------------+     |
+                   |                         |                   |                         |
+                   |                         |                   |                         |
+                   +-------------------------+                   +-------------------------+
+                                                                                           
+                                                    -------
+                                                    becomes
+                                                    ------- 
+                                                                                           
+                         +-----------------------------------------------------------+
+                         |                                                           |
+      input(s) +-------->+                                                           +---------> output
+                         |                      counter  phaser                      |
+                   +---->+                                                           +-----+
+                   |     |                                                           |     |
+                   |     +-----------------------------------------------------------+     |
+                   |                                                                       |
+                   |                                                                       |
+                   +-----------------------------------------------------------------------+
+
+As we will see, this can be done in more than one way. But you might see that this looks like
+the "forward composition" operator (`>>`). Since we have a "wrapper type" that cannot be composed using `>>`,
+there comes the "Kleisli" operator `>=>` to rescue:
+
+
+
+### Composition (Monad)
+
+TODO
+                         +-------------+                               +-------------+
+                         |             |                               |             |
       input(s) +-------->+             +--------- ('counted') -------->+             +---------> output
-                         |      f      |                               |      g      |
+                         |   counter   |                               |   phaser    |
                    +---->+             +-----+                   +---->+             +-----+
                    |     |             |     |                   |     |             |     |
                    |     +-------------+     |                   |     +-------------+     |
@@ -117,18 +156,18 @@ $ref: compositionMonadSample
 
 
 
-### Sequential Compositon (Kleisli)
 
-TODO
 
-                         +-------------+                               +-------------+
-                         |             |                               |             |
-      input(s) +-------->+             +--------->    >=>    +-------->+             +---------> output
-                         |      f      |                               |      g      |
-                   +---->+             +-----+                   +---->+             +-----+
-                   |     |             |     |                   |     |             |     |
-                   |     +-------------+     |                   |     +-------------+     |
-                   |                         |                   |                         |
-                   |                         |                   |                         |
-                   +-------------------------+                   +-------------------------+
+// TODO
+
+// TODO
+
+// TODO
+toEvaluable / toEvaluableV
+State + Value oder nur Value
+
+// TODO: State erklären
+// Value restriction
+
+// for what good is "reader state"? (use case)
 

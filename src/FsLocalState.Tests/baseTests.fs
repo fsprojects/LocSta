@@ -43,7 +43,7 @@ module Counter =
             let! i = counterGen counterMin counterMax
             return i
         }
-        |> TestHelper.takeGenOnce sampleCount
+        |> TestHelper.takeOnceGen sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
@@ -79,7 +79,7 @@ module CounterAndAccu =
             let! acc = accuFx accuSeed i
             return acc
         }
-        |> TestHelper.takeGenOnce sampleCount
+        |> TestHelper.takeOnceGen sampleCount
 
     [<Fact>]
     let ``Sample count`` () =

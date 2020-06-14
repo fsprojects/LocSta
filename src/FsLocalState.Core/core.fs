@@ -130,7 +130,7 @@ module Geneff =
     let ret gen = Core.ret gen
 
     /// Lifts a generator function to an effect function.    
-    let toFx (gen: Gen<'s, 'r, 'o>): Eff<unit, 's, 'r, 'o> =
+    let toEff (gen: Gen<'s, 'r, 'o>): Eff<unit, 's, 'r, 'o> =
         fun () -> gen
 
     
@@ -156,7 +156,7 @@ module Geneff =
                 return! g f' }
 
     let kleisliGen (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Eff<unit,'b, _, _> =
-        kleisli g (toFx f)
+        kleisli g (toEff f)
 
 
     // -----------
