@@ -10,7 +10,7 @@ module Core =
     type Gen<'value, 'state, 'reader> = Gen of ('state option -> 'reader -> Res<'value, 'state>)
 
     // TODO: seems to be impossible having a single case DU here?
-    type Fx<'inp, 'value, 'state, 'reader> = 'inp -> Gen<'value, 'state, 'reader>
+    type Eff<'inp, 'value, 'state, 'reader> = 'inp -> Gen<'value, 'state, 'reader>
 
     type StateAcc<'a, 'b> =
         { mine: 'a
@@ -118,7 +118,7 @@ module Core =
 
 
 
-module Genfx =
+module Geneff =
 
     let getValue (x: Res<_, _>) = x.value
     
@@ -130,7 +130,7 @@ module Genfx =
     let ret gen = Core.ret gen
 
     /// Lifts a generator function to an effect function.    
-    let toFx (gen: Gen<'s, 'r, 'o>): Fx<unit, 's, 'r, 'o> =
+    let toFx (gen: Gen<'s, 'r, 'o>): Eff<unit, 's, 'r, 'o> =
         fun () -> gen
 
     
@@ -149,14 +149,14 @@ module Genfx =
     // Kleisli
     // -------
 
-    let kleisli (fxa: Fx<'b, 'c, _, _>) (fxb: Fx<'a, 'b, _, _>): Fx<'a, 'c, _, _> =
+    let kleisli (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
         fun x ->
             gen {
-                let! f' = fxb x
-                return! fxa f' }
+                let! f' = f x
+                return! g f' }
 
-    let kleisliGen (fx: Fx<'a, 'b, _, _>) (gen: Gen<'a, _, _>): Fx<unit,'b, _, _> =
-        kleisli fx (toFx gen)
+    let kleisliGen (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Eff<unit,'b, _, _> =
+        kleisli g (toFx f)
 
 
     // -----------
@@ -211,23 +211,27 @@ module Genfx =
                 | None -> seed, None
                 | Some (my, inner) -> my, inner
 
-            let lRes = run (f feedbackState r) innerState r
-            let feed = lRes.value
-            let innerState = lRes.state
+            let res = run (f feedbackState r) innerState r
+            let feed = res.value
+            let innerState = res.state
             { value = feed.value
               state = feed.state, Some innerState }
         |> Gen
-        
+
 [<AutoOpen>]
 module Operators =
 
     /// Feedback with reader state
-    let (<|>) seed f = Genfx.feedback f seed
+    let (<|>) seed f = Geneff.feedback f seed
 
     /// map operator
-    let (<!>) local projection = Genfx.map projection local
+    let (<!>) gen projection = Geneff.map projection gen
 
     /// apply operator
-    let (<*>) f l = Genfx.apply l f
+    let (<*>) fGen xGen = Geneff.apply xGen fGen
 
-    let (>=>) f fx = Genfx.kleisli fx f
+    /// Kleisli operator (eff >> eff)
+    let (>=>) f g = Geneff.kleisli g f
+
+    /// Kleisli "pipe" operator (gen >> eff)
+    let (|=>) f g = Geneff.kleisliGen g f
