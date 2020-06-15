@@ -18,33 +18,6 @@ open FsLocalState
 ```
 
 
-Quick Reference
----
-
-<table>
-  <tr>
-    <th>Operator</th>
-    <th>Description</th> 
-    <th>Example</th>
-  </tr>
-  <tr>
-    <td>`>=>`</td>
-    <td>Kleisli composition</td> 
-    <td>
-        <pre>
-let x = 10
-let y = 12
-x + y
-        </pre>
-    </td>
-  </tr>
-  <tr>
-    <td>Eve</td>
-    <td>Jackson</td> 
-    <td>94</td>
-  </tr>
-</table>
-
 
 Tutorial
 ---
@@ -222,6 +195,7 @@ there comes the "Kleisli" operator `>=>` to rescue:
 ### Composition (Monad)
 
 TODO
+
                          +-------------+                               +-------------+
                          |             |                               |             |
       input(s) +-------->+             +--------- ('counted') -------->+             +---------> output

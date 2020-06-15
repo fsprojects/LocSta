@@ -118,15 +118,31 @@ module Core =
 
 
 
-module Geneff =
+module Res =
 
     let getValue (x: Res<_, _>) = x.value
+
+
+module Eff =
+
+    // -------
+    // Kleisli
+    // -------
+
+    let kleisli (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
+        fun x ->
+            gen {
+                let! f' = f x
+                return! g f' }
+
     
+module Gen =
+
     let run gen = Core.run gen
     
     let bind f gen = Core.bind gen f
 
-    /// Return function.    
+    /// Return function.
     let ret gen = Core.ret gen
 
     /// Lifts a generator function to an effect function.    
@@ -149,16 +165,10 @@ module Geneff =
     // Kleisli
     // -------
 
-    let kleisli (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
-        fun x ->
-            gen {
-                let! f' = f x
-                return! g f' }
+    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Eff<unit,'b, _, _> =
+        Eff.kleisli g (toEff f)
 
-    let kleisliGen (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Eff<unit,'b, _, _> =
-        kleisli g (toEff f)
-
-
+   
     // -----------
     // map / apply
     // -----------
@@ -218,20 +228,22 @@ module Geneff =
               state = feed.state, Some innerState }
         |> Gen
 
+
+
 [<AutoOpen>]
 module Operators =
 
     /// Feedback with reader state
-    let (<|>) seed f = Geneff.feedback f seed
+    let (<|>) seed f = Gen.feedback f seed
 
     /// map operator
-    let (<!>) gen projection = Geneff.map projection gen
+    let (<!>) gen projection = Gen.map projection gen
 
     /// apply operator
-    let (<*>) fGen xGen = Geneff.apply xGen fGen
+    let (<*>) fGen xGen = Gen.apply xGen fGen
 
     /// Kleisli operator (eff >> eff)
-    let (>=>) f g = Geneff.kleisli g f
+    let (>=>) f g = Eff.kleisli g f
 
     /// Kleisli "pipe" operator (gen >> eff)
-    let (|=>) f g = Geneff.kleisliGen g f
+    let (|=>) f g = Gen.kleisli g f

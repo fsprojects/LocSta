@@ -137,10 +137,14 @@ the "forward composition" operator (`>>`). Since we have a "wrapper type" that c
 there comes the "Kleisli" operator `>=>` to rescue:
 
 
+$ref: compositionKleisliSample1
+
+
 
 ### Composition (Monad)
 
 TODO
+
                          +-------------+                               +-------------+
                          |             |                               |             |
       input(s) +-------->+             +--------- ('counted') -------->+             +---------> output

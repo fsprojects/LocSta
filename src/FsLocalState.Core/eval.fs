@@ -7,7 +7,7 @@ module Eval =
     type Gen<'s, 'r, 'o> with
         static member DoIt() = ()
     
-    let getValues s = s |> List.map Geneff.getValue
+    let getValues s = s |> List.map Res.getValue
 
     module Eff =
     

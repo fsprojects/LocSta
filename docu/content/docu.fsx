@@ -44,11 +44,11 @@ let ``numbers from 21 to 30`` = counterEval 10
 
 
 //$ref: initComprehension
-let counter' =
+let counter2 =
     fun state (env: unit) ->
         let newValue = state + 1
         { value = newValue; state = newValue }
-    |> Geneff.init 0
+    |> Gen.init 0
 
 
 
@@ -60,7 +60,7 @@ let phaser amount (input: float) =
     fun state (env: unit) ->
         let newValue = input + state * amount
         { value = newValue; state = input }
-    |> Geneff.init 0.0
+    |> Gen.init 0.0
 
 //$ref: effectEval1
 let phaserEval =
@@ -73,21 +73,36 @@ let phasedValues = [ 1.0; 2.0; 3.0; 4.0 ] |> phaserEval
 
 
 
+//$ref: mapSample1
+let counterFloat = counter |> Gen.map (fun x -> float x)
+
+//$ref: mapSample2
+let counterFloat2 = counter <!> fun x -> float x
+
+//$ref: kleisliPipeSample1
+let phasedCounter = counterFloat |=> phaser 0.1
+
+//$ref: mapAndKleisliPipeSample1
+let phasedCounterFinal =
+    counter
+    <!> (fun x -> float x)
+    |=> phaser 0.1
+
+//$ref: compositionKleisliSample1
+let phasedTwice = phaser 0.3 >=> phaser 0.1
+
+
+
+
 
 //$ref: compositionMonadSample
-let phasedCounter amount =
+let phasedCounter2 amount =
     gen {
         let! counted = counter
         let! phased = phaser amount (float counted)
         return phased
     }
 
-
-//$ref: compositionKleisliSample1
-
-
-let x = counter <!> (fun x -> float x) |=> phaser 0.1
-let x' = counter |> Geneff.map (fun x -> float x) |> Geneff.kleisliGen (phaser 0.1)
 
 
 

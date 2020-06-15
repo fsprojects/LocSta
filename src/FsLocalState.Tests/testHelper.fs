@@ -8,5 +8,5 @@ let takeOnceEff inputSeq s =
 
 let takeOnceGen count s =
     let inputSeq = Seq.replicate count ()
-    takeOnceEff inputSeq (Geneff.toEff s)
+    takeOnceEff inputSeq (Gen.toEff s)
    
