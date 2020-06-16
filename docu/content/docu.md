@@ -13,8 +13,8 @@ The concept is based on my original work for a DSP / audio signal processing lib
 [here](https://github.com/ronaldschlenker/FluX) or [here](https://github.com/ronaldschlenker/compost). I find the library
 useful when you have computations that deal with values over time, which is for example:
 
-    - Audio and video signal processing (DSP), where you compose filters, delays, effects and generators.
-    - Apply a set of rules over a (continuous) data series, like: "Signal me when a threshold is reached 3 times in the last 5 minutes".
+- Audio and video signal processing (DSP), where you compose filters, delays, effects and generators.
+- Apply a set of rules over a (continuous) data series, like: "Signal me when a threshold is reached 3 times in the last 5 minutes".
 
 
 Tutorial
@@ -26,35 +26,28 @@ Tutorial
 $ref: loadingLibrary
 
 
-### Generators
+### Generators and Effects
 
 Generator functions are the core part of FsLocalState. They are represented by the `Gen<'value, 'state, 'reader>` type.
-Generators are in facct functions that have a state as input and a (value * state) as output:
+Generators are in fact functions that have a state as input and a (value * state) as output:
 
 
-                   Generator
-                +-------------+
-                |             |
-                |             +---------> 'value
-                |   counter   |
-   'state +---->+             +-----+
-          |     |             |     |
-          |     +-------------+     |
-          |                         |
-          |                         |
-          +-------------------------+
+                        +-------------+
+    (input(s) +------->)|             |
+                        |             +---------> 'value
+          'reader +---->|     Gen     |
+           'state +---->+             +-----+
+                  |     |             |     |
+                  |     +-------------+     |
+                  |                         |
+                  |                         |
+                  +-------------------------+
 
 
 A simple example of a generator is a counter:
 
 $ref: generatorSample
 
-Note that generator functions (as well as effect functions that take input parameters) have the signature:
-
-`'state option -> 'reader -> Res<'value, 'state>`
-
-*The `'reader` value is unused in these example, but can be useful when evaluating to pass in context from
-the runtime environment.*
 
 #### Evaluation
 
@@ -67,52 +60,45 @@ We can continue pulling from 'counterSeq' and get the next (potentially differen
 
 $ref: generatorEval2
 
+Note that:
+
+- Generator functions themselves have only a state as input and have the signature: `'state option -> 'reader -> Res<'value, 'state>` (`'reader` is unused in these example).
+- The generator function can be wrapped inside another function that takes input parameters. After all input parameters are applied, the generator function remains.
+  When these functions have only one input parameter (which can be tupled), we call it an *Effect*.
+- The `'reader` value is unused in these example, but can be useful when evaluating to pass in context from the runtime environment.
+- The first evaluation of `counterEval 10` is equivalent to `seq { 0..9 }`
+
 
 #### Init comprehension
 
-There is the `init` function that simplifies construction of `Gen` functions: Instead of matching initial state optionality,
-you can specify a seed and pass it to the `init``function alongside with your computation function:
+There is the `init` function that simplifies construction of `Gen` functions: Instead of dealing with initial state optionality inside the computation function,
+you can specify a seed and pass it to the `init` function alongside with your computation function:
 
 $ref: initComprehension
 
 
-### Effects
+### Compositon
 
-Effects are functions that returns an inner generator function after all input parameters are applied (so that again, the
-`Gen` function remains that is the key player for composability):
-
-
-                           Effect
-                       +-------------+
-                       |             |
-    input(s) +-------->+             +---------> 'value
-                       |   phaser    |
-          'state +---->+             +-----+
-                 |     |             |     |
-                 |     +-------------+     |
-                 |                         |
-                 |                         |
-                 +-------------------------+
+Before we look at ways of composing stateful functions, we need another example to play with:
 
 
-As an example of an effect, we implement a phaser that takes an input value and adds a fraction of the last input:
+An *accumulator* that takes an "window" of the last n input values and sums them up:
 
 $ref: effectSample
 
-
-You see that the `phase` function has 2 input parameters: `amount` is a constant value and `input` is passed
-as a sequence of values when evaluating the effect. How an input parameter is treated (constant, changing) is
-only based on the way your function is used, not how it is designed.
-
-#### Evaluation
+You see that the `accu` function has 2 input parameters: `windowSize` determines how many past values should be summed up, and
+`input` is current value.
 
 We can now transform our counter function to a sequence that can be evaluated:
 
 $ref: effectEval1
 
+Note that in contrast to the `counter` function (which was a generator with no inputs) we here only apply the `windowSize`
+parameter. What remains is a function of type `'input -> Gen<...>`. This means:
+ 
+- When we evaluate a generator, we use `Eval.Gen` and pass the number of desired output values when evaluating.  
+- When we evaluate an effect, we use `Eval.Eff` and pass a sequence of input values.
 
-
-### Forward Compositon (Kleisli)
 
 Composing stateful functions is a key feature of FsLocalState. Imagine you want to count values and phase the output:
 

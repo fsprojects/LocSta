@@ -5,79 +5,62 @@
 
 open FsLocalState
 
-
 //$ref: generatorSample
-let counter =
+let counter seed =
     fun state (env: unit) ->
-
-        // The first time our function is evaluated, there is no state ('state' parameter is an option).
-        // So we need an initial value for the counter:
-        let seed = 0
-
         let state =
             match state with
             | None -> seed
             | Some x -> x
 
-        // calculate the counter value
-        let newValue = state + 1
+        // calculate the value for the next cycle
+        let nextValue = state + 1
 
         // always return value and state.
-        { value = newValue; state = newValue }
+        { value = state; state = nextValue }
     |> Gen
 
 
 //$ref: generatorEval1
 // (pass 'ignore' (fun i -> ()) to Eval.Gen.toEvaluableV to construct a reader value for each evaluation cycle)
-let counterEval = counter |> Eval.Gen.toEvaluableV ignore
+let counterEval = counter 0 |> Eval.Gen.toEvaluableV ignore
 
-// [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]
-let ``numbers from 1 to 10`` = counterEval 10
+// [0; 1; 2; 3; 4; 5; 6; 7; 8; 9]
+let ``numbers from 0 to 9`` = counterEval 10
 
 
 //$ref: generatorEval2
-// [11; 12; 13; 14; 15; 16; 17; 18; 19; 20]
-let ``numbers from 11 to 20`` = counterEval 10
+// [10; 11; 12; 13; 14; 15; 16; 17; 18; 19]
+let ``numbers from 10 to 19`` = counterEval 10
 
-// [21; 22; 23; 24; 25; 26; 27; 28; 29; 30]
-let ``numbers from 21 to 30`` = counterEval 10
+// [20; 21; 22; 23; 24; 25; 26; 27; 28; 29]
+let ``numbers from 20 to 29`` = counterEval 10
 
 
 //$ref: initComprehension
-let counter2 =
+let counter2 seed =
     fun state (env: unit) ->
-        let newValue = state + 1
-        { value = newValue; state = newValue }
-    |> Gen.init 0
-
-
-
-
+        let nextValue = state + 1
+        { value = state; state = nextValue }
+    |> Gen.init seed
 
 
 //$ref: effectSample
-let phaser amount (input: float) =
+let inline accu windowSize (input: 'a) =
     fun state (env: unit) ->
-        let newValue = input + state * amount
-        { value = newValue; state = input }
-    |> Gen.init 0.0
+        let state = (input :: state) |> List.truncate windowSize
+        let newValue = state |> List.sum
+        { value = newValue; state = state }
+    |> Gen.init []
 
 //$ref: effectEval1
-let phaserEval =
-    let phaserAmount = 0.1
-    phaser phaserAmount |> Eval.Eff.toEvaluableV ignore
+let accuEval = accu 3 |> Eval.Eff.toEvaluableV ignore
 
-// [1.0; 2.1; 3.2; 4.3]
-let phasedValues = [ 1.0; 2.0; 3.0; 4.0 ] |> phaserEval
+// [1; 6; 8; 13; 21; 29]
+let accuValues = [ 1; 5; 2; 6; 13; 10] |> accuEval
 
 
 
-
-//$ref: mapSample1
-let counterFloat = counter |> Gen.map (fun x -> float x)
-
-//$ref: mapSample2
-let counterFloat2 = counter <!> fun x -> float x
 
 //$ref: kleisliPipeSample1
 let phasedCounter = counterFloat |=> phaser 0.1
@@ -91,6 +74,11 @@ let phasedCounterFinal =
 //$ref: compositionKleisliSample1
 let phasedTwice = phaser 0.3 >=> phaser 0.1
 
+//$ref: mapSample1
+let counterFloat = counter |> Gen.map (fun x -> float x)
+
+//$ref: mapSample2
+let counterFloat2 = counter <!> fun x -> float x
 
 
 
