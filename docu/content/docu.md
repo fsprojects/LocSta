@@ -1,34 +1,43 @@
 ﻿﻿FsLocalState
 ===
 
-This article demonstrates how to use the FsLocalState library.
+FsLocalState is library designed to write and compose functions that preserve state from evaluation to the next.
+This sounds like dealing with impure functions, but that's not the case.
 
-TODO: Allgemein erklären, für was die Library gut ist. 
-TODO: Link to article
+A composable FsLocalState function takes a state as input and returns a value + state as output. The way those
+functions are composed accumulates the output states of all functions inside of a computation, unpacks it and feeds it to the
+corresponsing function in the next evaluation cycle.
 
+The concept is based on my original work for a DSP / audio signal processing library in F#. You can read the
+[article](http://schlenkr.binarygears.de/01_fsharp_dsp/01_Introduction.html) or have a look at the WIP repos
+[here](https://github.com/ronaldschlenker/FluX) or [here](https://github.com/ronaldschlenker/compost). I find the library
+useful when you have computations that deal with values over time, which is for example:
 
-
-Loading the library
----
-
-$ref: loadingLibrary
-
+    - Audio and video signal processing (DSP), where you compose filters, delays, effects and generators.
+    - Apply a set of rules over a (continuous) data series, like: "Signal me when a threshold is reached 3 times in the last 5 minutes".
 
 
 Tutorial
 ---
 
+
+### Loading the library
+
+$ref: loadingLibrary
+
+
 ### Generators
 
-Generators are functions that have only a state as input and a (value * state) as output.
+Generator functions are the core part of FsLocalState. They are represented by the `Gen<'value, 'state, 'reader>` type.
+Generators are in facct functions that have a state as input and a (value * state) as output:
 
 
                    Generator
                 +-------------+
                 |             |
-                |             +---------> output
+                |             +---------> 'value
                 |   counter   |
-    state +---->+             +-----+
+   'state +---->+             +-----+
           |     |             |     |
           |     +-------------+     |
           |                         |
@@ -44,8 +53,8 @@ Note that generator functions (as well as effect functions that take input param
 
 `'state option -> 'reader -> Res<'value, 'state>`
 
-The `'reader` value is unused in this example, but can be useful when evaluating to pass in context from
-the runtime environment.
+*The `'reader` value is unused in these example, but can be useful when evaluating to pass in context from
+the runtime environment.*
 
 #### Evaluation
 
@@ -53,8 +62,8 @@ We can now transform our counter function to a sequence that can be evaluated:
 
 $ref: generatorEval1
 
-The generated sequence is an IEnumerable<>, which is a state machine. It's not idempotent, which means:
-We can continue pulling from 'counterSeq' to get the next (potentially different) results:
+The generated sequence is an IEnumerable<'a>, which means:
+We can continue pulling from 'counterSeq' and get the next (potentially different) results:
 
 $ref: generatorEval2
 
@@ -69,15 +78,16 @@ $ref: initComprehension
 
 ### Effects
 
-Effects are functions that returns an inner generator function after all input parameters are applied:
+Effects are functions that returns an inner generator function after all input parameters are applied (so that again, the
+`Gen` function remains that is the key player for composability):
 
 
                            Effect
                        +-------------+
                        |             |
-    input(s) +-------->+             +---------> output
+    input(s) +-------->+             +---------> 'value
                        |   phaser    |
-           state +---->+             +-----+
+          'state +---->+             +-----+
                  |     |             |     |
                  |     +-------------+     |
                  |                         |
@@ -175,3 +185,5 @@ State + Value oder nur Value
 
 // for what good is "reader state"? (use case)
 
+conditional evaluation
+for loops
