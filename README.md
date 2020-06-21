@@ -1,3 +1,4 @@
+
 ﻿FsLocalState
 ===
 
@@ -20,7 +21,6 @@ useful when you have computations that deal with values over time, which is for 
 Tutorial
 ---
 
-
 ### Loading the library
 
 ```fsharp
@@ -29,7 +29,6 @@ Tutorial
 open FsLocalState
 ```
 
-
 ### Generators and Effects
 
 Generator functions are the core part of FsLocalState. They are represented by the `Gen<'value, 'state, 'reader>` type.
@@ -37,7 +36,7 @@ Generators are in fact functions that have a state as input and a (value * state
 
 
                         +-------------+
-    (input(s) +------->)|             |
+                        |             |
                         |             +---------> 'value
           'reader +---->|     Gen     |
            'state +---->+             +-----+
@@ -51,7 +50,10 @@ Generators are in fact functions that have a state as input and a (value * state
 A simple example of a generator is a counter:
 
 ```fsharp
+// A generator with "seed" as input
 let counter seed =
+    
+    // The generator function
     fun state (env: unit) ->
         let state =
             match state with
@@ -66,7 +68,6 @@ let counter seed =
     |> Gen
 ```
 
-
 #### Evaluation
 
 We can now transform our counter function to a sequence that can be evaluated:
@@ -79,7 +80,7 @@ let counterEval = counter 0 |> Eval.Gen.toEvaluableV ignore
 let ``numbers from 0 to 9`` = counterEval 10
 ```
 
-The generated sequence is an IEnumerable<'a>, which means:
+The generated sequence is an `IEnumerable<'a>`, which means:
 We can continue pulling from 'counterSeq' and get the next (potentially different) results:
 
 ```fsharp
@@ -93,13 +94,15 @@ let ``numbers from 20 to 29`` = counterEval 10
 Note that:
 
 - Generator functions themselves have only a state as input and have the signature: `'state option -> 'reader -> Res<'value, 'state>` (`'reader` is unused in these example).
-- The generator function can be wrapped inside another function that takes input parameters. After all input parameters are applied, the generator function remains.
-  When these functions have only one input parameter (which can be tupled), we call it an *Effect*.
-- The `'reader` value is unused in these example, but can be useful when evaluating to pass in context from the runtime environment.
+- The generator function can be wrapped inside another function that takes input parameters.
+- The characteristics of these parameters can be const-like (like *seed* above), or it can be a value that gets transformed. Technically, there is no
+  difference between any kind of parameter. Wrapper functions with one (unsupplied) input parameters are called *Effect*, and we will see later that
+  effects can also be composed easily.
+- The `'reader` value is unused in this example, but can be useful when evaluating to pass in context from the runtime environment.
 - The first evaluation of `counterEval 10` is equivalent to `seq { 0..9 }`
 
 
-#### Init comprehension
+#### Init Comprehension
 
 There is the `init` function that simplifies construction of `Gen` functions: Instead of dealing with initial state optionality inside the computation function,
 you can specify a seed and pass it to the `init` function alongside with your computation function:
@@ -112,13 +115,11 @@ let counter2 seed =
     |> Gen.init seed
 ```
 
-
 ### Compositon
 
-Before we look at ways of composing stateful functions, we need another example to play with:
+Composing stateful functions is a key feature of FsLocalState. Before we look at ways of composition, we need another example to play with:
 
-
-An *accumulator* that takes an "window" of the last n input values and sums them up:
+An *accumulator* that takes a "window" of the last n input values and sums them up:
 
 ```fsharp
 let inline accu windowSize (input: 'a) =
@@ -130,30 +131,31 @@ let inline accu windowSize (input: 'a) =
 ```
 
 You see that the `accu` function has 2 input parameters: `windowSize` determines how many past values should be summed up, and
-`input` is current value.
+`input` is a value coming in that gets summed up.
 
-We can now transform our counter function to a sequence that can be evaluated:
+Let's see how it works:
 
 ```fsharp
 let accuEval = accu 3 |> Eval.Eff.toEvaluableV ignore
 
 // [1; 6; 8; 13; 21; 29]
-let accuValues = [ 1; 5; 2; 6; 13; 10] |> accuEval
+let accuValues = [ 1; 5; 2; 6; 13; 10 ] |> accuEval
 ```
 
 Note that in contrast to the `counter` function (which was a generator with no inputs) we here only apply the `windowSize`
-parameter. What remains is a function of type `'input -> Gen<...>`. This means:
+parameter. What remains is an *Effect* function of type `'input -> Gen<...>`. This means:
  
-- When we evaluate a generator, we use `Eval.Gen` and pass the number of desired output values when evaluating.  
-- When we evaluate an effect, we use `Eval.Eff` and pass a sequence of input values.
+- When we evaluate a generator, we use `Eval.Gen.toEvaluableV ` and pass the number of desired output values when evaluating.  
+- When we evaluate an effect, we use `Eval.Eff.toEvaluableV ` and pass a sequence of input values.
 
+### Kleisli Composition
 
-Composing stateful functions is a key feature of FsLocalState. Imagine you want to count values and phase the output:
+Imagine you want to count values and phase the output:
 
                          +-------------+                               +-------------+
                          |             |                               |             |
-      input(s) +-------->+             +--------->   (>=>)   +-------->+             +---------> output
-                         |   counter   |                               |   phaser    |
+          seed +-------->+             +--------->   (>=>)   +-------->+             +---------> output
+                         |   counter   |                               |    accu     |
                    +---->+             +-----+                   +---->+             +-----+
                    |     |             |     |                   |     |             |     |
                    |     +-------------+     |                   |     +-------------+     |
@@ -167,8 +169,8 @@ Composing stateful functions is a key feature of FsLocalState. Imagine you want 
                                                                                            
                          +-----------------------------------------------------------+
                          |                                                           |
-      input(s) +-------->+                                                           +---------> output
-                         |                      counter  phaser                      |
+          seed +-------->+                                                           +---------> output
+                         |                      counter  accu                        |
                    +---->+                                                           +-----+
                    |     |                                                           |     |
                    |     +-----------------------------------------------------------+     |
@@ -176,16 +178,23 @@ Composing stateful functions is a key feature of FsLocalState. Imagine you want 
                    |                                                                       |
                    +-----------------------------------------------------------------------+
 
-As we will see, this can be done in more than one way. But you might see that this looks like
-the "forward composition" operator (`>>`). Since we have a "wrapper type" that cannot be composed using `>>`,
-there comes the "Kleisli" operator `>=>` to rescue:
-
+Similar to composing "normal" functions by using "forward composition" operator (`>>`), we can compose
+*Effect* functions by using the "Kleisli" operator `>=>`:
 
 ```fsharp
-let phasedTwice = phaser 0.3 >=> phaser 0.1
+let accuCounter = counter >=> accu 3
+let accuCounterResults =
+    let seed = 0
+    accuCounter |> Eval.Eff.toEvaluableV ignore <| Seq.replicate 10 seed
 ```
 
+This works, but evaluating by passing a replicated sequence looks a bit weired because we treat the `seed` parameter of `counter` as a changing input, although it has
+the character of a constant. We can change this by using the *pipe forward* (`|>`) equivalent: `|=>`:
 
+```fsharp
+let accuCounter2 = counter 0 |=> accu 3
+let accuCounterResults2 = accuCounter2 |> Eval.Gen.toEvaluableV ignore <| 10
+```
 
 ### Composition (Monad)
 
@@ -202,6 +211,7 @@ TODO
                    |                         |                   |                         |
                    +-------------------------+                   +-------------------------+
 
+
 ```fsharp
 let phasedCounter2 amount =
     gen {
@@ -209,11 +219,9 @@ let phasedCounter2 amount =
         let! phased = phaser amount (float counted)
         return phased
     }
+
+
 ```
-
-
-
-
 
 // TODO
 
@@ -230,3 +238,6 @@ State + Value oder nur Value
 
 conditional evaluation
 for loops
+
+
+```fsharp

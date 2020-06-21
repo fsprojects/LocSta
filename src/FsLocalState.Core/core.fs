@@ -165,8 +165,10 @@ module Gen =
     // Kleisli
     // -------
 
-    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Eff<unit,'b, _, _> =
-        Eff.kleisli g (toEff f)
+    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Gen<'b, _, _> =
+        let resultingEffect = Eff.kleisli g (toEff f)
+        let resultingGen = resultingEffect ()
+        resultingGen
 
    
     // -----------
