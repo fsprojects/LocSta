@@ -7,7 +7,9 @@ module Eval =
     type Gen<'s, 'r, 'o> with
         static member DoIt() = ()
     
-    let getValues s = s |> Seq.map Res.getValue
+    let getValue (x: Res<_, _>) = x.value
+    
+    let getValues s = s |> Seq.map getValue
 
     module Eff =
     

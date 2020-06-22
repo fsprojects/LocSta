@@ -7,6 +7,19 @@ FsLocalState is library designed to write and compose functions, where each of t
 preserves it's own state from one evaluation to the next. While this might sound like dealing with impure or internally mutable functions -
 which would have object semantic and thus making composability hard or impossible - it is based on a pure function approach.
 
+```fsharp
+let mySynthVoice frq =
+    gen {
+        let! modulator = sin 5.0
+        let amount = 0.05
+        let! res =
+            saw (frq * (1.0 - modulator * amount))
+            |=> lowpass 12000.0
+            |=> highpass 2000.0
+        return res
+    }
+```
+
 A composable FsLocalState function takes a state as input and returns a value + state as output. The composition mechanisms
 provided by the library accumulate the output states of all functions inside of a computation, unpacks it and feeds it to the
 corresponsing function in the next evaluation cycle.
@@ -308,9 +321,32 @@ let sinOsc (frq: float) =
 
 (*
 ### Arithmetik
+
+Applying basic arithmetik functions on generators is also possible.
 *)
 
-let addCounter = gen {
+// Adding 2 gens.
+gen {
     let! res = counter 0 + counter 10
     return res
 }
+|> Eval.Gen.toSeq ignore
+|> Eval.toListn 10
+
+// Adding a constant to a gen.
+// Note: this is currently only possible for int and float.
+gen {
+    let! res = counter 0 + 10
+    return res
+}
+|> Eval.Gen.toSeq ignore
+|> Eval.toListn 10
+
+(*
+### TODOs
+
+- Map / Apply
+- Explain signatures with accumulated state
+- in addition to mySynth, make a sample using a data series rule
+
+*)

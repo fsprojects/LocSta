@@ -95,6 +95,9 @@ module Core =
             let! r = right
             return f l r
         }
+        
+    // TODO: Generic overload resolution isn't working (compiler says it's too complex) having binOpLeft, binOpRight and binOpBoth.
+    //       So add more relevant types here.
     
     type Gen<'v, 's, 'r> with
         static member inline (+)(left: float, right) = binOpLeft left right (+)
@@ -131,11 +134,6 @@ module Core =
 
 
 
-module Res =
-
-    let getValue (x: Res<_, _>) = x.value
-
-
 module Eff =
 
     // -------
@@ -167,11 +165,11 @@ module Gen =
     // Arithmetik
     // ----------
 
-    // let inline binOpLeftRight left right f = Core.binOpLeftRight left right f
-    //
-    // let inline binOpLeft left right f = Core.binOpLeft left right f
-    //
-    // let inline binOpRight left right f = Core.binOpRight left right f
+    let inline binOpBoth left right f = Core.binOpBoth left right f
+    
+    let inline binOpLeft left right f = Core.binOpLeft left right f
+    
+    let inline binOpRight left right f = Core.binOpRight left right f
     
 
     // -------

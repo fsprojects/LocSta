@@ -13,7 +13,7 @@
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Product>SchlenkR.FsLocalState</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>0.0.1-preview1</Version>
+    <Version>0.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
