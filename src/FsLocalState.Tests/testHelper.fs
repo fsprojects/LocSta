@@ -4,7 +4,7 @@ open FsLocalState
 open FsLocalState.Eval
 
 let takeOnceEff inputSeq s =
-    (Eval.Eff.toEvaluableV ignore s) inputSeq
+    (Eval.Eff.toSeq ignore s) inputSeq |> Seq.toList
 
 let takeOnceGen count s =
     let inputSeq = Seq.replicate count ()

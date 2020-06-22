@@ -7,11 +7,11 @@ module Eval =
     type Gen<'s, 'r, 'o> with
         static member DoIt() = ()
     
-    let getValues s = s |> List.map Res.getValue
+    let getValues s = s |> Seq.map Res.getValue
 
     module Eff =
     
-        let toEvaluable getReaderValue (localWithInput: Eff<_, _, _, _>) =
+        let toSeq2 getReaderValue (localWithInput: Eff<_, _, _, _>) =
             let mutable lastState: 'a option = None
             fun inputValues ->
                 inputValues
@@ -20,29 +20,30 @@ module Eval =
                     let res = local lastState (getReaderValue i)
                     lastState <- Some res.state
                     res)
-                |> Seq.toList
     
-        let toEvaluableV getReaderValue (localWithInput: Eff<_, _, _, _>) =
-            let evaluable = toEvaluable getReaderValue localWithInput
+        let toSeq getReaderValue (localWithInput: Eff<_, _, _, _>) =
+            let evaluable = toSeq2 getReaderValue localWithInput
             fun inputValues -> evaluable inputValues |> getValues
 
-    
     module Gen =
     
-        let toEvaluable getReaderValue (local: Gen<_, _, _>) =
+        let toSeq2 getReaderValue (local: Gen<_, _, _>) =
             
             // first. transform the gen to an effect
             let fx : Eff<_, _, _, _> =
                 fun () -> local
     
-            let evaluable = Eff.toEvaluable getReaderValue fx
+            let evaluable = Eff.toSeq2 getReaderValue fx
             
-            // now, we don't want to have a "seq<_> -> list<Res<_,_>>", but an "int -> list<Res<_,_>>"
-            fun n ->
-                let inputSeq = Seq.init n ignore
-                let resultingValues = evaluable inputSeq
-                resultingValues
+            // now, we don't want to have a "seq<unit> -> seq<Res<_,_>>", but an "seq<Res<_,_>>"
+            let inputSeq = Seq.initInfinite ignore
+            let resultingValues = evaluable inputSeq
+            resultingValues
     
-        let toEvaluableV getReaderValue (local: Gen<_, _, _>) =
-            let evaluable = toEvaluable getReaderValue local
-            fun n -> evaluable n |> getValues
+        let toSeq getReaderValue (local: Gen<_, _, _>) =
+            toSeq2 getReaderValue local |> getValues
+
+    let toListn n s = s |> Seq.take n |> Seq.toList 
+    
+    let toArrayn n s = s |> Seq.take n |> Seq.toArray 
+    

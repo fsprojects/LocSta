@@ -76,45 +76,58 @@ module Core =
     // Arithmetik
     // ----------
 
-    let inline internal binOpLeftRight left right f =
+    let inline internal binOpBoth left right f =
         gen {
             let! l = left
             let! r = right
             return f l r }
 
     type Gen<'v, 's, 'r> with
-        static member inline (+)(left, right) = binOpLeftRight left right (+)
-        static member inline (-)(left, right) = binOpLeftRight left right (-)
-        static member inline (*)(left, right) = binOpLeftRight left right (*)
-        static member inline (/)(left, right) = binOpLeftRight left right (/)
-        static member inline (%)(left, right) = binOpLeftRight left right (%)
-
+        static member inline (+)(left, right) = binOpBoth left right (+)
+        static member inline (-)(left, right) = binOpBoth left right (-)
+        static member inline (*)(left, right) = binOpBoth left right (*)
+        static member inline (/)(left, right) = binOpBoth left right (/)
+        static member inline (%)(left, right) = binOpBoth left right (%)
+    
     let inline internal binOpLeft left right f =
         gen {
             let l = left
             let! r = right
             return f l r
         }
-
+    
     type Gen<'v, 's, 'r> with
-        static member inline (+)(left, right) = binOpLeft left right (+)
-        static member inline (-)(left, right) = binOpLeft left right (-)
-        static member inline (*)(left, right) = binOpLeft left right (*)
-        static member inline (/)(left, right) = binOpLeft left right (/)
-        static member inline (%)(left, right) = binOpLeft left right (%)
+        static member inline (+)(left: float, right) = binOpLeft left right (+)
+        static member inline (-)(left: float, right) = binOpLeft left right (-)
+        static member inline (*)(left: float, right) = binOpLeft left right (*)
+        static member inline (/)(left: float, right) = binOpLeft left right (/)
+        static member inline (%)(left: float, right) = binOpLeft left right (%)
 
+        static member inline (+)(left: int, right) = binOpLeft left right (+)
+        static member inline (-)(left: int, right) = binOpLeft left right (-)
+        static member inline (*)(left: int, right) = binOpLeft left right (*)
+        static member inline (/)(left: int, right) = binOpLeft left right (/)
+        static member inline (%)(left: int, right) = binOpLeft left right (%)
+    
     let inline internal binOpRight left right f =
         gen {
             let! l = left
             let r = right
             return f l r
         }
-
+    
     type Gen<'v, 's, 'r> with
-        static member inline (+)(left, right) = binOpRight left right (+)
-        static member inline (-)(left, right) = binOpRight left right (-)
-        static member inline (*)(left, right) = binOpRight left right (*)
-        static member inline (/)(left, right) = binOpRight left right (/)
+        static member inline (+)(left, right: float) = binOpRight left right (+)
+        static member inline (-)(left, right: float) = binOpRight left right (-)
+        static member inline (*)(left, right: float) = binOpRight left right (*)
+        static member inline (/)(left, right: float) = binOpRight left right (/)
+        static member inline (%)(left, right: float) = binOpRight left right (%)
+
+        static member inline (+)(left, right: int) = binOpRight left right (+)
+        static member inline (-)(left, right: int) = binOpRight left right (-)
+        static member inline (*)(left, right: int) = binOpRight left right (*)
+        static member inline (/)(left, right: int) = binOpRight left right (/)
+        static member inline (%)(left, right: int) = binOpRight left right (%)
 
 
 
@@ -154,11 +167,11 @@ module Gen =
     // Arithmetik
     // ----------
 
-    let inline binOpLeftRight left right f = Core.binOpLeftRight left right f
-    
-    let inline binOpLeft left right f = Core.binOpLeft left right f
-    
-    let inline binOpRight left right f = Core.binOpRight left right f
+    // let inline binOpLeftRight left right f = Core.binOpLeftRight left right f
+    //
+    // let inline binOpLeft left right f = Core.binOpLeft left right f
+    //
+    // let inline binOpRight left right f = Core.binOpRight left right f
     
 
     // -------
@@ -216,7 +229,7 @@ module Gen =
 
     let init2 f seed = init f seed
 
-    let feedback (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) seed =
+    let feedback seed (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) =
         fun s r ->
             let feedbackState, innerState =
                 match s with
@@ -236,7 +249,7 @@ module Gen =
 module Operators =
 
     /// Feedback with reader state
-    let (<|>) seed f = Gen.feedback f seed
+    let (<|>) seed f = Gen.feedback seed f
 
     /// map operator
     let (<!>) gen projection = Gen.map projection gen

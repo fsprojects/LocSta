@@ -2,12 +2,18 @@
 ﻿FsLocalState
 ===
 
-FsLocalState is library designed to write and compose functions that preserve state from evaluation to the next.
-This sounds like dealing with impure functions, but that's not the case.
+FsLocalState is library designed to write and compose functions, where each of these functions inside of a computation
+preserves it's own state from one evaluation to the next. While this might sound like dealing with impure or internally mutable functions -
+which would have object semantic and thus making composability hard or impossible - it is based on a pure function approach.
 
-A composable FsLocalState function takes a state as input and returns a value + state as output. The way those
-functions are composed accumulates the output states of all functions inside of a computation, unpacks it and feeds it to the
+A composable FsLocalState function takes a state as input and returns a value + state as output. The composition mechanisms
+provided by the library accumulate the output states of all functions inside of a computation, unpacks it and feeds it to the
 corresponsing function in the next evaluation cycle.
+
+Computations can then be treated as either
+
+- *Generators: a sequence of values, represented by `seq<'output>`
+- *Effects: a sequence of values, represented by `seq<'input> -> seq<'output>`
 
 The concept is based on my original work for a DSP / audio signal processing library in F#. You can read the
 [article](http://schlenkr.binarygears.de/01_fsharp_dsp/01_Introduction.html) or have a look at the WIP repos
@@ -32,7 +38,7 @@ open FsLocalState
 ### Generators and Effects
 
 Generator functions are the core part of FsLocalState. They are represented by the `Gen<'value, 'state, 'reader>` type.
-Generators are in fact functions that have a state as input and a (value * state) as output:
+They that have a state as input and a (value * state) as output:
 
 
                         +-------------+
@@ -50,7 +56,7 @@ Generators are in fact functions that have a state as input and a (value * state
 A simple example of a generator is a counter:
 
 ```fsharp
-// A generator with "seed" as input
+// A constructor for the generator with a "seed"
 let counter seed =
     
     // The generator function
@@ -73,33 +79,75 @@ let counter seed =
 We can now transform our counter function to a sequence that can be evaluated:
 
 ```fsharp
-// (pass 'ignore' (fun i -> ()) to Eval.Gen.toEvaluableV to construct a reader value for each evaluation cycle)
-let counterEval = counter 0 |> Eval.Gen.toEvaluableV ignore
+// (pass 'ignore' (fun i -> ()) to Eval.Gen.toSeq to construct a reader value for each evaluation cycle)
+let counterEval = counter 0 |> Eval.Gen.toSeq ignore
 
-// [0; 1; 2; 3; 4; 5; 6; 7; 8; 9]
-let ``numbers from 0 to 9`` = counterEval 10
+let numbers_0_9 = counterEval |> Eval.toListn 10
+    // res: [0; 1; 2; 3; 4; 5; 6; 7; 8; 9]
 ```
 
 The generated sequence is an `IEnumerable<'a>`, which means:
 We can continue pulling from 'counterSeq' and get the next (potentially different) results:
 
 ```fsharp
-// [10; 11; 12; 13; 14; 15; 16; 17; 18; 19]
-let ``numbers from 10 to 19`` = counterEval 10
+let numbers_10_19 = counterEval |> Eval.toListn 10
+    // res: [10; 11; 12; 13; 14; 15; 16; 17; 18; 19]
 
-// [20; 21; 22; 23; 24; 25; 26; 27; 28; 29]
-let ``numbers from 20 to 29`` = counterEval 10
+let numbers_20_29 = counterEval |> Eval.toListn 10
+    // res: [20; 21; 22; 23; 24; 25; 26; 27; 28; 29]
 ```
 
 Note that:
 
-- Generator functions themselves have only a state as input and have the signature: `'state option -> 'reader -> Res<'value, 'state>` (`'reader` is unused in these example).
-- The generator function can be wrapped inside another function that takes input parameters.
-- The characteristics of these parameters can be const-like (like *seed* above), or it can be a value that gets transformed. Technically, there is no
-  difference between any kind of parameter. Wrapper functions with one (unsupplied) input parameters are called *Effect*, and we will see later that
-  effects can also be composed easily.
 - The `'reader` value is unused in this example, but can be useful when evaluating to pass in context from the runtime environment.
 - The first evaluation of `counterEval 10` is equivalent to `seq { 0..9 }`
+
+
+
+#### Effects
+
+- Generator functions themselves have only a state as input.
+  - They have the signature: `'state option -> 'reader -> Res<'value, 'state>`.
+- The generator function can be wrapped inside another function (here called _constructor functions_) that takes one or more input parameters.
+  - Here: We have a single `seed` parameter.
+- The characteristics of these input parameters can be const-like (like *seed* above), or it can be a value that gets transformed.
+  (in the sense of transforming an input value to an output value). Technically, there is no
+  difference between those kinds. Constructor functions with one (unsupplied) input parameters are called *Effect*, and there are
+  several supported use cases for them in the library.
+
+As an example, we create an *accumulator*: It takes a "window" of the last n input values and sums them up, so that a value in
+the output sequence is the sum of the last n values of the input sequence:
+
+
+```fsharp
+let inline accu windowSize (input: 'a) =
+    fun state (env: unit) ->
+        let state = (input :: state) |> List.truncate windowSize
+        let newValue = state |> List.sum
+        { value = newValue; state = state }
+    |> Gen.init []
+```
+
+You see that the `accu` function has 2 input parameters: `windowSize` determines how many past values should be summed up, and
+`input` is a value coming in that gets summed up.
+
+Let's see how it works:
+
+```fsharp
+let accuEval = accu 3 |> Eval.Eff.toSeq ignore
+
+let accuValues = [ 1; 5; 2; 6; 13; 10 ] |> accuEval
+    // res: [1; 6; 8; 13; 21; 29]
+```
+
+Note that in contrast to the `counter` function (which was a generator with no inputs) we here only apply the `windowSize`
+parameter. What remains is an *Effect* function of type `'input -> Gen<...>`. This means:
+ 
+- When we evaluate a generator, we use `Eval.Gen.toEvaluableV ` and pass the number of desired output values when evaluating.  
+- When we evaluate an effect, we use `Eval.Eff.toEvaluableV ` and pass a sequence of input values.
+
+
+
 
 
 #### Init Comprehension
@@ -117,38 +165,9 @@ let counter2 seed =
 
 ### Compositon
 
-Composing stateful functions is a key feature of FsLocalState. Before we look at ways of composition, we need another example to play with:
+Composing stateful functions is a key feature of FsLocalState and there are the "usual suspect" ways of composition:
 
-An *accumulator* that takes a "window" of the last n input values and sums them up:
-
-```fsharp
-let inline accu windowSize (input: 'a) =
-    fun state (env: unit) ->
-        let state = (input :: state) |> List.truncate windowSize
-        let newValue = state |> List.sum
-        { value = newValue; state = state }
-    |> Gen.init []
-```
-
-You see that the `accu` function has 2 input parameters: `windowSize` determines how many past values should be summed up, and
-`input` is a value coming in that gets summed up.
-
-Let's see how it works:
-
-```fsharp
-let accuEval = accu 3 |> Eval.Eff.toEvaluableV ignore
-
-// [1; 6; 8; 13; 21; 29]
-let accuValues = [ 1; 5; 2; 6; 13; 10 ] |> accuEval
-```
-
-Note that in contrast to the `counter` function (which was a generator with no inputs) we here only apply the `windowSize`
-parameter. What remains is an *Effect* function of type `'input -> Gen<...>`. This means:
- 
-- When we evaluate a generator, we use `Eval.Gen.toEvaluableV ` and pass the number of desired output values when evaluating.  
-- When we evaluate an effect, we use `Eval.Eff.toEvaluableV ` and pass a sequence of input values.
-
-### Kleisli Composition
+#### Kleisli (serial) Composition
 
 Imagine you want to count values and phase the output:
 
@@ -185,7 +204,7 @@ Similar to composing "normal" functions by using "forward composition" operator 
 let accuCounter = counter >=> accu 3
 let accuCounterResults =
     let seed = 0
-    accuCounter |> Eval.Eff.toEvaluableV ignore <| Seq.replicate 10 seed
+    Seq.replicate 10 seed |> Eval.Eff.toSeq ignore accuCounter 
 ```
 
 This works, but evaluating by passing a replicated sequence looks a bit weired because we treat the `seed` parameter of `counter` as a changing input, although it has
@@ -193,51 +212,102 @@ the character of a constant. We can change this by using the *pipe forward* (`|>
 
 ```fsharp
 let accuCounter2 = counter 0 |=> accu 3
-let accuCounterResults2 = accuCounter2 |> Eval.Gen.toEvaluableV ignore <| 10
+let accuCounterResults2 = accuCounter2 |> Eval.Gen.toSeq ignore |> Eval.toListn 10
 ```
 
-### Composition (Monad)
+#### Composition (Monad)
 
-TODO
+There is also a more flexible way of composition that 
 
-                         +-------------+                               +-------------+
-                         |             |                               |             |
-      input(s) +-------->+             +--------- ('counted') -------->+             +---------> output
-                         |   counter   |                               |   phaser    |
-                   +---->+             +-----+                   +---->+             +-----+
-                   |     |             |     |                   |     |             |     |
-                   |     +-------------+     |                   |     +-------------+     |
-                   |                         |                   |                         |
-                   |                         |                   |                         |
-                   +-------------------------+                   +-------------------------+
+                         +-------------+                                          +-------------+
+                         |             |                          ...             |             |
+          seed +-------->+             +--------- ('counted')     ...      ------>+             +---------> output
+                         |   counter   |                          ...             |    accu     |
+                   +---->+             +-----+           do whatever you    +---->+             +-----+
+                   |     |             |     |           want with the      |     |             |     |
+                   |     +-------------+     |           'counted' value    |     +-------------+     |
+                   |                         |                    ...       |                         |
+                   |                         |                              |                         |
+                   +-------------------------+                              +-------------------------+
 
 
 ```fsharp
-let phasedCounter2 amount =
+let accuCounter3 amount =
     gen {
-        let! counted = counter
-        let! phased = phaser amount (float counted)
-        return phased
+        let! counted = counter 0
+        let! output = accu 3 counted
+        return output
     }
 
-
 ```
 
-// TODO
+#### Feedback
 
-// TODO
+When you are inside of a `gen` computation and need to feed a value "back to the future", you can also do that:
+ 
+                       +-----------------------------------------------------------------------+
+                       |                                                                       |
+                       |             +--+                         +--+                         |
+    input(s) +-------->+          +->+fa+--+                   +->+fc+--+                      +-----------> output
+                       |          |  +--+  |                   |  +--+  |                      |
+                       |          |        |                   |        |                      |
+                       |          +--------+                   +--------+                      |
+        feedback +---->+                          +--+                         +--+            |
+                 |     |                       +->+fb+--+                   +->+fd+--+         |
+                 |     |                       |  +--+  |                   |  +--+  |         |
+                 |     |                       |        |                   |        |         +-----+
+                 |     |                       +--------+                   +--------+         |     |
+                 |     |                                                                       |     |
+                 |     +-----------------------------------------------------------------------+     |
+                 |                                                                                   |
+                 |                                                                                   |
+                 |                                                                                   |
+                 |                                                                                   |
+                 +-----------------------------------------------------------------------------------+
 
-// TODO
-toEvaluable / toEvaluableV
-State + Value oder nur Value
-
-// TODO: State erklären
-// Value restriction
-
-// for what good is "reader state"? (use case)
-
-conditional evaluation
-for loops
-
+This can be done by using the feedback operator `<|>`:
 
 ```fsharp
+let feedbackExample =
+    let seed = 0
+    seed <|> fun lastValueOfCounter1 env ->
+        gen {
+            let! counter1 = counter 0
+            let! counter2 = counter 10
+            
+            // "state" will be available in the next evaluation (lastValueOfCounter1)
+            return { value = if lastValueOfCounter1 >= 10 then 0 else counter1 + counter2
+                     state = counter1 }
+        }
+
+feedbackExample |> Eval.Gen.toSeq ignore |> Eval.toListn 20
+    // res: [10; 12; 14; 16; 18; 20; 22; 24; 26; 28; 30; 0; 0; 0; 0; 0; 0; 0; 0; 0]
+```
+
+### Reader State
+
+An use case for reader state: Pass in a sample rate:
+
+```fsharp
+type Env =
+    { sampleRateHz: int }
+    
+let sinOsc (frq: float) =
+    let pi = System.Math.PI
+    let pi2 = 2.0 * pi
+    
+    0.0 <|> fun angle (env: Env) ->
+        gen {
+            let newAngle = (angle + pi2 * frq / (float env.sampleRateHz)) % pi2
+            return { value = System.Math.Sin newAngle
+                     state = newAngle }
+        }
+```
+
+### Arithmetik
+
+```fsharp
+let addCounter = gen {
+    let! res = counter 0 + counter 10
+    return res
+}
