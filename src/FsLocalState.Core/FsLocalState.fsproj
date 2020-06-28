@@ -19,6 +19,7 @@
   <ItemGroup>
     <Compile Include="core.fs" />
     <Compile Include="eval.fs" />
+    <Compile Include="dsp.fs" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
