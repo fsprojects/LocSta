@@ -12,7 +12,7 @@ module Eval =
     let getValues s = s |> Seq.map getValue
 
     module Eff =
-    
+
         let toSeq2 getReaderValue (localWithInput: Eff<_, _, _, _>) =
             let mutable lastState: 'a option = None
             fun inputValues ->

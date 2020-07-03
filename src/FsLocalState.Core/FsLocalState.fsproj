@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /Q /Y &quot;$(TargetDir)FsLocalState.dll&quot; &quot;$(SolutionDir)\..\docu\lib\&quot;" />
+    <Exec Command="&#xD;&#xA;    xcopy /Q /Y &quot;$(TargetDir)FsLocalState.dll&quot; &quot;$(SolutionDir)\..\docu\lib\&quot;&#xD;&#xA;    xcopy /Q /Y &quot;$(TargetDir)FsLocalState.dll&quot; &quot;$(SolutionDir)\..\demos\lib\&quot;&#xD;&#xA;    " />
   </Target>
 
 
