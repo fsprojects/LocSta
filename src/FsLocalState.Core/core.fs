@@ -3,6 +3,7 @@
 [<AutoOpen>]
 module Core =
 
+    [<Struct>]
     type Res<'a, 'b> =
         { value: 'a
           state: 'b }
@@ -12,6 +13,7 @@ module Core =
     // TODO: seems to be impossible having a single case DU here?
     type Eff<'inp, 'value, 'state, 'reader> = 'inp -> Gen<'value, 'state, 'reader>
 
+    [<Struct>]
     type StateAcc<'a, 'b> =
         { mine: 'a
           exess: 'b }
@@ -225,7 +227,11 @@ module Gen =
             f state r
         |> Gen
 
-    let init2 f seed = init f seed
+    let initWith seedFunc f =
+        fun s r ->
+            let state = Option.defaultWith seedFunc s
+            f state r
+        |> Gen
 
     let feedback seed (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) =
         fun s r ->

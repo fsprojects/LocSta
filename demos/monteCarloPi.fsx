@@ -10,21 +10,24 @@ module Helper =
 
     // Ok, this is fake :) we need a random number generator that exposes it's serializable state.
     let random =
-        (Random()) <|> fun random (reader: unit) -> gen {
-            return { value = random.NextDouble()
-                     state = random }
-        }
+        fun s (r: unit) ->
+            let dotnetRandom = Option.defaultWith (fun () -> Random()) s
+            { value = dotnetRandom.NextDouble()
+              state = dotnetRandom }
+        |> Gen
 
     let countFrom seed increment =
-        (seed - 1) <|> fun state (_: unit) -> gen {
+        fun s (r: unit) ->
+            let state = Option.defaultValue (seed - 1) s
             let newValue = state + increment
-            return { value = newValue; state = newValue }
-        }
+            { value = newValue; state = newValue }
+        |> Gen
 
     let count = countFrom 0 1
 
     let ifBang condition generator defaultValue =
-        fun (lastXValue, lastXState) (reader: unit) ->
+        fun state (reader: unit) ->
+            let lastXValue, lastXState = Option.defaultValue (None, None) state
             let xValue, xState =
                 if condition then
                     let f = generator |> Gen.run
@@ -34,7 +37,7 @@ module Helper =
                     lastXValue, lastXState
             let newValue = Option.defaultValue defaultValue xValue
             { value = newValue; state = (xValue, xState) }
-        |> Gen.init (None, None)
+        |> Gen
 
     let ( <?> ) = ifBang
     let ( <!> ) = ( <| )
@@ -52,21 +55,23 @@ module Helper =
 
 
 let monteCarlo =
-    gen {
+    0 <|> fun lastInsideCount (_: unit) -> gen {
         let! samples = countFrom 1 1
         let! x = random
         let! y = random
         let distance = Math.Sqrt (x*x + y*y)
         let isInsideCircle = distance < 1.0
-        let! insideCount = isInsideCircle <?> count <!> 0
-        return 4.0 * float insideCount / float samples
+        // let! insideCount = isInsideCircle <?> count <!> lastInsideCount
+        let insideCount = if isInsideCircle then lastInsideCount + 1 else lastInsideCount
+        let pi = 4.0 * float insideCount / float samples
+        return { value = pi; state = insideCount }
     }
 
 #time
 
 // evaluate pi
 let piSeq = monteCarlo |> Eval.Gen.toSeq2 ignore
-let { value = pi; state = state } = piSeq |> Seq.take 100_00000 |> Seq.last
+let { value = pi; state = state } = piSeq |> Seq.take 1_000_000 |> Seq.last
 
 // you can store state somewhere...
 // load it and resume (we take only 1 additional sample and still get close to pi):

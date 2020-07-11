@@ -28,22 +28,23 @@ module Eval =
             fun inputValues -> evaluable inputValues |> getValues
 
     module Gen =
-    
-        let toSeq2 getReaderValue (local: Gen<_, _, _>) =
+        
+        let toSeq2 getReaderValue (x: Gen<'v, 's, 'r>) =
+            seq {
+                let mutable i = 0
+                let mutable lastState: 's option = None
+                while true do
+                    let (Gen f) = x
+                    let res = f lastState (getReaderValue i)
+                    
+                    lastState <- Some res.state
+                    i <- i + 1
+                    
+                    res
+            }
             
-            // first. transform the gen to an effect
-            let fx : Eff<_, _, _, _> =
-                fun () -> local
-    
-            let evaluable = Eff.toSeq2 getReaderValue fx
-            
-            // now, we don't want to have a "seq<unit> -> seq<Res<_,_>>", but an "seq<Res<_,_>>"
-            let inputSeq = Seq.initInfinite ignore
-            let resultingValues = evaluable inputSeq
-            resultingValues
-    
-        let toSeq getReaderValue (local: Gen<_, _, _>) =
-            toSeq2 getReaderValue local |> getValues
+        let toSeq getReaderValue (x: Gen<'v, 's, 'r>) =
+            toSeq2 getReaderValue x |> Seq.map (fun x -> x.value)
 
     let toListn n s = s |> Seq.take n |> Seq.toList 
     

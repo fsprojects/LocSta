@@ -11,15 +11,52 @@ let countFrom seed increment =
         return { value = newValue; state = newValue }
     }
 
-let test =
+let dummy1 =
+    fun s (_: unit) ->
+        let s = Option.defaultValue 0 s
+        let v = s + 1
+        { value = v; state = v }
+    |> Gen
+
+let dummy2 =
+    fun s (_: unit) ->
+        let v = s + 1
+        { value = v; state = v }
+    |> Gen.init 0
+
+let dummy3 =
+    0 <|> fun state (_: unit) -> gen {
+        let v = state + 1
+        return { value = v; state = v }
+    }
+
+let test1 =
     gen {
-        let! a = countFrom 1 1
-        let! b = countFrom 1 1
-        let! c = countFrom 1 1
-        return a + b + c
+        let! a = dummy1
+        let! b = dummy1
+        let! c = dummy1
+        return ()
+    }
+
+let test2 =
+    gen {
+        let! a = dummy2
+        let! b = dummy2
+        let! c = dummy2
+        return ()
+    }
+
+let test3 =
+    gen {
+        let! a = dummy3
+        let! b = dummy3
+        let! c = dummy3
+        return ()
     }
 
 #time
 
 // evaluate pi
-let value = test |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
+let res1 = test1 |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
+let res2 = test2 |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
+let res3 = test3 |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
