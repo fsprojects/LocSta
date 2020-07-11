@@ -9,11 +9,11 @@ open FsLocalState
 module Helper =
 
     // Ok, this is fake :) we need a random number generator that exposes it's serializable state.
+    let private dotnetRandom = Random()
     let random =
         fun s (r: unit) ->
-            let dotnetRandom = Option.defaultWith (fun () -> Random()) s
             { value = dotnetRandom.NextDouble()
-              state = dotnetRandom }
+              state = () }
         |> Gen
 
     let countFrom seed increment =
@@ -71,7 +71,7 @@ let monteCarlo =
 
 // evaluate pi
 let piSeq = monteCarlo |> Eval.Gen.toSeq2 ignore
-let { value = pi; state = state } = piSeq |> Seq.take 1_000_000 |> Seq.last
+let { value = pi; state = state } = piSeq |> Seq.take 5_000_000 |> Seq.last
 
 // you can store state somewhere...
 // load it and resume (we take only 1 additional sample and still get close to pi):
