@@ -47,24 +47,6 @@ let slopeN seed input =
                      state = input }
         }
 
-let singleton factory =
-    fun state _ ->
-        let instance =
-            match state with
-            | None -> factory()
-            | Some x -> x
-        { value = instance
-          state = instance }
-    |> Gen
-
-let counter (seed: float) (inc: float) =
-    seed <|> fun state _ ->
-        gen {
-            let value = state + inc
-            return { value = value
-                     state = value }
-        }
-
 // TODO
 // let toggle seed =
 //     let f p _ =
