@@ -9,7 +9,7 @@ open XPlot.Plotly
 
 
 let monteCarlo =
-    0 <|> fun lastInsideCount (_: unit) -> gen {
+    0 <|> fun lastInsideCount r -> gen {
         let! samples = Gen.countFrom 1 1
         let! x = Gen.random()
         let! y = Gen.random()

@@ -20,6 +20,19 @@ let mySynthVoice frq =
     }
 ```
 
+
+Try FsLocalState in your browser
+---
+
+Click this button to launch a Binder instance, where you can get plotting interactively!
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ronaldschlenker/FsLocalState.Interactive/master)
+
+The binder repo can be found [here](https://github.com/ronaldschlenker/FsLocalState.Interactive).
+
+Quick Start
+---
+
 A composable FsLocalState function takes a state as input and returns a value + state as output. The composition mechanisms
 provided by the library accumulate the output states of all functions inside of a computation, unpacks it and feeds it to the
 corresponsing function in the next evaluation cycle.
