@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <Compile Include="core.fs" />
+    <Compile Include="api.fs" />
     <Compile Include="eval.fs" />
     <Compile Include="dsp.fs" />
   </ItemGroup>

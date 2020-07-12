@@ -1,6 +1,7 @@
 module BaseTests
 
 open FsLocalState
+open FsLocalState.Operators
 open FsLocalState.Tests
 open Xunit
 

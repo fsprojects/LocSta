@@ -1,5 +1,5 @@
-﻿
-#r "./lib/FsLocalState.dll"
+﻿﻿
+#r "../lib/FsLocalState.dll"
 
 open System
 open FsLocalState

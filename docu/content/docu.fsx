@@ -37,6 +37,11 @@ useful when you have computations that deal with values over time, which is for 
 - Audio and video signal processing (DSP), where you compose filters, delays, effects and generators.
 - Apply a set of rules over a (continuous) data series, like: "Signal me when a threshold is reached 3 times in the last 5 minutes".
 
+*Demos*
+
+For further demos, have a look at the fsx files in `./demos/src`.
+
+You have to run `paket install` in the `demos` folder to use the charting samples.
 
 Tutorial
 ---
@@ -47,6 +52,7 @@ Tutorial
 #r "../lib/FsLocalState.dll"
 
 open FsLocalState
+open FsLocalState.Operators
 
 (*
 
@@ -94,10 +100,10 @@ let counter seed =
 We can now transform our counter function to a sequence that can be evaluated:
 *)
 
-// (pass 'ignore' (fun i -> ()) to Eval.Gen.toSeq to construct a reader value for each evaluation cycle)
-let counterEval = counter 0 |> Eval.Gen.toSeq ignore
+// (pass 'ignore' (fun i -> ()) to Gen.toSeq to construct a reader value for each evaluation cycle)
+let counterEval = counter 0 |> Gen.toSeq ignore
 
-let numbers_0_9 = counterEval |> Eval.toListn 10
+let numbers_0_9 = counterEval |> Seq.toListN 10
     // res: [0; 1; 2; 3; 4; 5; 6; 7; 8; 9]
 
 (*
@@ -105,10 +111,10 @@ The generated sequence is an `IEnumerable<'a>`, which means:
 We can continue pulling from 'counterSeq' and get the next (potentially different) results:
 *)
 
-let numbers_10_19 = counterEval |> Eval.toListn 10
+let numbers_10_19 = counterEval |> Seq.toListN 10
     // res: [10; 11; 12; 13; 14; 15; 16; 17; 18; 19]
 
-let numbers_20_29 = counterEval |> Eval.toListn 10
+let numbers_20_29 = counterEval |> Seq.toListN 10
     // res: [20; 21; 22; 23; 24; 25; 26; 27; 28; 29]
 
 (*
@@ -141,7 +147,7 @@ let inline accu windowSize (input: 'a) =
         let state = (input :: state) |> List.truncate windowSize
         let newValue = state |> List.sum
         { value = newValue; state = state }
-    |> Gen.init []
+    |> Gen.initValue []
 
 (*
 You see that the `accu` function has 2 input parameters: `windowSize` determines how many past values should be summed up, and
@@ -150,7 +156,7 @@ You see that the `accu` function has 2 input parameters: `windowSize` determines
 Let's see how it works:
 *)
 
-let accuEval = accu 3 |> Eval.Eff.toSeq ignore
+let accuEval = accu 3 |> Eff.toSeq ignore
 
 let accuValues = [ 1; 5; 2; 6; 13; 10 ] |> accuEval
     // res: [1; 6; 8; 13; 21; 29]
@@ -159,8 +165,8 @@ let accuValues = [ 1; 5; 2; 6; 13; 10 ] |> accuEval
 Note that in contrast to the `counter` function (which was a generator with no inputs) we here only apply the `windowSize`
 parameter. What remains is an *Effect* function of type `'input -> Gen<...>`. This means:
  
-- When we evaluate a generator, we use `Eval.Gen.toEvaluableV ` and pass the number of desired output values when evaluating.  
-- When we evaluate an effect, we use `Eval.Eff.toEvaluableV ` and pass a sequence of input values.
+- When we evaluate a generator, we use `Gen.toSeq` and pass the number of desired output values when evaluating.  
+- When we evaluate an effect, we use `Eff.toSeq` and pass a sequence of input values.
 
 
 
@@ -176,7 +182,7 @@ let counter2 seed =
     fun state (env: unit) ->
         let nextValue = state + 1
         { value = state; state = nextValue }
-    |> Gen.init seed
+    |> Gen.initValue seed
 
 (*
 ### Compositon
@@ -220,7 +226,7 @@ Similar to composing "normal" functions by using "forward composition" operator 
 let accuCounter = counter >=> accu 3
 let accuCounterResults =
     let seed = 0
-    Seq.replicate 10 seed |> Eval.Eff.toSeq ignore accuCounter 
+    Seq.replicate 10 seed |> Eff.toSeq ignore accuCounter 
 
 (*
 This works, but evaluating by passing a replicated sequence looks a bit weired because we treat the `seed` parameter of `counter` as a changing input, although it has
@@ -228,7 +234,7 @@ the character of a constant. We can change this by using the *pipe forward* (`|>
 *)
 
 let accuCounter2 = counter 0 |=> accu 3
-let accuCounterResults2 = accuCounter2 |> Eval.Gen.toSeq ignore |> Eval.toListn 10
+let accuCounterResults2 = accuCounter2 |> Gen.toSeq ignore |> Seq.toListN 10
 
 (*
 #### Composition (Monad)
@@ -296,7 +302,7 @@ let feedbackExample =
                      state = counter1 }
         }
 
-feedbackExample |> Eval.Gen.toSeq ignore |> Eval.toListn 20
+feedbackExample |> Gen.toSeq ignore |> Seq.toListN 20
     // res: [10; 12; 14; 16; 18; 20; 22; 24; 26; 28; 30; 0; 0; 0; 0; 0; 0; 0; 0; 0]
 
 (*
@@ -330,8 +336,8 @@ gen {
     let! res = counter 0 + counter 10
     return res
 }
-|> Eval.Gen.toSeq ignore
-|> Eval.toListn 10
+|> Gen.toSeq ignore
+|> Seq.toListN 10
 
 // Adding a constant to a gen.
 // Note: this is currently only possible for int and float.
@@ -339,8 +345,8 @@ gen {
     let! res = counter 0 + 10
     return res
 }
-|> Eval.Gen.toSeq ignore
-|> Eval.toListn 10
+|> Gen.toSeq ignore
+|> Seq.toListN 10
 
 (*
 ### TODOs
