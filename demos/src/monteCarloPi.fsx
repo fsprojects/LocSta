@@ -16,7 +16,7 @@ let monteCarlo =
         // let! insideCount = isInsideCircle <?> count <!> lastInsideCount
         let insideCount = if isInsideCircle then lastInsideCount + 1 else lastInsideCount
         let pi = 4.0 * float insideCount / float samples
-        return { value = pi; state = insideCount }
+        return pi, insideCount
     }
 
 
@@ -25,14 +25,14 @@ let monteCarlo =
 
 // evaluate pi
 let piSeq = monteCarlo |> Gen.toSeqWithState ignore
-let { value = pi; state = state } = piSeq |> Seq.take 1_000_000 |> Seq.last
+let pi, state = piSeq |> Seq.take 1_000_000 |> Seq.last
 
 printfn "pi ~= %f" pi
 
 // you can store state somewhere...
 // load it and resume (we take only 1 additional sample and still get close to pi):
 let resumedSeq = Gen.resume ignore state monteCarlo
-let { value = piResumed; state = stateResumed } = piSeq |> Seq.take 10_000 |> Seq.last
+let piResumed, stateResumed = piSeq |> Seq.take 10_000 |> Seq.last
 
 printfn "pi_more_accurate ~= %f" piResumed
 

@@ -102,7 +102,7 @@ let counter seed =
         let nextValue = state + 1
 
         // always return value and state.
-        { value = state; state = nextValue }
+        (state, nextValue)
     |> Gen
 ```
 
@@ -156,7 +156,7 @@ let inline accu windowSize (input: 'a) =
     fun state (env: unit) ->
         let state = (input :: state) |> List.truncate windowSize
         let newValue = state |> List.sum
-        { value = newValue; state = state }
+        (newValue, state)
     |> Gen.initValue []
 ```
 
@@ -191,7 +191,7 @@ you can specify a seed and pass it to the `init` function alongside with your co
 let counter2 seed =
     fun state (env: unit) ->
         let nextValue = state + 1
-        { value = state; state = nextValue }
+        (state, nextValue)
     |> Gen.initValue seed
 ```
 
@@ -308,8 +308,9 @@ let feedbackExample =
             let! counter2 = counter 10
             
             // "state" will be available in the next evaluation (lastValueOfCounter1)
-            return { value = if lastValueOfCounter1 >= 10 then 0 else counter1 + counter2
-                     state = counter1 }
+            return
+                (if lastValueOfCounter1 >= 10 then 0 else counter1 + counter2,
+                 counter1)
         }
 
 feedbackExample |> Gen.toSeq ignore |> Seq.toListN 20
@@ -331,8 +332,7 @@ let sinOsc (frq: float) =
     0.0 <|> fun angle (env: Env) ->
         gen {
             let newAngle = (angle + pi2 * frq / (float env.sampleRateHz)) % pi2
-            return { value = System.Math.Sin newAngle
-                     state = newAngle }
+            return (System.Math.Sin newAngle, newAngle)
         }
 ```
 

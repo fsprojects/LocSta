@@ -12,12 +12,12 @@ $nugetKey = $Env:nuget_push
 write-host "Nuget server is: " $nugetServer
 write-host "Nuget key is: " $nugetKey
 
-dotnet test ../src/FsLocalState.sln 
+dotnet test ./src/FsLocalState.sln 
 success
 
-$packPath = "../.pack"
+$packPath = "./.pack"
 
-dotnet pack ../src/FsLocalState.Core/FsLocalState.fsproj -o $packPath -c Release
+dotnet pack ./src/FsLocalState.Core/FsLocalState.fsproj -o $packPath -c Release
 success
 
 cd $packPath

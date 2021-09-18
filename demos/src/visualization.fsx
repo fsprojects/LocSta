@@ -18,7 +18,7 @@ let monteCarlo =
         // let! insideCount = isInsideCircle <?> count <!> lastInsideCount
         let insideCount = if isInsideCircle then lastInsideCount + 1 else lastInsideCount
         let pi = 4.0 * float insideCount / float samples
-        return { value = pi; state = insideCount }
+        return pi, insideCount
     }
 
 

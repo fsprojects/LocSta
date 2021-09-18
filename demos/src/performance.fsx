@@ -8,26 +8,26 @@ open FsLocalState
 let countFrom seed increment =
     (seed - 1) <|> fun state (_: unit) -> gen {
         let newValue = state + increment
-        return { value = newValue; state = newValue }
+        return newValue, newValue
     }
 
 let dummy1 =
     fun s (_: unit) ->
         let s = Option.defaultValue 0 s
         let v = s + 1
-        { value = v; state = v }
+        v, v
     |> Gen
 
 let dummy2 =
     fun s (_: unit) ->
         let v = s + 1
-        { value = v; state = v }
+        v, v
     |> Gen.init 0
 
 let dummy3 =
     0 <|> fun state (_: unit) -> gen {
         let v = state + 1
-        return { value = v; state = v }
+        return v, v
     }
 
 let test1 =
