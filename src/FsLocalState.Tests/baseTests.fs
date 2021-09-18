@@ -17,8 +17,7 @@ let counterGen exclMin inclMax =
             let newValue =
                 (if state = inclMax then exclMin else state)
                 + 1
-            return { value = newValue
-                     state = newValue }
+            return newValue, newValue
         }
 
 /// An accumulator function summing up incoming values, starting with the given seed.
@@ -26,8 +25,7 @@ let accuFx seed value =
     seed <|> fun state _ ->
         gen {
             let newValue = state + value
-            return { value = newValue
-                     state = newValue }
+            return newValue, newValue
         }
 
 let counterMin = 0

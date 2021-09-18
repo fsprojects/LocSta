@@ -5,7 +5,7 @@ open FsLocalState
 [<AutoOpen>]
 module Eval =
     
-    let getValue (x: Res<_, _>) = x.value
+    let getValue (x: Res<_, _>) = fst x
     let getValues s = s |> Seq.map getValue
 
     module Eff =
@@ -18,7 +18,7 @@ module Eval =
                 |> Seq.mapi (fun i v ->
                     let local = localWithInput v |> run
                     let res = local lastState (getReaderValue i)
-                    lastState <- Some res.state
+                    lastState <- Some (snd res)
                     res)
 
         let toSeq getReaderValue (localWithInput: Eff<_, _, _, _>) =
@@ -32,7 +32,7 @@ module Eval =
             seq {
                 while true do
                     let res = f state (getReaderValue())
-                    state <- Some res.state
+                    state <- Some (snd res)
                     res
             }
         
@@ -43,7 +43,7 @@ module Eval =
             resumeOrStart getReaderValue None x
             
         let toSeq getReaderValue (x: Gen<'v, 's, 'r>) =
-            toSeqWithState getReaderValue x |> Seq.map (fun x -> x.value)
+            toSeqWithState getReaderValue x |> Seq.map fst
 
 module Seq =
     let toListN n s = s |> Seq.take n |> Seq.toList 

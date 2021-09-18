@@ -2,21 +2,17 @@
 [<AutoOpen>]
 module FsLocalState.Core
 
-[<Struct>]
-type Res<'a, 'b> =
-    { value: 'a
-      state: 'b }
+type Res<'value, 'state> = ('value * 'state)
 
 type Gen<'value, 'state, 'reader> =
     Gen of ('state option -> 'reader -> Res<'value, 'state>)
 
 // TODO: seems to be impossible having a single case DU here?
-type Eff<'inp, 'value, 'state, 'reader> = 'inp -> Gen<'value, 'state, 'reader>
+type Eff<'inp, 'value, 'state, 'reader> =
+    'inp -> Gen<'value, 'state, 'reader>
 
 [<Struct>]
-type StateAcc<'a, 'b> =
-    { mine: 'a
-      exess: 'b }
+type StateAcc<'a, 'b> = { mine: 'a; exess: 'b }
 
 
 // -----
@@ -25,7 +21,11 @@ type StateAcc<'a, 'b> =
 
 let internal run gen = let (Gen b) = gen in b
 
-let internal bind (m: Gen<'a, 'sa, 'r>) (f: 'a -> Gen<'b, 'sb, 'r>): Gen<'b, StateAcc<'sa, 'sb>, 'r> =
+let internal bind
+    (m: Gen<'a, 'sa, 'r>) 
+    (f: 'a -> Gen<'b, 'sb, 'r>)
+    : Gen<'b, StateAcc<'sa, 'sb>, 'r> 
+    =
     let genFunc localState readerState =
         let unpackedLocalState =
             match localState with
@@ -37,21 +37,13 @@ let internal bind (m: Gen<'a, 'sa, 'r>) (f: 'a -> Gen<'b, 'sb, 'r>): Gen<'b, Sta
                   exess = Some v.exess }
 
         let m' = (run m) unpackedLocalState.mine readerState
-        let fGen = f m'.value
+        let fGen = fst m' |> f
         let f' = (run fGen) unpackedLocalState.exess readerState
-
-        { value = f'.value
-          state =
-              { mine = m'.state
-                exess = f'.state } }
+        (fst f', { mine = snd m'; exess = snd f' })
 
     Gen genFunc
 
-let internal ret x =
-    fun _ _ ->
-        { value = x
-          state = () }
-    |> Gen
+let internal ret x = (fun _ _ -> x, ()) |> Gen
 
 
 // -------

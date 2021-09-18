@@ -53,9 +53,8 @@ module Gen =
     let map projection gen =
         fun s r ->
             let res = (run gen) s r
-            let mappedRes = projection res.value
-            { value = mappedRes
-              state = res.state }
+            let mappedRes = fst res |> projection
+            (mappedRes, snd res)
         |> Gen
 
     let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>): Gen<'v2, _, 'r> =
@@ -72,11 +71,7 @@ module Gen =
     // ------
 
     /// Reads the global state.
-    let read () =
-        fun _ r ->
-            { value = r
-              state = () }
-        |> Gen
+    let read () = (fun _ r -> r, ()) |> Gen
 
 
     // --------
@@ -103,10 +98,9 @@ module Gen =
                 | Some (my, inner) -> my, inner
 
             let res = run (f feedbackState r) innerState r
-            let feed = res.value
-            let innerState = res.state
-            { value = feed.value
-              state = feed.state, Some innerState }
+            let feed = fst res
+            let innerState = snd res
+            (fst feed, (snd feed, Some innerState))
         |> Gen
 
 

@@ -6,16 +6,14 @@ module Gen =
     // Ok, this is fake :) we need a random number generator that exposes it's serializable state.
     let private dotnetRandom = System.Random()
     let random() =
-        fun s r ->
-            { value = dotnetRandom.NextDouble()
-              state = () }
+        fun s r -> dotnetRandom.NextDouble(), ()
         |> Gen
 
     let countFrom inclusiveStart increment =
         fun s r ->
             let state = Option.defaultWith (fun () -> inclusiveStart - 1) s
             let newValue = state + increment
-            { value = newValue; state = newValue }
+            newValue, newValue
         |> Gen
 
     let count0() = countFrom 0 1
@@ -25,15 +23,13 @@ module Gen =
     let singleton value =
         fun s r ->
             let instance = Option.defaultValue value s
-            { value = instance
-              state = instance }
+            instance, instance
         |> Gen
 
     let singletonWith factory =
         fun s r ->
             let instance = Option.defaultWith factory s
-            { value = instance
-              state = instance }
+            instance, instance
         |> Gen
 
     // TODO: think about some control constructs

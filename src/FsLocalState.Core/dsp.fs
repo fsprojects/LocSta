@@ -19,8 +19,7 @@ let toSeconds env = (double env.samplePos) / (double env.sampleRate)
 let delay seed input =
     seed <|> fun state _ ->
         gen {
-            return { value = state
-                     state = input }
+            return state, input
         }
 
 /// Positive slope.
@@ -31,8 +30,7 @@ let slopeP seed input =
                 match state, input with
                 | false, true -> true
                 | _ -> false
-            return { value = res
-                     state = input }
+            return res, input
         }
 
 /// Negative slope.
@@ -43,8 +41,7 @@ let slopeN seed input =
                 match state, input with
                 | true, false -> true
                 | _ -> false
-            return { value = res
-                     state = input }
+            return res, input
         }
 
 // TODO
@@ -84,8 +81,7 @@ module Envelopes =
                 let diff = lastValue - target
                 let out = lastValue - diff * timeConstant
                 
-                return { value = out
-                         state = out,newMode }
+                return out, (out, newMode)
             }
 
     /// An Attack-Release envelope (a, r: [0.0 .. 1.0])
@@ -144,14 +140,8 @@ module Filter =
             let o = input * coeffs.a0 + coeffs.z1
             let z1 = input * coeffs.a1 + coeffs.z2 - coeffs.b1 * o
             let z2 = input * coeffs.a2 - coeffs.b2 * o
-
-            let newCoeffs =
-                { coeffs with
-                      z1 = z1
-                      z2 = z2 }
-
-            { value = o
-              state = (filterParams, newCoeffs) }
+            let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
+            (o, (filterParams, newCoeffs))
         |> Gen
 
 
@@ -349,15 +339,13 @@ module Osc =
     let noise() =
         fun (state: Random) _ ->
             let v = state.NextDouble()
-            { value = v
-              state = state }
+            v, state
         |> Gen.initValue (Random())
 
     let private osc (frq: float) f =
         fun angle (env: Env) ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
-            { value = f newAngle
-              state = newAngle }
+            f newAngle, newAngle
         |> Gen.initValue 0.0
 
     let sin (frq: float) = osc frq Math.Sin
