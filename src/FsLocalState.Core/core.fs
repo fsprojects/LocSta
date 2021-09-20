@@ -3,9 +3,22 @@
 module FsLocalState.Core
 
 type Res<'value, 'state> = ('value * 'state)
+type GenOptionType<'value, 'state, 'reader> = 'state option -> 'reader -> Res<'value, 'state> option
+type GenOptionNoReaderType<'value, 'state> = 'state option -> Res<'value, 'state> option
+type GenType<'value, 'state, 'reader> = 'state option -> 'reader -> Res<'value, 'state>
+type GenNoReaderType<'value, 'state> = 'state option -> Res<'value, 'state>
 
 type Gen<'value, 'state, 'reader> =
-    Gen of ('state option -> 'reader -> Res<'value, 'state>)
+    private
+    | Gen of GenOptionType<'value, 'state, 'reader> with
+    static member create(f: GenOptionType<'value, 'state, 'reader>) =
+        Gen f
+    static member create(f: GenType<'value, 'state, 'reader>) =
+        Gen(fun s r -> Some (f s r))
+    static member create(f: GenOptionNoReaderType<'value, 'state>) =
+        Gen(fun s _ -> f s)
+    static member create(f: GenNoReaderType<'value, 'state>) =
+        Gen(fun s _ -> Some(f s))
 
 // TODO: seems to be impossible having a single case DU here?
 type Eff<'inp, 'value, 'state, 'reader> =
@@ -23,7 +36,7 @@ let internal run gen = let (Gen b) = gen in b
 
 let internal bind
     (m: Gen<'a, 'sa, 'r>) 
-    (f: 'a -> Gen<'b, 'sb, 'r>)
+    (cont: 'a -> Gen<'b, 'sb, 'r>)
     : Gen<'b, StateAcc<'sa, 'sb>, 'r> 
     =
     let genFunc localState readerState =
@@ -35,15 +48,18 @@ let internal bind
             | Some v ->
                 { mine = Some v.mine
                   exess = Some v.exess }
-
-        let m' = (run m) unpackedLocalState.mine readerState
-        let fGen = fst m' |> f
-        let f' = (run fGen) unpackedLocalState.exess readerState
-        (fst f', { mine = snd m'; exess = snd f' })
+        match (run m) unpackedLocalState.mine readerState with
+        | Some (mValue,mState) ->
+            let contGen = cont mValue
+            match (run contGen) unpackedLocalState.exess readerState with
+            | Some (contValue,contState) ->
+                Some(contValue, { mine = mState; exess = contState })
+            | None -> None
+        | None -> None
 
     Gen genFunc
 
-let internal ret x = (fun _ _ -> x, ()) |> Gen
+let internal ret x = (fun _ _ -> Some (x, ())) |> Gen
 
 
 // -------
