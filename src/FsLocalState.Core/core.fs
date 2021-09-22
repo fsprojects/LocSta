@@ -3,22 +3,35 @@
 module FsLocalState.Core
 
 type Res<'value, 'state> = ('value * 'state)
-type GenOptionType<'value, 'state, 'reader> = 'state option -> 'reader -> Res<'value, 'state> option
-type GenOptionNoReaderType<'value, 'state> = 'state option -> Res<'value, 'state> option
-type GenType<'value, 'state, 'reader> = 'state option -> 'reader -> Res<'value, 'state>
-type GenNoReaderType<'value, 'state> = 'state option -> Res<'value, 'state>
+type GenOption<'value, 'state, 'reader> = 'state option -> 'reader -> Res<'value, 'state> option
+type GenOptionNoReader<'value, 'state> = 'state option -> Res<'value, 'state> option
+type GenValue<'value, 'state, 'reader> = 'state option -> 'reader -> Res<'value, 'state>
+type GenValueNoReader<'value, 'state> = 'state option -> Res<'value, 'state>
 
 type Gen<'value, 'state, 'reader> =
     private
-    | Gen of GenOptionType<'value, 'state, 'reader> with
-    static member create(f: GenOptionType<'value, 'state, 'reader>) =
-        Gen f
-    static member create(f: GenType<'value, 'state, 'reader>) =
-        Gen(fun s r -> Some (f s r))
-    static member create(f: GenOptionNoReaderType<'value, 'state>) =
-        Gen(fun s _ -> f s)
-    static member create(f: GenNoReaderType<'value, 'state>) =
-        Gen(fun s _ -> Some(f s))
+        | Gen of GenOption<'value, 'state, 'reader>
+    with
+        static member createForOption (f: GenOption<_,_,_>) =
+            Gen f
+        static member createForOption (f: GenOptionNoReader<_,_>) =
+            Gen (fun s _ -> f s)
+        static member createForValue (f: GenValueNoReader<_,_>) =
+            Gen (fun s _ -> Some (f s))
+        static member createForValue (f: GenValue<_,_,_>) =
+            Gen (fun s r -> Some (f s r))
+        
+        static member initValue seed f =
+            fun s r ->
+                let state = Option.defaultValue seed s
+                f state r
+            |> createForOption
+        static member initWith seedFunc f =
+            fun s r ->
+                let state = Option.defaultWith seedFunc s
+                f state r
+            |> createForOption
+
 
 // TODO: seems to be impossible having a single case DU here?
 type Eff<'inp, 'value, 'state, 'reader> =

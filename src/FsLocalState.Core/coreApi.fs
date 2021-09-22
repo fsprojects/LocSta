@@ -77,20 +77,8 @@ module Gen =
 
 
     // --------
-    // Feedback / Init
+    // Feedback
     // --------
-
-    let initValue seed f =
-        fun s r ->
-            let state = Option.defaultValue seed s
-            f state r
-        |> Gen
-
-    let initWith seedFunc f =
-        fun s r ->
-            let state = Option.defaultWith seedFunc s
-            f state r
-        |> Gen
 
     let feedback seed (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) =
         fun s r ->
