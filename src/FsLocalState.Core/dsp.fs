@@ -1,7 +1,6 @@
 ﻿module FsLocalState.Dsp
 
 open FsLocalState
-open FsLocalState.Operators
 open System
 
 module Const =
@@ -14,44 +13,6 @@ type Env =
       sampleRate: int }
 
 let toSeconds env = (double env.samplePos) / (double env.sampleRate)
-
-/// Delays a given value by 1 cycle.
-let delay seed input =
-    seed <|> fun state _ ->
-        gen {
-            return state, input
-        }
-
-/// Positive slope.
-let slopeP seed input =
-    seed <|> fun state _ ->
-        gen {
-            let res =
-                match state, input with
-                | false, true -> true
-                | _ -> false
-            return res, input
-        }
-
-/// Negative slope.
-let slopeN seed input =
-    seed <|> fun state _ ->
-        gen {
-            let res =
-                match state, input with
-                | true, false -> true
-                | _ -> false
-            return res, input
-        }
-
-// TODO
-// let toggle seed =
-//     let f p _ =
-//         match p with
-//         | true -> {value=0.0; state=false}
-//         | false -> {value=1.0; state=true}
-//     f |> liftSeed seed |> L
-
 
 module Envelopes =
     
@@ -141,8 +102,8 @@ module Filter =
             let z1 = input * coeffs.a1 + coeffs.z2 - coeffs.b1 * o
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
-            (o, (filterParams, newCoeffs))
-        |> Gen.createForValue
+            Some (o, (filterParams, newCoeffs))
+        |> Gen.create
 
 
     let lowPassDef =
@@ -339,13 +300,13 @@ module Osc =
     let noise() =
         fun (state: Random) _ ->
             let v = state.NextDouble()
-            v, state
+            Some (v, state)
         |> Gen.initValue (Random())
 
     let private osc (frq: float) f =
         fun angle (env: Env) ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
-            f newAngle, newAngle
+            Some (f newAngle, newAngle)
         |> Gen.initValue 0.0
 
     let sin (frq: float) = osc frq Math.Sin

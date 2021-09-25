@@ -16,7 +16,7 @@ module Eval =
             fun inputValues ->
                 seq {
                     for i,v in inputValues |> Seq.indexed do
-                        let local = localWithInput v |> run
+                        let local = localWithInput v |> Gen.run
                         match local lastState (getReaderValue i) with
                         | Some res ->
                             lastState <- Some (snd res)
