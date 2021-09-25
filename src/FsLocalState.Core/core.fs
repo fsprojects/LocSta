@@ -97,7 +97,7 @@ module Gen =
             | None -> ()
         }
 
-    let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>): Gen<'v2, _, 'r> =
+    let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>) : Gen<'v2, _, 'r> =
         gen {
             let! l' = xGen
             let! f' = fGen
@@ -110,7 +110,7 @@ module Gen =
     // Kleisli
     // -------
 
-    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Gen<'b, _, _> =
+    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>) : Gen<'b, _, _> =
         gen {
             let! f' = f
             return! g f' 
@@ -240,35 +240,35 @@ module Gen =
 
 
 type Gen<'v, 's, 'r> with
-    static member inline (+)(left, right) = Gen.binOpBoth left right (+)
-    static member inline (-)(left, right) = Gen.binOpBoth left right (-)
-    static member inline (*)(left, right) = Gen.binOpBoth left right (*)
-    static member inline (/)(left, right) = Gen.binOpBoth left right (/)
-    static member inline (%)(left, right) = Gen.binOpBoth left right (%)
+    static member inline (+) (left, right) = Gen.binOpBoth left right (+)
+    static member inline (-) (left, right) = Gen.binOpBoth left right (-)
+    static member inline (*) (left, right) = Gen.binOpBoth left right (*)
+    static member inline (/) (left, right) = Gen.binOpBoth left right (/)
+    static member inline (%) (left, right) = Gen.binOpBoth left right (%)
     
-    static member inline (+)(left: float, right) = Gen.binOpLeft left right (+)
-    static member inline (-)(left: float, right) = Gen.binOpLeft left right (-)
-    static member inline (*)(left: float, right) = Gen.binOpLeft left right (*)
-    static member inline (/)(left: float, right) = Gen.binOpLeft left right (/)
-    static member inline (%)(left: float, right) = Gen.binOpLeft left right (%)
+    static member inline (+) (left: float, right) = Gen.binOpLeft left right (+)
+    static member inline (-) (left: float, right) = Gen.binOpLeft left right (-)
+    static member inline (*) (left: float, right) = Gen.binOpLeft left right (*)
+    static member inline (/) (left: float, right) = Gen.binOpLeft left right (/)
+    static member inline (%) (left: float, right) = Gen.binOpLeft left right (%)
 
-    static member inline (+)(left: int, right) = Gen.binOpLeft left right (+)
-    static member inline (-)(left: int, right) = Gen.binOpLeft left right (-)
-    static member inline (*)(left: int, right) = Gen.binOpLeft left right (*)
-    static member inline (/)(left: int, right) = Gen.binOpLeft left right (/)
-    static member inline (%)(left: int, right) = Gen.binOpLeft left right (%)
+    static member inline (+) (left: int, right) = Gen.binOpLeft left right (+)
+    static member inline (-) (left: int, right) = Gen.binOpLeft left right (-)
+    static member inline (*) (left: int, right) = Gen.binOpLeft left right (*)
+    static member inline (/) (left: int, right) = Gen.binOpLeft left right (/)
+    static member inline (%) (left: int, right) = Gen.binOpLeft left right (%)
 
-    static member inline (+)(left, right: float) = Gen.binOpRight left right (+)
-    static member inline (-)(left, right: float) = Gen.binOpRight left right (-)
-    static member inline (*)(left, right: float) = Gen.binOpRight left right (*)
-    static member inline (/)(left, right: float) = Gen.binOpRight left right (/)
-    static member inline (%)(left, right: float) = Gen.binOpRight left right (%)
+    static member inline (+) (left, right: float) = Gen.binOpRight left right (+)
+    static member inline (-) (left, right: float) = Gen.binOpRight left right (-)
+    static member inline (*) (left, right: float) = Gen.binOpRight left right (*)
+    static member inline (/) (left, right: float) = Gen.binOpRight left right (/)
+    static member inline (%) (left, right: float) = Gen.binOpRight left right (%)
 
-    static member inline (+)(left, right: int) = Gen.binOpRight left right (+)
-    static member inline (-)(left, right: int) = Gen.binOpRight left right (-)
-    static member inline (*)(left, right: int) = Gen.binOpRight left right (*)
-    static member inline (/)(left, right: int) = Gen.binOpRight left right (/)
-    static member inline (%)(left, right: int) = Gen.binOpRight left right (%)
+    static member inline (+) (left, right: int) = Gen.binOpRight left right (+)
+    static member inline (-) (left, right: int) = Gen.binOpRight left right (-)
+    static member inline (*) (left, right: int) = Gen.binOpRight left right (*)
+    static member inline (/) (left, right: int) = Gen.binOpRight left right (/)
+    static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
 
 
 [<AutoOpen>]
