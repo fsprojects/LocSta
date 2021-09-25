@@ -1,4 +1,5 @@
-﻿namespace FsLocalState
+﻿[<AutoOpen>]
+module FsLocalState.Core
 
 type Res<'value, 'state> = 'value * 'state
 
@@ -47,13 +48,8 @@ module Gen =
         let genFunc localState readerState =
             let unpackedLocalState =
                 match localState with
-                | None ->
-                    { mine = None
-                      exess = None }
-                | Some v ->
-                    { mine = Some v.mine
-                      exess = Some v.exess }
-
+                | None -> { mine = None; exess = None }
+                | Some v -> { mine = Some v.mine; exess = Some v.exess }
             match (run m) unpackedLocalState.mine readerState with
             | Some m' ->
                 let fGen = fst m' |> f
@@ -241,20 +237,6 @@ module Gen =
             let r = right
             return f l r
         }
-    
-
-
-module Eff =
-
-    // -------
-    // Kleisli
-    // -------
-
-    let kleisli (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
-        fun x -> Gen.gen {
-            let! f' = f x
-            return! g f' 
-        }
 
 
 type Gen<'v, 's, 'r> with
@@ -290,24 +272,21 @@ type Gen<'v, 's, 'r> with
 
 
 [<AutoOpen>]
-module Autos =
+module Operators =
 
-    let gen = Gen.gen
+    /// Feedback with reader state
+    let (<|>) seed f = Gen.feedback seed f
 
-    [<AutoOpen>]
-    module Operators =
+    /// map operator
+    let (<!>) gen projection = Gen.map projection gen
 
-        /// Feedback with reader state
-        let (<|>) seed f = Gen.feedback seed f
+    /// apply operator
+    let (<*>) fGen xGen = Gen.apply xGen fGen
 
-        /// map operator
-        let (<!>) gen projection = Gen.map projection gen
+    /// Kleisli operator (eff >> eff)
+    let (>=>) f g = Gen.kleisli g f
 
-        /// apply operator
-        let (<*>) fGen xGen = Gen.apply xGen fGen
+    /// Kleisli "pipe" operator (gen >> eff)
+    let (|=>) f g = Gen.kleisli g f
 
-        /// Kleisli operator (eff >> eff)
-        let (>=>) f g = Eff.kleisli g f
-
-        /// Kleisli "pipe" operator (gen >> eff)
-        let (|=>) f g = Gen.kleisli g f
+let gen = Gen.gen
