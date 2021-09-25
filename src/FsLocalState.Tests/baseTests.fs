@@ -97,3 +97,18 @@ module CounterAndAccu =
         |> List.map (fun (last, current) -> current >= last + counterMin + 1 && current <= last + counterMax)
         |> List.forall (fun x -> x = true)
         |> Assert.True
+
+module DiscardingNone =
+    
+    [<Fact>]
+    let filterByNone () =
+        let onlyEvenValues =
+            fun input -> gen {
+                if input % 2 = 0 then
+                    return input
+            }
+            |> Eff.toSeq id
+                            
+        let res = [ 1; 2; 3; 4; 5; 6 ] |> onlyEvenValues |> Seq.toList
+        let isTrue = res = [ 2; 4; 6 ]
+        Assert.True(isTrue)
