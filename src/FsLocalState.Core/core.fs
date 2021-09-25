@@ -2,10 +2,11 @@
 [<AutoOpen>]
 module FsLocalState.Core
 
-type Res<'value, 'state> = ('value * 'state)
+type Res<'value, 'state> = 'value * 'state
 
 type Gen<'value, 'state, 'reader> =
-    Gen of ('state option -> 'reader -> Res<'value, 'state>)
+    private
+    | Gen of ('state option -> 'reader -> Res<'value, 'state> option)
 
 // TODO: seems to be impossible having a single case DU here?
 type Eff<'inp, 'value, 'state, 'reader> =
@@ -14,6 +15,9 @@ type Eff<'inp, 'value, 'state, 'reader> =
 [<Struct>]
 type StateAcc<'a, 'b> = { mine: 'a; exess: 'b }
 
+module Gen =
+    let createForOption f = Gen f
+    let createForValue f = Gen (fun s r -> Some (f s r))
 
 // -----
 // Monad
@@ -36,15 +40,22 @@ let internal bind
                 { mine = Some v.mine
                   exess = Some v.exess }
 
-        let m' = (run m) unpackedLocalState.mine readerState
-        let fGen = fst m' |> f
-        let f' = (run fGen) unpackedLocalState.exess readerState
-        (fst f', { mine = snd m'; exess = snd f' })
-
+        match (run m) unpackedLocalState.mine readerState with
+        | Some m' ->
+            let fGen = fst m' |> f
+            match (run fGen) unpackedLocalState.exess readerState with
+            | Some f' -> Some (fst f', { mine = snd m'; exess = snd f' })
+            | None -> None
+        | None -> None
     Gen genFunc
 
-let internal ret x = (fun _ _ -> x, ()) |> Gen
+let ret x =
+    fun _ _ -> Some (x, ())
+    |> Gen
 
+let zero () =
+    fun _ _ -> None
+    |> Gen
 
 // -------
 // Builder
@@ -53,15 +64,17 @@ let internal ret x = (fun _ _ -> x, ()) |> Gen
 // TODO: Docu
 // TODO: other builder methods
 type GenBuilderEx<'a>() =
-    member __.Bind(m: Gen<_, _, 'a>, f) = bind m f
-    member __.Return x = ret x
-    member __.ReturnFrom x = x
+    member _.Bind(m: Gen<_, _, 'a>, f) = bind m f
+    member _.Return x = ret x 
+    member _.ReturnFrom x = x
+    member _.Zero() = zero ()
 
 // TODO: other builder methods
 type GenBuilder() =
-    member __.Bind(m, f) = bind m f
-    member __.Return x = ret x
-    member __.ReturnFrom x = x
+    member _.Bind(m, f) = bind m f
+    member _.Return x = ret x
+    member _.ReturnFrom x = x
+    member _.Zero() = zero ()
 
 let gen = GenBuilder()
 

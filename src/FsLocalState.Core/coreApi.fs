@@ -7,10 +7,10 @@ module Eff =
     // -------
 
     let kleisli (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
-        fun x ->
-            gen {
-                let! f' = f x
-                return! g f' }
+        fun x -> gen {
+            let! f' = f x
+            return! g f' 
+        }
 
     
 module Gen =
@@ -50,12 +50,12 @@ module Gen =
     // map / apply
     // -----------
 
-    let map projection gen =
-        fun s r ->
-            let res = (run gen) s r
-            let mappedRes = fst res |> projection
-            (mappedRes, snd res)
-        |> Gen
+    let map projection x =
+        gen {
+            match! x with
+            | Some res -> return projection res
+            | None -> ()
+        }
 
     let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>): Gen<'v2, _, 'r> =
         gen {
@@ -71,7 +71,9 @@ module Gen =
     // ------
 
     /// Reads the global state.
-    let read () = (fun _ r -> r, ()) |> Gen
+    let read () =
+        fun _ r -> Some (r, ())
+        |> Gen.createForOption
 
 
     // --------
@@ -82,13 +84,13 @@ module Gen =
         fun s r ->
             let state = Option.defaultValue seed s
             f state r
-        |> Gen
+        |> Gen.createForValue
 
     let initWith seedFunc f =
         fun s r ->
             let state = Option.defaultWith seedFunc s
             f state r
-        |> Gen
+        |> Gen.createForValue
 
     let feedback seed (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) =
         fun s r ->
@@ -97,11 +99,13 @@ module Gen =
                 | None -> seed, None
                 | Some (my, inner) -> my, inner
 
-            let res = run (f feedbackState r) innerState r
-            let feed = fst res
-            let innerState = snd res
-            (fst feed, (snd feed, Some innerState))
-        |> Gen
+            run (f feedbackState r) innerState r
+            |> Option.map (fun res ->
+                let feed = fst res
+                let innerState = snd res
+                fst feed, (snd feed, Some innerState)
+            )
+        |> Gen.createForOption
 
 
 module Operators =

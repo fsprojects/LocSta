@@ -14,12 +14,15 @@ module Eval =
         let toSeqWithState getReaderValue (localWithInput: Eff<_, _, _, _>) =
             let mutable lastState: 'a option = None
             fun inputValues ->
-                inputValues
-                |> Seq.mapi (fun i v ->
-                    let local = localWithInput v |> run
-                    let res = local lastState (getReaderValue i)
-                    lastState <- Some (snd res)
-                    res)
+                seq {
+                    for i,v in inputValues |> Seq.indexed do
+                        let local = localWithInput v |> run
+                        match local lastState (getReaderValue i) with
+                        | Some res ->
+                            lastState <- Some (snd res)
+                            yield res
+                        | None -> ()
+                }
 
         let toSeq getReaderValue (localWithInput: Eff<_, _, _, _>) =
             let evaluable = toSeqWithState getReaderValue localWithInput
@@ -31,9 +34,11 @@ module Eval =
             let mutable state = state
             seq {
                 while true do
-                    let res = f state (getReaderValue())
-                    state <- Some (snd res)
-                    res
+                    match f state (getReaderValue()) with
+                    | Some res ->
+                        state <- Some (snd res)
+                        yield res
+                    | None -> ()
             }
         
         let resume getReaderValue state (x: Gen<'v, 's, 'r>) =

@@ -142,7 +142,7 @@ module Filter =
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
             (o, (filterParams, newCoeffs))
-        |> Gen
+        |> Gen.createForValue
 
 
     let lowPassDef =
