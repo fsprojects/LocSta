@@ -1,64 +1,62 @@
-
-#if INTERACTIVE
-#r "./bin/Debug/netcoreapp3.1/FsLocalState.dll"
-#r "nuget: Xunit"
-#r "nuget: FsCheck.Xunit"
-#load "./testHelper.fs"
-#else
-module BaseTests
-#endif
+module FsLocalState.CoreTests
 
 open FsLocalState
+open FsLocalState.Tests
 
 open Xunit
 
-[<AutoOpen>]
-module General =
-    /// The type of the reader state fot the tests - here, unit.
-    type Env = unit
 
-    /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
-    /// When max is reached, counting begins with min again.
-    let counterGen exclMin inclMax =
-        Seed exclMin => fun state _ -> gen {
-            let newValue = (if state = inclMax then exclMin else state) + 1
+/// The type of the reader state fot the tests - here, unit.
+type Env = unit
+
+/// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
+/// When max is reached, counting begins with min again.
+let counterGen exclMin inclMax =
+    Gen.feedback exclMin (fun state _ ->
+        gen {
+            let newValue =
+                (if state = inclMax then exclMin else state)
+                + 1
             return newValue, newValue
         }
+    )
 
-    /// An accumulator function summing up incoming values, starting with the given seed.
-    let accuFx value =
-        fun state _ ->
-            gen {
-                let newValue = state + value
-                return newValue, newValue
-            }
-        |> Gen.feedbackSeed
+/// An accumulator function summing up incoming values, starting with the given seed.
+let accuFx seed value =
+    Gen.feedback seed (fun state _ ->
+        gen {
+            let newValue = state + value
+            return newValue, newValue
+        }
+    )
 
-module CounterTest =
+let counterMin = 0
+let counterMax = 20
 
-    let counterMin = 0
-    let counterMax = 20
-    let accuSeed = 0
-    let sampleCount = 1000
+let accuSeed = 0
+
+let sampleCount = 1000
+
+module Counter =
 
     let counted =
         gen {
             let! i = counterGen counterMin counterMax
             return i
         }
-        |> Gen.Eval.toList sampleCount
+        |> TestHelper.evalGen sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
-        Assert.Equal(sampleCount, counted.Length)
+        Assert.Equal(counted.Length, sampleCount)
 
     [<Fact>]
     let ``Min is exclusive`` () =
-        Assert.Equal(counterMin + 1, counted |> List.min)
+        Assert.Equal(counted |> List.min, counterMin + 1)
 
     [<Fact>]
     let ``Max is inclusive`` () =
-        Assert.Equal(counterMax, counted |> List.max)
+        Assert.Equal(counted |> List.max, counterMax)
 
     [<Fact>]
     let ``Incremental and reset`` () =
@@ -76,22 +74,17 @@ module CounterTest =
 
 module CounterAndAccu =
 
-    let counterMin = 0
-    let counterMax = 20
-    let accuSeed = 0
-    let sampleCount = 1000
-
     let accumulated =
         gen {
             let! i = counterGen counterMin counterMax
-            let! acc = accuFx i accuSeed
+            let! acc = accuFx accuSeed i
             return acc
         }
-        |> Gen.Eval.toList sampleCount
+        |> TestHelper.evalGen sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
-        Assert.Equal(sampleCount, accumulated.Length)
+        Assert.Equal(accumulated.Length, sampleCount)
 
     [<Fact>]
     let ``Gradient between counter min/max`` () =
@@ -116,7 +109,7 @@ module DiscardingNone =
                 if input % 2 = 0 then
                     return input
             }
-            |> Gen.Eval.toSeqFx
+            |> Eff.toSeq id
                             
         let res = [ 1; 2; 3; 4; 5; 6 ] |> onlyEvenValues |> Seq.toList
         let isTrue = res = [ 2; 4; 6 ]

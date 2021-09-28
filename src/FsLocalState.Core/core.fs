@@ -1,8 +1,14 @@
-﻿[<AutoOpen>]
+﻿
+[<AutoOpen>]
 module FsLocalState.Core
 
+type Res<'output, 'state> = 'output * 'state
+
 type GenFunc<'output, 'state, 'reader> =
-    'state option -> 'reader -> ('output * 'state) option
+    'state option -> 'reader -> Res<'output, 'state> option
+
+type StateFunc<'output, 'state, 'reader> =
+    'state -> 'reader -> Res<'output, 'state> option
 
 type Gen<'output, 'state, 'reader> =
     | Gen of GenFunc<'output, 'state, 'reader>
@@ -12,75 +18,63 @@ type Eff<'input, 'output, 'state, 'reader> =
     'input -> Gen<'output, 'state, 'reader>
 
 [<Struct>]
-type StateAcc<'a, 'b> = { currState: 'a; subState: 'b }
-
-[<Struct>]
-type Seed<'s, 'r> =
-    | Seed of state: 's
-    | SeedLazy of getState: ('r -> 's)
+type StateAcc<'a, 'b> = { mine: 'a; exess: 'b }
 
 module Gen =
 
-    let internal run gen = let (Gen b) = gen in b
+    // --------
+    // Construction / Init
+    // --------
 
-    // Creates a Gen from a function that takes optional state.
-    let create f = Gen f
+    let create (f: GenFunc<_,_,_>) = Gen f
     
-    // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
-    let createSeed seed f =
+    let initValue seed (f: StateFunc<_,_,_>) =
         fun s r ->
             let state = Option.defaultValue seed s
             f state r
         |> create
 
-    let bind (f: 'o1 -> Gen<'o2, 's2, 'r>) (m: Gen<'o1, 's1, 'r>) : Gen<'o2, StateAcc<'s1, 's2>, 'r> =
-        fun (s: StateAcc<'s1, 's2> option) r ->
+    let initWith seedFunc (f: StateFunc<_,_,_>) =
+        fun s r ->
+            let state =
+                match s with
+                | Some s -> s
+                | None -> seedFunc r
+            f state r
+        |> create
+
+    // -----
+    // Monad
+    // -----
+
+    let run (Gen gen) = gen
+
+    let bind
+        (f: 'a -> Gen<'b, 'sb, 'r>)
+        (m: Gen<'a, 'sa, 'r>) 
+        : Gen<'b, StateAcc<'sa, 'sb>, 'r> 
+        =
+        fun s r ->
             let unpackedLocalState =
                 match s with
-                | None -> { currState = None; subState = None }
-                | Some v -> { currState = Some v.currState; subState = Some v.subState }
-            match (run m) unpackedLocalState.currState r with
+                | None -> { mine = None; exess = None }
+                | Some v -> { mine = Some v.mine; exess = Some v.exess }
+            match (run m) unpackedLocalState.mine r with
             | Some m' ->
                 let fGen = fst m' |> f
-                match (run fGen) unpackedLocalState.subState r with
-                | Some f' -> Some (fst f', { currState = snd m'; subState = snd f' })
+                match (run fGen) unpackedLocalState.exess r with
+                | Some f' -> Some (fst f', { mine = snd m'; exess = snd f' })
                 | None -> None
             | None -> None
         |> create
 
-    let feedbackOp
-        (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
-        (seed: Seed<'workingState, 'r>)
-        : Gen<'output, 'workingState * 'innerState option, 'r>
-        =
-        fun (s: ('workingState * 'innerState option) option) (r: 'r) ->
-            let feedbackState, innerState =
-                match s with
-                | None ->
-                    let seed =
-                        match seed with
-                        | Seed s -> s
-                        | SeedLazy f -> f r
-                    seed,None
-                | Some (my, inner) -> my, inner
-            match run (f feedbackState r) innerState r with
-            | Some res ->
-                let feed = fst res
-                let innerState = snd res
-                Some (fst feed, (snd feed, Some innerState))
-            | None -> None
-        |> create
-
-    let feedbackSeed f seed = feedbackOp f (Seed seed)
-    let feedbackLazy f seed = feedbackOp f (SeedLazy seed)
-
-    let ofValue x =
+    let ret (x: 'a) =
         fun _ _ -> Some (x, ())
-        |> create
+        |> Gen
 
     let zero () =
         fun _ _ -> None
-        |> create
+        |> Gen
 
     // TODO: Who really needs that?
     //// TODO: Docu
@@ -89,19 +83,26 @@ module Gen =
     //    member _.Bind(m: Gen<_, _, 'a>, f) = bind m f
     //    member _.Return x = ret x 
     //    member _.ReturnFrom x = x
-    //    member _.Zero () = zero ()
+    //    member _.Zero() = zero ()
 
     // TODO: other builder methods
-    type GenBuilder<'r>() =
-        member _.Bind (m: Gen<_, _, 'r>, f: _ -> Gen<_, _, 'r>) = bind f m
-        member _.Return x = ofValue x
+    [<AbstractClass>]
+    type GenBaseBuilder() =
+        member _.Return x = ret x
         member _.ReturnFrom x = x
         member _.Zero () = zero ()
 
-    let gen<'a> = GenBuilder<'a>()
-    let genu = GenBuilder<Unit>()
+    type GenBuilder() =
+        inherit GenBaseBuilder()
+        member _.Bind(m, f) = bind f m
     
+    //type FeedbackBuilder() =
+    //    inherit GenBaseBuilder()
+    //    member _.Bind(m, f) = bind f m
+
+    let gen = GenBuilder()
     
+
     // --------
     // map / apply
     // --------
@@ -113,7 +114,7 @@ module Gen =
             | None -> ()
         }
 
-    let apply (xGen: Gen<'o1, _, 'r>) (fGen: Gen<'o1 -> 'o2, _, 'r>) : Gen<'o2, _, 'r> =
+    let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>): Gen<'v2, _, 'r> =
         gen {
             let! l' = xGen
             let! f' = fGen
@@ -126,7 +127,7 @@ module Gen =
     // Kleisli
     // -------
 
-    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>) : Gen<'b, _, _> =
+    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>): Gen<'b, _, _> =
         gen {
             let! f' = f
             return! g f' 
@@ -139,17 +140,30 @@ module Gen =
 
     /// Reads the global state.
     let read () =
-        fun _ r -> Some (r, ())
+        fun s r -> s |> Option.map (fun s -> r,s)
+        |> create
+
+    /// Reads the local state.
+    let state () =
+        fun s _ -> s |> Option.map (fun s -> s,s)
         |> create
 
     /// Transforms a generator function to an effect function.    
     let toEff (gen: Gen<'s, 'r, 'o>) : Eff<unit, 's, 'r, 'o> =
         fun () -> gen
 
-    // TODO: Implement a random number generator that exposes it's serializable state.
-    let private dotnetRandom = System.Random()
-    let random<'a> () =
-        fun _ (_: 'a) -> Some (dotnetRandom.NextDouble(), ())
+    let feedback seed (f: 'fdb -> 'r -> Gen<Res<'o, 'fdb>, 's, 'r>) =
+        fun s r ->
+            let feedbackState, innerState =
+                match s with
+                | None -> seed, None
+                | Some (my, inner) -> my, inner
+            match run (f feedbackState r) innerState r with
+            | Some res ->
+                let feedOutput,feedState = fst res
+                let innerState = snd res
+                Some (feedOutput, (feedState, Some innerState))
+            | None -> None
         |> create
 
     // ----------
@@ -176,42 +190,47 @@ module Gen =
             return f l r
         }
 
+
 type Gen<'v, 's, 'r> with
-    static member inline (+) (left, right) = Gen.binOpBoth left right (+)
-    static member inline (-) (left, right) = Gen.binOpBoth left right (-)
-    static member inline (*) (left, right) = Gen.binOpBoth left right (*)
-    static member inline (/) (left, right) = Gen.binOpBoth left right (/)
-    static member inline (%) (left, right) = Gen.binOpBoth left right (%)
+    static member inline (+)(left, right) = Gen.binOpBoth left right (+)
+    static member inline (-)(left, right) = Gen.binOpBoth left right (-)
+    static member inline (*)(left, right) = Gen.binOpBoth left right (*)
+    static member inline (/)(left, right) = Gen.binOpBoth left right (/)
+    static member inline (%)(left, right) = Gen.binOpBoth left right (%)
     
-    static member inline (+) (left: float, right) = Gen.binOpLeft left right (+)
-    static member inline (-) (left: float, right) = Gen.binOpLeft left right (-)
-    static member inline (*) (left: float, right) = Gen.binOpLeft left right (*)
-    static member inline (/) (left: float, right) = Gen.binOpLeft left right (/)
-    static member inline (%) (left: float, right) = Gen.binOpLeft left right (%)
+    static member inline (+)(left: float, right) = Gen.binOpLeft left right (+)
+    static member inline (-)(left: float, right) = Gen.binOpLeft left right (-)
+    static member inline (*)(left: float, right) = Gen.binOpLeft left right (*)
+    static member inline (/)(left: float, right) = Gen.binOpLeft left right (/)
+    static member inline (%)(left: float, right) = Gen.binOpLeft left right (%)
 
-    static member inline (+) (left: int, right) = Gen.binOpLeft left right (+)
-    static member inline (-) (left: int, right) = Gen.binOpLeft left right (-)
-    static member inline (*) (left: int, right) = Gen.binOpLeft left right (*)
-    static member inline (/) (left: int, right) = Gen.binOpLeft left right (/)
-    static member inline (%) (left: int, right) = Gen.binOpLeft left right (%)
+    static member inline (+)(left: int, right) = Gen.binOpLeft left right (+)
+    static member inline (-)(left: int, right) = Gen.binOpLeft left right (-)
+    static member inline (*)(left: int, right) = Gen.binOpLeft left right (*)
+    static member inline (/)(left: int, right) = Gen.binOpLeft left right (/)
+    static member inline (%)(left: int, right) = Gen.binOpLeft left right (%)
 
-    static member inline (+) (left, right: float) = Gen.binOpRight left right (+)
-    static member inline (-) (left, right: float) = Gen.binOpRight left right (-)
-    static member inline (*) (left, right: float) = Gen.binOpRight left right (*)
-    static member inline (/) (left, right: float) = Gen.binOpRight left right (/)
-    static member inline (%) (left, right: float) = Gen.binOpRight left right (%)
+    static member inline (+)(left, right: float) = Gen.binOpRight left right (+)
+    static member inline (-)(left, right: float) = Gen.binOpRight left right (-)
+    static member inline (*)(left, right: float) = Gen.binOpRight left right (*)
+    static member inline (/)(left, right: float) = Gen.binOpRight left right (/)
+    static member inline (%)(left, right: float) = Gen.binOpRight left right (%)
 
-    static member inline (+) (left, right: int) = Gen.binOpRight left right (+)
-    static member inline (-) (left, right: int) = Gen.binOpRight left right (-)
-    static member inline (*) (left, right: int) = Gen.binOpRight left right (*)
-    static member inline (/) (left, right: int) = Gen.binOpRight left right (/)
-    static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
+    static member inline (+)(left, right: int) = Gen.binOpRight left right (+)
+    static member inline (-)(left, right: int) = Gen.binOpRight left right (-)
+    static member inline (*)(left, right: int) = Gen.binOpRight left right (*)
+    static member inline (/)(left, right: int) = Gen.binOpRight left right (/)
+    static member inline (%)(left, right: int) = Gen.binOpRight left right (%)
+
 
 [<AutoOpen>]
 module Operators =
 
+    /// Bind
+    let (>>=) m f = Gen.bind f m
+
     /// Feedback with reader state
-    let (=>) seed f = Gen.feedbackOp f seed
+    let (<|>) seed f = Gen.feedback seed f
 
     /// map operator
     let (<!>) gen projection = Gen.map projection gen
@@ -225,4 +244,64 @@ module Operators =
     /// Kleisli "pipe" operator (gen >> eff)
     let (|=>) f g = Gen.kleisli g f
 
-let gen<'a> = Gen.gen<'a>
+let gen = Gen.gen
+
+
+//type Gen.GenBuilder with
+
+//    [<CustomOperation("feedback")>]
+//    member _.Feedback (m, f) = m
+    
+//    [<CustomOperation("init", MaintainsVariableSpaceUsingBind = true)>]
+//    member _.Init (gen: Gen<_,_,_>, seed) =
+//        fun s r -> Some (seed, seed)
+//        |> Gen.create
+
+//let init seed =
+//    Gen.feedback seed (fun s r ->
+//        gen {
+//            return (1, 1)
+//        }
+//    )
+//let set state =
+//    fun s r ->
+//        Some (state, state)
+//    |> Gen.create
+    
+
+//let x seed = gen {
+//    let! state = init seed
+    
+//    let result = state + 1
+
+//    //feedback result
+
+//    return result
+//}
+
+type FeedbackState<'feedbackState, 'innerState> = 'feedbackState * 'innerState option
+
+type FeedbackBuilder<'a>(seed: 'a) =
+    inherit Gen.GenBaseBuilder()
+    member _.Bind (m: Gen<'o1, 's1, 'r>, f: 'o1 -> Gen<'o2, 's2_, 'r>) =
+        // let feedback seed (f: 'fdb -> 'r -> Gen<Res<'o, 'fdb>, 's, 'r>) =
+        fun feedbackState _ ->
+            fun s r ->
+                m >>= fun mRes ->
+                    f mRes >>= fun fRes ->
+                        Gen.ret (fRes, feedbackState)
+            |> Gen.create
+            //gen {
+            //    let! mRes = m
+            //    return! f (mRes, feedbackState)
+            //}
+        |> Gen.feedback seed
+let feedback seed = FeedbackBuilder(seed)
+
+/// Reads the feedback state.
+let locals () =
+    fun s _ ->
+        match s with
+        | Some (feedback,_ as s) -> Some (feedback, s)
+        | None -> None
+    |> Gen.create

@@ -1,4 +1,4 @@
-module FeedbackTests
+module FsLocalState.FeedbackTests
 
 open System
 open FsLocalState
@@ -7,6 +7,21 @@ open Xunit
 
 /// The type of the reader state fot the tests - here, unit.
 type Env = unit
+
+module NewStyleFeedback =
+    
+    [<Fact>]
+    let filterByNone () =
+        let onlyEvenValues =
+            fun input -> gen {
+                if input % 2 = 0 then
+                    return input
+            }
+            |> Eff.toSeq id
+                            
+        let res = [ 1; 2; 3; 4; 5; 6 ] |> onlyEvenValues |> Seq.toList
+        let isTrue = res = [ 2; 4; 6 ]
+        Assert.True(isTrue)
 
 // /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
 // /// When max is reached, counting begins with min again.

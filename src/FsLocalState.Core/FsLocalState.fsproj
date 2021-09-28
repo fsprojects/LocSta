@@ -13,13 +13,13 @@
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Product>SchlenkR.FsLocalState</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>0.0.7</Version>
+    <Version>0.0.5</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="core.fs" />
     <Compile Include="eval.fs" />
-    <Compile Include="general.fs" />
+    <Compile Include="lib.fs" />
     <Compile Include="dsp.fs" />
   </ItemGroup>
 

@@ -3,7 +3,6 @@
 
 open System
 open FsLocalState
-open FsLocalState.Operators
 
 
 let monteCarlo =
