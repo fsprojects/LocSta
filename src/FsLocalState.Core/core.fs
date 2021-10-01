@@ -136,13 +136,12 @@ module Gen =
                 match s with
                 | None -> seed, None
                 | Some (my, inner) -> my, inner
-
-            run (f feedbackState r) innerState r
-            |> Option.map (fun res ->
+            match run (f feedbackState r) innerState r with
+            | Some res ->
                 let feed = fst res
                 let innerState = snd res
-                fst feed, (snd feed, Some innerState)
-            )
+                Some (fst feed, (snd feed, Some innerState))
+            | None -> None
         |> create
 
     // TODO: Implement a random number generator that exposes it's serializable state.
@@ -238,7 +237,6 @@ module Gen =
             return f l r
         }
 
-
 type Gen<'v, 's, 'r> with
     static member inline (+) (left, right) = Gen.binOpBoth left right (+)
     static member inline (-) (left, right) = Gen.binOpBoth left right (-)
@@ -271,7 +269,6 @@ type Gen<'v, 's, 'r> with
     static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
 
 
-[<AutoOpen>]
 module Operators =
 
     /// Feedback with reader state
