@@ -1,14 +1,14 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
-type Res<'value, 'state> = 'value * 'state
+type Res<'output, 'state> = 'output * 'state
 
-type Gen<'value, 'state, 'reader> =
-    | Gen of ('state option -> 'reader -> Res<'value, 'state> option)
+type Gen<'output, 'state, 'reader> =
+    | Gen of ('state option -> 'reader -> Res<'output, 'state> option)
 
 // TODO: seems to be impossible having a single case DU here?
-type Eff<'inp, 'value, 'state, 'reader> =
-    'inp -> Gen<'value, 'state, 'reader>
+type Eff<'input, 'output, 'state, 'reader> =
+    'input -> Gen<'output, 'state, 'reader>
 
 [<Struct>]
 type StateAcc<'a, 'b> = { mine: 'a; exess: 'b }
