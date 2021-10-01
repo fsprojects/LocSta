@@ -45,7 +45,7 @@ module Gen =
         (f: 'a -> Gen<'b, 'sb, 'r>)
         : Gen<'b, StateAcc<'sa, 'sb>, 'r> 
         =
-        let genFunc localState readerState =
+        fun localState readerState ->
             let unpackedLocalState =
                 match localState with
                 | None -> { mine = None; exess = None }
@@ -57,11 +57,17 @@ module Gen =
                 | Some f' -> Some (fst f', { mine = snd m'; exess = snd f' })
                 | None -> None
             | None -> None
-        Gen genFunc
+        |> create
 
-    let ret x =
+    let ofValue x =
         fun _ _ -> Some (x, ())
-        |> Gen
+        |> create
+
+    let ofFactory factory =
+        fun s _ ->
+            let instance = Option.defaultWith factory s
+            Some (instance, instance)
+        |> create
 
     let zero () =
         fun _ _ -> None
@@ -79,7 +85,7 @@ module Gen =
     // TODO: other builder methods
     type GenBuilder() =
         member _.Bind(m, f) = bind m f
-        member _.Return x = ret x
+        member _.Return x = ofValue x
         member _.ReturnFrom x = x
         member _.Zero() = zero ()
 
@@ -160,18 +166,6 @@ module Gen =
     let count0() = countFrom 0 1
     
     // TODO: countFloat
-
-    let singletonValue value =
-        fun s _ ->
-            let instance = Option.defaultValue value s
-            Some (instance, instance)
-        |> create
-
-    let singletonWith factory =
-        fun s _ ->
-            let instance = Option.defaultWith factory s
-            Some (instance, instance)
-        |> create
 
     /// Delays a given value by 1 cycle.
     let delay seed input =

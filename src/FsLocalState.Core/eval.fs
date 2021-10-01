@@ -10,8 +10,8 @@ let getValues s = s |> Seq.map getValue
 module Eff =
     // TODO: same pettern (resumeOrStart, etc.) as in Gen
         
-    let toSeqWithState getReaderValue (localWithInput: Eff<_, _, _, _>) =
-        let mutable lastState: 'a option = None
+    let toSeqWithState getReaderValue (localWithInput: Eff<'i, 'o, 's, 'r>) =
+        let mutable lastState = None
         fun inputValues ->
             seq {
                 for i,v in inputValues |> Seq.indexed do
