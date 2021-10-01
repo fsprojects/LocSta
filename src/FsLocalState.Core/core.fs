@@ -3,8 +3,11 @@ module FsLocalState.Core
 
 type Res<'output, 'state> = 'output * 'state
 
+type GenFunc<'output, 'state, 'reader> =
+    'state option -> 'reader -> Res<'output, 'state> option
+
 type Gen<'output, 'state, 'reader> =
-    | Gen of ('state option -> 'reader -> Res<'output, 'state> option)
+    | Gen of GenFunc<'output, 'state, 'reader>
 
 // TODO: seems to be impossible having a single case DU here?
 type Eff<'input, 'output, 'state, 'reader> =
@@ -37,10 +40,10 @@ module Gen =
     // Monad
     // -----
 
-    let internal run gen =
+    let run gen =
         let (Gen b) = gen in b
 
-    let internal bind
+    let bind
         (m: Gen<'a, 'sa, 'r>) 
         (f: 'a -> Gen<'b, 'sb, 'r>)
         : Gen<'b, StateAcc<'sa, 'sb>, 'r> 
@@ -136,8 +139,11 @@ module Gen =
     let toEff (gen: Gen<'s, 'r, 'o>) : Eff<unit, 's, 'r, 'o> =
         fun () -> gen
 
-    let feedback seed (f: 'a -> 'r -> Gen<Res<'v, 'a>, 's, 'r>) =
-        fun s r ->
+    type FeedbackState<'workingState, 'innerState> =
+        ('workingState * 'innerState option) option
+
+    let feedback seed (f: 'workingState -> 'r -> Gen<Res<'output, 'workingState>, 'innerState, 'r>) =
+        fun (s: FeedbackState<'workingState, 'innerState>) r ->
             let feedbackState, innerState =
                 match s with
                 | None -> seed, None
@@ -281,3 +287,24 @@ module Operators =
     let (|=>) f g = Gen.kleisli g f
 
 let gen = Gen.gen
+
+
+//type FeedbackBuilder<'a>(seed: 'a) =
+//    member _.Return x = Gen.ofValue x
+//    member _.ReturnFrom x = x
+//    member _.Zero() = Gen.zero ()
+//    member _.Bind(m: Gen<'o1, 's1, 'r>, f: 'o1 -> Gen<'o2, 's2, 'r>) =
+
+    //let feedback seed (f: 'workingState -> 'r -> Gen<Res<'output, 'workingState>, 'innerState, 'r>) =
+    //    fun (s: FeedbackState<'workingState, 'innerState>) r ->
+    //        let feedbackState, innerState =
+    //            match s with
+    //            | None -> seed, None
+    //            | Some (my, inner) -> my, inner
+    //        match run (f feedbackState r) innerState r with
+    //        | Some res ->
+    //            let feed = fst res
+    //            let innerState = snd res
+    //            Some (fst feed, (snd feed, Some innerState))
+    //        | None -> None
+    //    |> create
