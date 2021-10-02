@@ -1,6 +1,6 @@
 ﻿
-#r "../packages/XPlot.Plotly/lib/netstandard2.0/XPlot.Plotly.dll"
-#r "../lib/FsLocalState.dll"
+#r "nuget: XPlot.Plotly.dll"
+#r "../../src/FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 
 open System
 open FsLocalState

@@ -53,8 +53,6 @@ useful when you have computations that deal with values over time, which is for 
 
 For further demos, have a look at the fsx files in `./demos/src`.
 
-You have to run `paket install` in the `demos` folder to use the charting samples.
-
 Tutorial
 ---
 
