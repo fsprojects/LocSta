@@ -3,7 +3,7 @@ module FsLocalState.Eval
 
 open FsLocalState
     
-let getValue (x: Res<_, _>) = fst x
+let getValue = fst
 let getValues s = s |> Seq.map getValue
 
 
