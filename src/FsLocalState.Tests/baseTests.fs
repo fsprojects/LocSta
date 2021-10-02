@@ -11,7 +11,7 @@ type Env = unit
 
 /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
 /// When max is reached, counting begins with min again.
-let counterGen inclMax exclMin =
+let counterGen exclMin inclMax =
     fun state _ ->
         gen {
             let newValue = (if state = inclMax then exclMin else state) + 1
@@ -46,15 +46,15 @@ module Counter =
 
     [<Fact>]
     let ``Sample count`` () =
-        Assert.Equal(counted.Length, sampleCount)
+        Assert.Equal(sampleCount, counted.Length)
 
     [<Fact>]
     let ``Min is exclusive`` () =
-        Assert.Equal(counted |> List.min, counterMin + 1)
+        Assert.Equal(counterMin + 1, counted |> List.min)
 
     [<Fact>]
     let ``Max is inclusive`` () =
-        Assert.Equal(counted |> List.max, counterMax)
+        Assert.Equal(counterMax, counted |> List.max)
 
     [<Fact>]
     let ``Incremental and reset`` () =
@@ -82,7 +82,7 @@ module CounterAndAccu =
 
     [<Fact>]
     let ``Sample count`` () =
-        Assert.Equal(accumulated.Length, sampleCount)
+        Assert.Equal(sampleCount, accumulated.Length)
 
     [<Fact>]
     let ``Gradient between counter min/max`` () =
