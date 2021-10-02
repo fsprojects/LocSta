@@ -56,6 +56,24 @@ module Gen =
             | None -> None
         |> create
 
+    let feedback
+        (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
+        (seed: 'workingState)
+        : Gen<'output, 'workingState * 'innerState option, 'r>
+        =
+        fun (s: ('workingState * 'innerState option) option) r ->
+            let feedbackState, innerState =
+                match s with
+                | None -> seed, None
+                | Some (my, inner) -> my, inner
+            match run (f feedbackState r) innerState r with
+            | Some res ->
+                let feed = fst res
+                let innerState = snd res
+                Some (fst feed, (snd feed, Some innerState))
+            | None -> None
+        |> create
+
     let ofValue x =
         fun _ _ -> Some (x, ())
         |> create
@@ -89,7 +107,7 @@ module Gen =
     let gen<'a> = GenBuilder<'a>()
     let genu = GenBuilder<Unit>()
     
-
+    
     // --------
     // map / apply
     // --------
@@ -134,80 +152,11 @@ module Gen =
     let toEff (gen: Gen<'s, 'r, 'o>) : Eff<unit, 's, 'r, 'o> =
         fun () -> gen
 
-    let feedback
-        (seed: 'workingState)
-        (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
-        : Gen<'output, 'workingState * 'innerState option, 'r>
-        =
-        fun (s: ('workingState * 'innerState option) option) r ->
-            let feedbackState, innerState =
-                match s with
-                | None -> seed, None
-                | Some (my, inner) -> my, inner
-            match run (f feedbackState r) innerState r with
-            | Some res ->
-                let feed = fst res
-                let innerState = snd res
-                Some (fst feed, (snd feed, Some innerState))
-            | None -> None
-        |> create
-
     // TODO: Implement a random number generator that exposes it's serializable state.
     let private dotnetRandom = System.Random()
     let random<'a> () =
         fun _ (_: 'a) -> Some (dotnetRandom.NextDouble(), ())
         |> create
-
-    let countFrom<'a> inclusiveStart increment =
-        fun s (_: 'a) ->
-            let state = Option.defaultWith (fun () -> inclusiveStart - 1) s
-            let newValue = state + increment
-            Some (newValue, newValue)
-        |> create
-
-    let count0<'a> = countFrom<'a> 0 1
-    
-    // TODO: countFloat
-
-    /// Delays a given value by 1 cycle.
-    let delay seed input =
-        feedback seed (fun state _ ->
-            gen {
-                return state, input
-            }
-        )
-    
-    /// Positive slope.
-    let slopeP seed input =
-        feedback seed (fun state _ ->
-            gen {
-                let res =
-                    match state, input with
-                    | false, true -> true
-                    | _ -> false
-                return res, input
-            }
-        )
-    
-    /// Negative slope.
-    let slopeN seed input =
-        feedback seed (fun state _ ->
-            gen {
-                let res =
-                    match state, input with
-                    | true, false -> true
-                    | _ -> false
-                return res, input
-            }
-        )
-    
-    // TODO
-    // let toggle seed =
-    //     let f p _ =
-    //         match p with
-    //         | true -> {value=0.0; state=false}
-    //         | false -> {value=1.0; state=true}
-    //     f |> liftSeed seed |> L
 
     // ----------
     // Arithmetik
@@ -264,11 +213,11 @@ type Gen<'v, 's, 'r> with
     static member inline (/) (left, right: int) = Gen.binOpRight left right (/)
     static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
 
-
+[<AutoOpen>]
 module Operators =
 
     /// Feedback with reader state
-    let (<|>) seed f = Gen.feedback seed f
+    let (=>) seed f = Gen.feedback f seed
 
     /// map operator
     let (<!>) gen projection = Gen.map projection gen
@@ -283,88 +232,3 @@ module Operators =
     let (|=>) f g = Gen.kleisli g f
 
 let gen<'a> = Gen.gen<'a>
-let genu = Gen.genu
-
-//let defState sfeed = Gen.feedback seed (fun fdbState _ ->
-//    fun s _ ->
-//        // only mutable within a single evaluation, so still persistent overall state
-//        let muftable x = fdbState
-//        let s = s |> Option.defaultValue seed
-//        let getterAndSetter =
-//            {|
-//                get = x
-//                set = fun value ->
-//                    x <- value
-//            |}
-//        Some ((getterAndSetter, fdbState), s)
-//    |> Gen.create
-//)
-
-//let res =
-//    genu {
-//        let! stateDef = defState 0
-//        let! state = stateDef.get
-//        return ($"State: %d{state}")
-//    }
-
-
-//type FeedbackBuilder<'a>(seed: 'a) =
-//    member _.Return x = Gen.ofValue x
-//    member _.ReturnFrom x = x
-//    member _.Zero () = Gen.zero ()
-//    member _.Bind 
-//        (m: Gen<'o1, 's1, 'r>,
-//         f: 'o1 -> Gen<'o2, 's2, 'r>) 
-//        : Gen<'o2, StateAcc<'s1, 's2>, 'r> 
-//        =
-//        fun (s: StateAcc<'s1, 's2> option) r ->
-//            Gen.feedback seed (fun fdbState _ ->
-//                fun s' r ->
-//                    let unpackedLocalState =
-//                        match s with
-//                        | None -> { currState = None; subState = None }
-//                        | Some v -> { currState = Some v.currState; subState = Some v.subState }
-//                    match (Gen.run m) unpackedLocalState.currState r with
-//                    | Some m' ->
-//                        let fGen = fst m' |> f
-//                        match (Gen.run fGen) unpackedLocalState.subState r with
-//                        | Some f' -> Some (fst f', { currState = snd m'; subState = snd f' })
-//                        | None -> None
-//                    | None -> None
-//                |> Gen.create
-//            )
-//            //let unpackedLocalState =
-//            //    match s with
-//            //    | None -> { currState = None; subState = None }
-//            //    | Some v -> { currState = Some v.currState; subState = Some v.subState }
-//            //match (Gen.run m) unpackedLocalState.currState r with
-//            //| Some m' ->
-//            //    let fGen = fst m' |> f
-//            //    match (Gen.run fGen) unpackedLocalState.subState r with
-//            //    | Some f' -> Some (fst f', { currState = snd m'; subState = snd f' })
-//            //    | None -> None
-//            //| None -> None
-//        |> Gen.create
-//        //let feedback
-//        //    (seed: 'workingState)
-//        //    (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
-//        //    : Gen<'output, 'workingState * 'innerState option, 'r>
-//        //    =
-//        //    fun (s: ('workingState * 'innerState option) option) r ->
-//        //        let feedbackState, innerState =
-//        //            match s with
-//        //            | None -> seed, None
-//        //            | Some (my, inner) -> my, inner
-//        //        match run (f feedbackState r) innerState r with
-//        //        | Some res ->
-//        //            let feed = fst res
-//        //            let innerState = snd res
-//        //            Some (fst feed, (snd feed, Some innerState))
-//        //        | None -> None
-//        //    |> create
-
-//FeedbackBuilder(0) {
-//    let! x = Gen.count0 ()
-//    return 23
-//}
-//|> ignore

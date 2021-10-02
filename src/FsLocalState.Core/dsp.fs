@@ -27,7 +27,7 @@ module Envelopes =
         let seedValue = 0.0
         let seed = (seedValue, Following)
         
-        Gen.feedback seed (fun state _ ->
+        fun state _ ->
             gen {
                 let lastValue, lastMode = state
                 let lastMode' = if release then Releasing 1000 else lastMode
@@ -44,7 +44,7 @@ module Envelopes =
                 
                 return out, (out, newMode)
             }
-        )
+        |> Gen.feedback
 
     /// An Attack-Release envelope (a, r: [0.0 .. 1.0])
     let ar attack release trigger resetTrigger =

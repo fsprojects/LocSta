@@ -11,24 +11,22 @@ type Env = unit
 
 /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
 /// When max is reached, counting begins with min again.
-let counterGen exclMin inclMax =
-    Gen.feedback exclMin (fun state _ ->
+let counterGen inclMax exclMin =
+    fun state _ ->
         gen {
-            let newValue =
-                (if state = inclMax then exclMin else state)
-                + 1
+            let newValue = (if state = inclMax then exclMin else state) + 1
             return newValue, newValue
         }
-    )
+    |> Gen.feedback <| exclMin
 
 /// An accumulator function summing up incoming values, starting with the given seed.
-let accuFx seed value =
-    Gen.feedback seed (fun state _ ->
+let accuFx value =
+    fun state _ ->
         gen {
             let newValue = state + value
             return newValue, newValue
         }
-    )
+    |> Gen.feedback
 
 let counterMin = 0
 let counterMax = 20
