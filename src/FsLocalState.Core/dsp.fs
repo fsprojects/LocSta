@@ -293,13 +293,13 @@ module Osc =
         fun (state: Random) _ ->
             let v = state.NextDouble()
             Some (v, state)
-        |> Gen.initState (Random())
+        |> Gen.createSeed (Random())
 
     let private osc (frq: float) f =
         fun angle (env: Env) ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
             Some (f newAngle, newAngle)
-        |> Gen.initState 0.0
+        |> Gen.createSeed 0.0
 
     let sin (frq: float) = osc frq Math.Sin
     

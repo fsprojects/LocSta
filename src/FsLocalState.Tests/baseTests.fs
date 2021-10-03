@@ -33,7 +33,7 @@ module General =
                 let newValue = state + value
                 return newValue, newValue
             }
-        |> Gen.feedbackValue
+        |> Gen.feedbackSeed
 
 module CounterTest =
 

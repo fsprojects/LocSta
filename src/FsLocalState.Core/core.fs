@@ -21,9 +21,17 @@ type Seed<'s, 'r> =
 
 module Gen =
 
+    let internal run gen = let (Gen b) = gen in b
+
+    // Creates a Gen from a function that takes optional state.
     let create f = Gen f
     
-    let run gen = let (Gen b) = gen in b
+    // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
+    let createSeed seed f =
+        fun s r ->
+            let state = Option.defaultValue seed s
+            f state r
+        |> create
 
     let bind (f: 'o1 -> Gen<'o2, 's2, 'r>) (m: Gen<'o1, 's1, 'r>) : Gen<'o2, StateAcc<'s1, 's2>, 'r> =
         fun (s: StateAcc<'s1, 's2> option) r ->
@@ -39,14 +47,8 @@ module Gen =
                 | None -> None
             | None -> None
         |> create
-    
-    let initState seed f =
-        fun s r ->
-            let state = Option.defaultValue seed s
-            f state r
-        |> create
 
-    let feedback
+    let feedbackOp
         (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
         (seed: Seed<'workingState, 'r>)
         : Gen<'output, 'workingState * 'innerState option, 'r>
@@ -68,7 +70,9 @@ module Gen =
                 Some (fst feed, (snd feed, Some innerState))
             | None -> None
         |> create
-    let feedbackValue f seed = feedback f (Seed seed)
+
+    let feedbackSeed f seed = feedbackOp f (Seed seed)
+    let feedbackLazy f seed = feedbackOp f (SeedLazy seed)
 
     let ofValue x =
         fun _ _ -> Some (x, ())
@@ -207,7 +211,7 @@ type Gen<'v, 's, 'r> with
 module Operators =
 
     /// Feedback with reader state
-    let (=>) seed f = Gen.feedback f seed
+    let (=>) seed f = Gen.feedbackOp f seed
 
     /// map operator
     let (<!>) gen projection = Gen.map projection gen

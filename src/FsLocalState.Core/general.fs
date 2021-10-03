@@ -20,7 +20,7 @@ let delay input =
         gen {
             return state, input
         }
-    |> Gen.feedbackValue
+    |> Gen.feedbackSeed
 
 /// Positive slope.
 let slopeP input =
@@ -32,7 +32,7 @@ let slopeP input =
                 | _ -> false
             return res, input
         }
-    |> Gen.feedbackValue
+    |> Gen.feedbackSeed
 
 /// Negative slope.
 let slopeN input =
@@ -44,7 +44,7 @@ let slopeN input =
                 | _ -> false
             return res, input
         }
-    |> Gen.feedbackValue
+    |> Gen.feedbackSeed
 
 // TODO
 // let toggle seed =
