@@ -94,7 +94,7 @@ module Filter =
             let z1 = input * coeffs.a1 + coeffs.z2 - coeffs.b1 * o
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
-            Some (o, (filterParams, newCoeffs))
+            return o, (filterParams, newCoeffs)
         }
 
 
