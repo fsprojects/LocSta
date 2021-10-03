@@ -9,7 +9,26 @@ let getValues s = s |> Seq.map getValue
 
 module Gen =
     // TODO: same pettern (resumeOrStart, etc.) as in Gen also for Fx
-        
+
+    let resumeOrStartReader getReaderValue state (g: Gen<_,_,_>) =
+        let f = Gen.run g
+        let mutable state = state
+        seq {
+            while true do
+                match f state (getReaderValue()) with
+                | Some res ->
+                    state <- Some (snd res)
+                    yield res
+                | None -> ()
+        }
+       
+    let resumeOrStart state (g: Gen<_,_,_>) = resumeOrStartReader ignore state g
+    
+    let resumeReader getReaderValue state (g: Gen<_,_,_>) =
+        resumeOrStartReader getReaderValue (Some state) g
+
+    let resume state (g: Gen<_,_,_>) = resumeReader ignore g
+
     let toStateSeqReaderFx (getReaderValue: int -> 'r) (eff: Eff<_,_,_,'r>) =
         let mutable lastState = None
         fun inputValues ->
@@ -31,25 +50,6 @@ module Gen =
     
     let toSeqFx (eff: Eff<_,_,_,_>) = toSeqReaderFx ignore eff
     
-    let resumeOrStartReader getReaderValue state (g: Gen<_,_,_>) =
-        let f = Gen.run g
-        let mutable state = state
-        seq {
-            while true do
-                match f state (getReaderValue()) with
-                | Some res ->
-                    state <- Some (snd res)
-                    yield res
-                | None -> ()
-        }
-       
-    let resumeOrStart state (g: Gen<_,_,_>) = resumeOrStartReader ignore state g
-    
-    let resumeReader getReaderValue state (g: Gen<_,_,_>) =
-        resumeOrStartReader getReaderValue (Some state) g
-
-    let resume state (g: Gen<_,_,_>) = resumeReader ignore g
-
     let toStateSeqReader getReaderValue (g: Gen<_,_,_>) =
         resumeOrStartReader getReaderValue None g
     
@@ -60,6 +60,13 @@ module Gen =
 
     let toSeq (g: Gen<_,_,_>) = toSeqReader ignore g
 
+    let toListFx eff inputSeq =
+        inputSeq |> toSeqFx eff |> Seq.toList
+    
+    let toList count s =
+        let inputSeq = Seq.replicate count ()
+        inputSeq |> toListFx (Gen.toEff s)
+    
 
 module Seq =
     let toListN n s = s |> Seq.take n |> Seq.toList 

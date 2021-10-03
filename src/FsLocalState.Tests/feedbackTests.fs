@@ -2,7 +2,6 @@ module FeedbackTests
 
 open System
 open FsLocalState
-open FsLocalState.Tests
 open Xunit
 
 

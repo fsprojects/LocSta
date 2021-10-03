@@ -9,7 +9,6 @@ module BaseTests
 #endif
 
 open FsLocalState
-open FsLocalState.Tests
 
 open Xunit
 
@@ -47,7 +46,7 @@ module CounterTest =
             let! i = counterGen counterMin counterMax
             return i
         }
-        |> TestHelper.takeOnceGen sampleCount
+        |> Gen.toList sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
@@ -88,7 +87,7 @@ module CounterAndAccu =
             let! acc = accuFx i accuSeed
             return acc
         }
-        |> TestHelper.takeOnceGen sampleCount
+        |> Gen.toList sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
