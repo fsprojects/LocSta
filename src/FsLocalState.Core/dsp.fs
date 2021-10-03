@@ -1,4 +1,4 @@
-﻿module FsLocalState.Dsp
+﻿module FsLocalState.Lib.Dsp.Gen
 
 open FsLocalState
 open System
@@ -23,7 +23,7 @@ module Envelopes =
 
     /// An Envelope follower (tc: [0.0 .. 1.0])
     let follow timeConstant release (input: float) =
-        (0.0, Following)
+        Seed (0.0, Following)
         => fun state _ -> gen {
             let lastValue, lastMode = state
             let lastMode' = if release then Releasing 1000 else lastMode
@@ -80,14 +80,10 @@ module Filter =
     *)
     
     let private biQuadBase (filterParams: BiQuadParams) (calcCoeffs: Env -> BiQuadCoeffs) input =
-        fun state env ->
-            // seed: if we are run the first time, use default values for lastParams+lastCoeffs
-            let lastParams, lastCoeffs =
-                match state with
-                | None ->
-                    (filterParams, calcCoeffs env)
-                | Some t -> t
-
+        // seed: if we are run the first time, use default values for lastParams+lastCoeffs
+        SeedLazy (fun env -> filterParams, calcCoeffs env)
+        => fun state env -> gen {
+            let lastParams, lastCoeffs = state
             // calc the coeffs new if filter params have changed
             let coeffs =
                 match lastParams = filterParams with
@@ -99,7 +95,7 @@ module Filter =
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
             Some (o, (filterParams, newCoeffs))
-        |> Gen.create
+        }
 
 
     let lowPassDef =

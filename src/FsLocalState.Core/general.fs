@@ -1,5 +1,5 @@
 ﻿[<AutoOpen>]
-module FsLocalState.Lib.Gen
+module FsLocalState.Lib.General.Gen
 
 open FsLocalState
 
@@ -20,7 +20,7 @@ let delay input =
         gen {
             return state, input
         }
-    |> Gen.feedback
+    |> Gen.feedbackValue
 
 /// Positive slope.
 let slopeP input =
@@ -32,7 +32,7 @@ let slopeP input =
                 | _ -> false
             return res, input
         }
-    |> Gen.feedback
+    |> Gen.feedbackValue
 
 /// Negative slope.
 let slopeN input =
@@ -44,7 +44,7 @@ let slopeN input =
                 | _ -> false
             return res, input
         }
-    |> Gen.feedback
+    |> Gen.feedbackValue
 
 // TODO
 // let toggle seed =
