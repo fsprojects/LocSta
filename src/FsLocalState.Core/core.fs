@@ -16,30 +16,9 @@ type StateAcc<'a, 'b> = { currState: 'a; subState: 'b }
 
 module Gen =
 
-    // --------
-    // Construction / Init
-    // --------
-
     let create f = Gen f
     
-    let initValue seed f =
-        fun s r ->
-            let state = Option.defaultValue seed s
-            f state r
-        |> create
-
-    let initWith seedFunc f =
-        fun s r ->
-            let state = Option.defaultWith seedFunc s
-            f state r
-        |> create
-
-    // -----
-    // Monad
-    // -----
-
-    let run gen =
-        let (Gen b) = gen in b
+    let run gen = let (Gen b) = gen in b
 
     let bind (f: 'o1 -> Gen<'o2, 's2, 'r>) (m: Gen<'o1, 's1, 'r>) : Gen<'o2, StateAcc<'s1, 's2>, 'r> =
         fun (s: StateAcc<'s1, 's2> option) r ->
@@ -54,6 +33,12 @@ module Gen =
                 | Some f' -> Some (fst f', { currState = snd m'; subState = snd f' })
                 | None -> None
             | None -> None
+        |> create
+    
+    let initState seed f =
+        fun s r ->
+            let state = Option.defaultValue seed s
+            f state r
         |> create
 
     let feedback
@@ -74,19 +59,15 @@ module Gen =
             | None -> None
         |> create
 
+    let feedbackState seed f = feedback f seed
+
     let ofValue x =
         fun _ _ -> Some (x, ())
         |> create
 
-    let ofFactory factory =
-        fun s _ ->
-            let instance = Option.defaultWith factory s
-            Some (instance, instance)
-        |> create
-
     let zero () =
         fun _ _ -> None
-        |> Gen
+        |> create
 
     // TODO: Who really needs that?
     //// TODO: Docu

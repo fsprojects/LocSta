@@ -1,41 +1,48 @@
+
+#if INTERACTIVE
+#r "./bin/Debug/netcoreapp3.1/FsLocalState.dll"
+#r "nuget: Xunit"
+#r "nuget: FsCheck.Xunit"
+#load "./testHelper.fs"
+#else
 module BaseTests
+#endif
 
 open FsLocalState
 open FsLocalState.Tests
 
 open Xunit
 
+[<AutoOpen>]
+module General =
+    /// The type of the reader state fot the tests - here, unit.
+    type Env = unit
 
-/// The type of the reader state fot the tests - here, unit.
-type Env = unit
+    /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
+    /// When max is reached, counting begins with min again.
+    let counterGen exclMin inclMax =
+        fun state _ ->
+            gen {
+                let newValue = (if state = inclMax then exclMin else state) + 1
+                return newValue, newValue
+            }
+        |> Gen.feedbackState exclMin
 
-/// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
-/// When max is reached, counting begins with min again.
-let counterGen exclMin inclMax =
-    fun state _ ->
-        gen {
-            let newValue = (if state = inclMax then exclMin else state) + 1
-            return newValue, newValue
-        }
-    |> Gen.feedback <| exclMin
+    /// An accumulator function summing up incoming values, starting with the given seed.
+    let accuFx value =
+        fun state _ ->
+            gen {
+                let newValue = state + value
+                return newValue, newValue
+            }
+        |> Gen.feedback
 
-/// An accumulator function summing up incoming values, starting with the given seed.
-let accuFx value =
-    fun state _ ->
-        gen {
-            let newValue = state + value
-            return newValue, newValue
-        }
-    |> Gen.feedback
+module CounterTest =
 
-let counterMin = 0
-let counterMax = 20
-
-let accuSeed = 0
-
-let sampleCount = 1000
-
-module Counter =
+    let counterMin = 0
+    let counterMax = 20
+    let accuSeed = 0
+    let sampleCount = 1000
 
     let counted =
         gen {
@@ -72,10 +79,15 @@ module Counter =
 
 module CounterAndAccu =
 
+    let counterMin = 0
+    let counterMax = 20
+    let accuSeed = 0
+    let sampleCount = 1000
+
     let accumulated =
         gen {
             let! i = counterGen counterMin counterMax
-            let! acc = accuFx accuSeed i
+            let! acc = accuFx i accuSeed
             return acc
         }
         |> TestHelper.takeOnceGen sampleCount

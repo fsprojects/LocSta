@@ -23,28 +23,23 @@ module Envelopes =
 
     /// An Envelope follower (tc: [0.0 .. 1.0])
     let follow timeConstant release (input: float) =
-
-        let seedValue = 0.0
-        let seed = (seedValue, Following)
-        
-        fun state _ ->
-            gen {
-                let lastValue, lastMode = state
-                let lastMode' = if release then Releasing 1000 else lastMode
+        (0.0, Following)
+        => fun state _ -> gen {
+            let lastValue, lastMode = state
+            let lastMode' = if release then Releasing 1000 else lastMode
                 
-                let target,newMode =
-                    match lastMode' with
-                    | Following -> input, Following
-                    | Releasing remaining ->
-                        let x = remaining - 1
-                        (0.0, if x = 0 then Following else Releasing x)
+            let target,newMode =
+                match lastMode' with
+                | Following -> input, Following
+                | Releasing remaining ->
+                    let x = remaining - 1
+                    (0.0, if x = 0 then Following else Releasing x)
 
-                let diff = lastValue - target
-                let out = lastValue - diff * timeConstant
+            let diff = lastValue - target
+            let out = lastValue - diff * timeConstant
                 
-                return out, (out, newMode)
-            }
-        |> Gen.feedback
+            return out, (out, newMode)
+        }
 
     /// An Attack-Release envelope (a, r: [0.0 .. 1.0])
     let ar attack release trigger resetTrigger =
@@ -83,7 +78,7 @@ module Filter =
         These implementations are based on http://www.earlevel.com/main/2011/01/02/biquad-formulas/
         and on https://raw.githubusercontent.com/filoe/cscore/master/CSCore/DSP
     *)
-
+    
     let private biQuadBase (filterParams: BiQuadParams) (calcCoeffs: Env -> BiQuadCoeffs) input =
         fun state env ->
             // seed: if we are run the first time, use default values for lastParams+lastCoeffs
@@ -302,13 +297,13 @@ module Osc =
         fun (state: Random) _ ->
             let v = state.NextDouble()
             Some (v, state)
-        |> Gen.initValue (Random())
+        |> Gen.initState (Random())
 
     let private osc (frq: float) f =
         fun angle (env: Env) ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
             Some (f newAngle, newAngle)
-        |> Gen.initValue 0.0
+        |> Gen.initState 0.0
 
     let sin (frq: float) = osc frq Math.Sin
     
