@@ -7,15 +7,15 @@ let getValue = fst
 let getValues s = s |> Seq.map getValue
 
 
-module Eff =
-    // TODO: same pettern (resumeOrStart, etc.) as in Gen
+module Gen =
+    // TODO: same pettern (resumeOrStart, etc.) as in Gen also for Fx
         
-    let toSeqWithState getReaderValue (localWithInput: Eff<'i, 'o, 's, 'r>) =
+    let toStateSeqReaderFx (getReaderValue: int -> 'r) (eff: Eff<_,_,_,'r>) =
         let mutable lastState = None
         fun inputValues ->
             seq {
                 for i,v in inputValues |> Seq.indexed do
-                    let local = localWithInput v |> Gen.run
+                    let local = eff v |> Gen.run
                     match local lastState (getReaderValue i) with
                     | Some res ->
                         lastState <- Some (snd res)
@@ -23,14 +23,16 @@ module Eff =
                     | None -> ()
             }
 
-    let toSeq getReaderValue (localWithInput: Eff<_, _, _, _>) =
-        let evaluable = toSeqWithState getReaderValue localWithInput
+    let toStateSeqFx (eff: Eff<_,_,_,_>) = toStateSeqReaderFx ignore eff
+
+    let toSeqReaderFx  (getReaderValue: int -> 'r) (eff: Eff<_,_,_,'r>) =
+        let evaluable = toStateSeqReaderFx getReaderValue eff
         fun inputValues -> evaluable inputValues |> getValues
-
-
-module Gen =
-    let resumeOrStart getReaderValue state (x: Gen<'v, 's, 'r>) =
-        let f = Gen.run x
+    
+    let toSeqFx (eff: Eff<_,_,_,_>) = toSeqReaderFx ignore eff
+    
+    let resumeOrStartReader getReaderValue state (g: Gen<_,_,_>) =
+        let f = Gen.run g
         let mutable state = state
         seq {
             while true do
@@ -40,15 +42,23 @@ module Gen =
                     yield res
                 | None -> ()
         }
-        
-    let resume getReaderValue state (x: Gen<'v, 's, 'r>) =
-        resumeOrStart getReaderValue (Some state) x
+       
+    let resumeOrStart state (g: Gen<_,_,_>) = resumeOrStartReader ignore state g
+    
+    let resumeReader getReaderValue state (g: Gen<_,_,_>) =
+        resumeOrStartReader getReaderValue (Some state) g
 
-    let toSeqWithState getReaderValue (x: Gen<'v, 's, 'r>) =
-        resumeOrStart getReaderValue None x
-            
-    let toSeq getReaderValue (x: Gen<'v, 's, 'r>) =
-        toSeqWithState getReaderValue x |> Seq.map fst
+    let resume state (g: Gen<_,_,_>) = resumeReader ignore g
+
+    let toStateSeqReader getReaderValue (g: Gen<_,_,_>) =
+        resumeOrStartReader getReaderValue None g
+    
+    let toStateSeq (g: Gen<_,_,_>) = toStateSeqReader ignore g
+    
+    let toSeqReader getReaderValue (g: Gen<_,_,_>) =
+        toStateSeqReader getReaderValue g |> Seq.map fst
+
+    let toSeq (g: Gen<_,_,_>) = toSeqReader ignore g
 
 
 module Seq =

@@ -117,7 +117,7 @@ module DiscardingNone =
                 if input % 2 = 0 then
                     return input
             }
-            |> Eff.toSeq id
+            |> Gen.toSeqFx
                             
         let res = [ 1; 2; 3; 4; 5; 6 ] |> onlyEvenValues |> Seq.toList
         let isTrue = res = [ 2; 4; 6 ]

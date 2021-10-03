@@ -113,7 +113,7 @@ module Gen =
             | None -> ()
         }
 
-    let apply (xGen: Gen<'v1, _, 'r>) (fGen: Gen<'v1 -> 'v2, _, 'r>) : Gen<'v2, _, 'r> =
+    let apply (xGen: Gen<'o1, _, 'r>) (fGen: Gen<'o1 -> 'o2, _, 'r>) : Gen<'o2, _, 'r> =
         gen {
             let! l' = xGen
             let! f' = fGen

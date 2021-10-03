@@ -69,13 +69,13 @@ open FsLocalState.Operators
 
 ### Generators and Effects
 
-Generator functions are the core part of FsLocalState. They are represented by the `Gen<'value, 'state, 'reader>` type.
-They that have a state as input and a (value * state) as output:
+Generator functions are the core part of FsLocalState. They are represented by the `Gen<'output, 'state, 'reader>` type.
+They that have a state as input and a ('output * 'state) as result:
 
 
                         +-------------+
                         |             |
-                        |             +---------> 'value
+                        |             +---------> 'output
           'reader +---->|     Gen     |
            'state +---->+             +-----+
                   |     |             |     |
@@ -140,7 +140,7 @@ Note that:
 #### Effects
 
 - Generator functions themselves have only a state as input.
-  - They have the signature: `'state option -> 'reader -> Res<'value, 'state>`.
+  - They have the signature: `'state option -> 'reader -> Res<'output, 'state>`.
 - The generator function can be wrapped inside another function (here called _constructor functions_) that takes one or more input parameters.
   - Here: We have a single `seed` parameter.
 - The characteristics of these input parameters can be const-like (like *seed* above), or it can be a value that gets transformed.

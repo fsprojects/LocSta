@@ -2,10 +2,9 @@
 
 open FsLocalState
 
-let takeOnceEff inputSeq s =
-    (Eff.toSeq ignore s) inputSeq |> Seq.toList
+let takeOnceEff eff inputSeq =
+    inputSeq |> Gen.toSeqFx eff |> Seq.toList
 
 let takeOnceGen count s =
     let inputSeq = Seq.replicate count ()
-    takeOnceEff inputSeq (Gen.toEff s)
-   
+    inputSeq |> takeOnceEff (Gen.toEff s)
