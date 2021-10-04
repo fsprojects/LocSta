@@ -14,10 +14,6 @@ type Eff<'input, 'output, 'state, 'reader> =
 [<Struct>]
 type StateAcc<'a, 'b> = { currState: 'a; subState: 'b }
 
-[<Struct>]
-type Seed<'s, 'r> =
-    | Seed of state: 's
-    | SeedLazy of getState: ('r -> 's)
 
 module Gen =
 
@@ -50,18 +46,13 @@ module Gen =
 
     let feedbackOp
         (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
-        (seed: Seed<'workingState, 'r>)
+        (seed: 'workingState)
         : Gen<'output, 'workingState * 'innerState option, 'r>
         =
         fun (s: ('workingState * 'innerState option) option) (r: 'r) ->
             let feedbackState, innerState =
                 match s with
-                | None ->
-                    let seed =
-                        match seed with
-                        | Seed s -> s
-                        | SeedLazy f -> f r
-                    seed,None
+                | None -> seed, None
                 | Some (my, inner) -> my, inner
             match run (f feedbackState r) innerState r with
             | Some res ->
@@ -70,9 +61,6 @@ module Gen =
                 Some (fst feed, (snd feed, Some innerState))
             | None -> None
         |> create
-
-    let feedbackSeed f seed = feedbackOp f (Seed seed)
-    let feedbackLazy f seed = feedbackOp f (SeedLazy seed)
 
     let ofValue x =
         fun _ _ -> Some (x, ())

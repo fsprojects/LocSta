@@ -23,7 +23,7 @@ module Envelopes =
 
     /// An Envelope follower (tc: [0.0 .. 1.0])
     let follow timeConstant release (input: float) =
-        Seed (0.0, Following)
+        (0.0, Following)
         => fun state _ -> gen {
             let lastValue, lastMode = state
             let lastMode' = if release then Releasing 1000 else lastMode
@@ -58,7 +58,8 @@ module Filter =
           b1: float
           b2: float
           z1: float
-          z2: float }
+          z2: float } with
+          static member Zero = Unchecked.defaultof<BiQuadCoeffs>
 
     type BiQuadParams =
         { q: float
@@ -81,9 +82,8 @@ module Filter =
     
     let private biQuadBase (filterParams: BiQuadParams) (calcCoeffs: Env -> BiQuadCoeffs) input =
         // seed: if we are run the first time, use default values for lastParams+lastCoeffs
-        SeedLazy (fun env -> filterParams, calcCoeffs env)
-        => fun state env -> gen {
-            let lastParams, lastCoeffs = state
+        (filterParams, BiQuadCoeffs.Zero)
+        => fun (lastParams, lastCoeffs) env -> gen {
             // calc the coeffs new if filter params have changed
             let coeffs =
                 match lastParams = filterParams with
