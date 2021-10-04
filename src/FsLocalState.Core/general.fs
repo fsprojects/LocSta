@@ -10,21 +10,20 @@ let countFrom<'a> inclusiveStart increment =
         Some (newValue, newValue)
     |> Gen.create
 
-let count0<'a> = countFrom<'a> 0 1
+let count01<'a> = countFrom<'a> 0 1
 
 // TODO: countFloat
 
 /// Delays a given value by 1 cycle.
-let delay input =
-    fun state _ ->
+let delay input seed =
+    seed => fun state _ ->
         gen {
             return state, input
         }
-    |> Gen.feedbackSeed
 
 /// Positive slope.
-let slopeP input =
-    fun state _ ->
+let slopeP input seed =
+    seed => fun state _ ->
         gen {
             let res =
                 match state, input with
@@ -32,11 +31,10 @@ let slopeP input =
                 | _ -> false
             return res, input
         }
-    |> Gen.feedbackSeed
 
 /// Negative slope.
-let slopeN input =
-    fun state _ ->
+let slopeN input seed =
+    seed => fun state _ ->
         gen {
             let res =
                 match state, input with
@@ -44,7 +42,6 @@ let slopeN input =
                 | _ -> false
             return res, input
         }
-    |> Gen.feedbackSeed
 
 // TODO
 // let toggle seed =

@@ -20,19 +20,18 @@ module General =
     /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
     /// When max is reached, counting begins with min again.
     let counterGen exclMin inclMax =
-        Seed exclMin => fun state _ -> gen {
+        exclMin => fun state _ -> gen {
             let newValue = (if state = inclMax then exclMin else state) + 1
             return newValue, newValue
         }
 
     /// An accumulator function summing up incoming values, starting with the given seed.
-    let accuFx value =
-        fun state _ ->
+    let accuFx value seed =
+        seed => fun state _ ->
             gen {
                 let newValue = state + value
                 return newValue, newValue
             }
-        |> Gen.feedbackSeed
 
 module CounterTest =
 

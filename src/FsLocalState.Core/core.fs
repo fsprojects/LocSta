@@ -44,9 +44,9 @@ module Gen =
             | None -> None
         |> create
 
-    let feedbackOp
-        (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
+    let feedback
         (seed: 'workingState)
+        (f: 'workingState -> 'r -> Gen<'output * 'workingState, 'innerState, 'r>)
         : Gen<'output, 'workingState * 'innerState option, 'r>
         =
         fun (s: ('workingState * 'innerState option) option) (r: 'r) ->
@@ -199,7 +199,7 @@ type Gen<'v, 's, 'r> with
 module Operators =
 
     /// Feedback with reader state
-    let (=>) seed f = Gen.feedbackOp f seed
+    let (=>) seed f = Gen.feedback seed f
 
     /// map operator
     let (<!>) gen projection = Gen.map projection gen
