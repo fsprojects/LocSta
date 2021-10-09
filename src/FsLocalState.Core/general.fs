@@ -11,45 +11,38 @@ module Gen =
         fun _ (_: 'a) -> Some (dotnetRandom.NextDouble(), ())
         |> Gen.create
 
-    let countFrom<'a> inclusiveStart increment =
+    let count<'a> inclusiveStart increment =
         fun s (_: 'a) ->
             let state = Option.defaultWith (fun () -> inclusiveStart - 1) s
             let newValue = state + increment
             Some (newValue, newValue)
         |> Gen.create
 
-    let count01<'a> = countFrom<'a> 0 1
+    let count_0_1<'a> = count<'a> 0 1
 
     // TODO: countFloat
 
     /// Delays a given value by 1 cycle.
     let delay input seed =
-        seed => fun state _ ->
-            gen {
-                return state, input
-            }
+        seed => fun state _ -> gen {
+            return state, input
+        }
 
     /// Positive slope.
-    let slopeP input seed =
-        seed => fun state _ ->
-            gen {
-                let res =
-                    match state, input with
-                    | false, true -> true
-                    | _ -> false
-                return res, input
-            }
+    let inline slopeP input seed =
+        seed => fun last _ -> gen {
+            let res = last < input
+            return res, input
+        }
 
     /// Negative slope.
-    let slopeN input seed =
-        seed => fun state _ ->
-            gen {
-                let res =
-                    match state, input with
-                    | true, false -> true
-                    | _ -> false
-                return res, input
-            }
+    let inline slopeN input seed =
+        seed => fun last _ -> gen {
+            let res = last < input
+            return res, input
+        }
+
+
 
     // TODO
     // let toggle seed =
