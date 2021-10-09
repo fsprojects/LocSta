@@ -8,12 +8,11 @@ type Gen<'output, 'state, 'reader> =
     | Gen of GenFunc<'output, 'state, 'reader>
 
 // TODO: seems to be impossible having a single case DU here?
-type Eff<'input, 'output, 'state, 'reader> =
+type Fx<'input, 'output, 'state, 'reader> =
     'input -> Gen<'output, 'state, 'reader>
 
 [<Struct>]
 type State<'a, 'b> = { currState: 'a; subState: 'b }
-
 
 module Gen =
 
@@ -23,11 +22,13 @@ module Gen =
     let create f = Gen f
     
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
-    let createSeed seed f =
+    let ofSeed f seed =
         fun s r ->
             let state = Option.defaultValue seed s
             f state r
         |> create
+
+    let ofSeed2 seed f = ofSeed seed f
 
     let bind (f: 'o1 -> Gen<'o2, 's2, 'r>) (m: Gen<'o1, 's1, 'r>) : Gen<'o2, State<'s1, 's2>, 'r> =
         fun (s: State<'s1, 's2> option) r ->
@@ -61,13 +62,38 @@ module Gen =
                 Some (fst feed, (snd feed, Some innerState))
             | None -> None
         |> create
+        
+    let zero () =
+        fun _ _ -> None
+        |> create
 
     let ofValue x =
         fun _ _ -> Some (x, ())
         |> create
+    
+    /// Transforms a generator function to an effect function.    
+    let toFx (gen: Gen<'s, 'r, 'o>) : Fx<unit, 's, 'r, 'o> =
+        fun () -> gen
 
-    let zero () =
-        fun _ _ -> None
+    let ofSeq (s: seq<_>) =
+        s.GetEnumerator()
+        |> ofSeed2 (fun enumerator r ->
+            match enumerator.MoveNext() with
+            | true -> Some (enumerator.Current, enumerator)
+            | false -> None
+        )
+
+    let ofList (l: list<_>) =
+        l
+        |> ofSeed2 (fun l r ->
+            match l with
+            | x::xs -> Some (x, xs)
+            | [] -> None
+        )
+
+    /// Reads the global state.
+    let read () =
+        fun _ r -> Some (r, ())
         |> create
 
     // TODO: other builder methods
@@ -113,9 +139,8 @@ module Gen =
 
     let map projection x =
         gen {
-            match! x with
-            | Some res -> return projection res
-            | None -> ()
+            let! res = x
+            return projection res
         }
 
     let apply (xGen: Gen<'o1, _, 'r>) (fGen: Gen<'o1 -> 'o2, _, 'r>) : Gen<'o2, _, 'r> =
@@ -131,31 +156,17 @@ module Gen =
     // Kleisli
     // -------
 
-    let kleisli (g: Eff<'a, 'b, _, _>) (f: Gen<'a, _, _>) : Gen<'b, _, _> =
+    let kleisli (g: Fx<'a, 'b, _, _>) (f: Gen<'a, _, _>) : Gen<'b, _, _> =
         gen {
             let! f' = f
             return! g f' 
         }
 
-    let kleisliFx (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
+    let kleisliFx (g: Fx<'b, 'c, _, _>) (f: Fx<'a, 'b, _, _>): Fx<'a, 'c, _, _> =
         fun x -> gen {
             let! f' = f x
             return! g f' 
         }
-
-    
-    // ------
-    // Others
-    // ------
-
-    /// Reads the global state.
-    let read () =
-        fun _ r -> Some (r, ())
-        |> create
-
-    /// Transforms a generator function to an effect function.    
-    let toEff (gen: Gen<'s, 'r, 'o>) : Eff<unit, 's, 'r, 'o> =
-        fun () -> gen
 
 
     // ----------
@@ -219,10 +230,11 @@ module Operators =
     /// Feedback with reader state
     let (=>) seed f = Gen.feedback seed f
 
-    /// Kleisli operator (eff >> eff)
+    /// Kleisli operator (fx >> fx)
     let (>=>) f g = Gen.kleisliFx g f
 
-    /// Kleisli "pipe" operator (gen >> eff)
+    /// Kleisli "pipe" operator (gen >> fx)
     let (|=>) f g = Gen.kleisli g f
 
 let gen<'a> = Gen.gen<'a>
+let genu = Gen.genu

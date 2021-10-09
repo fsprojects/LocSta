@@ -45,7 +45,7 @@ module CounterTest =
             let! i = counterGen counterMin counterMax
             return i
         }
-        |> Gen.Eval.toList sampleCount
+        |> Gen.toList sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
@@ -86,7 +86,7 @@ module CounterAndAccu =
             let! acc = accuFx i accuSeed
             return acc
         }
-        |> Gen.Eval.toList sampleCount
+        |> Gen.toList sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
@@ -115,7 +115,7 @@ module DiscardingNone =
                 if input % 2 = 0 then
                     return input
             }
-            |> Gen.Eval.toSeqFx
+            |> Gen.toSeqFx
                             
         let res = [ 1; 2; 3; 4; 5; 6 ] |> onlyEvenValues |> Seq.toList
         let isTrue = res = [ 2; 4; 6 ]

@@ -22,18 +22,20 @@ let monteCarlo =
 
 #time
 
+
+
 // evaluate pi
-let piSeq = monteCarlo |> Gen.toSeqWithState ignore
+let piSeq = monteCarlo |> Gen.toSeqState
 let pi, state = piSeq |> Seq.take 1_000_000 |> Seq.last
 
 printfn "pi ~= %f" pi
 
 // you can store state somewhere...
 // load it and resume (we take only 1 additional sample and still get close to pi):
-let resumedSeq = Gen.resume ignore state monteCarlo
+let resumedSeq = monteCarlo |> Gen.resume state
 let piResumed, stateResumed = piSeq |> Seq.take 10_000 |> Seq.last
 
 printfn "pi_more_accurate ~= %f" piResumed
 
 // ...or list all n incremental calculated values
-let values = monteCarlo |> Gen.toSeq ignore |> Seq.take 1000 |> Seq.toList
+let values = monteCarlo |> Gen.toList 1000

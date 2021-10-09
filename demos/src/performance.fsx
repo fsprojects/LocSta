@@ -1,12 +1,11 @@
-﻿﻿
+﻿
 #r "../../src/FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 
 open System
 open FsLocalState
 
-
 let countFrom seed increment =
-    (seed - 1) <|> fun state (_: unit) -> gen {
+    (seed - 1) => fun state (_: unit) -> gen {
         let newValue = state + increment
         return newValue, newValue
     }
@@ -15,17 +14,18 @@ let dummy1 =
     fun s (_: unit) ->
         let s = Option.defaultValue 0 s
         let v = s + 1
-        v, v
-    |> Gen
+        Some (v, v)
+    |> Gen.create
 
 let dummy2 =
-    fun s (_: unit) ->
+    0
+    |> Gen.ofSeed (fun s (_: unit) ->
         let v = s + 1
-        v, v
-    |> Gen.init 0
+        Some (v, v)
+    )
 
 let dummy3 =
-    0 <|> fun state (_: unit) -> gen {
+    0 => fun state (_: unit) -> gen {
         let v = state + 1
         return v, v
     }
@@ -57,6 +57,6 @@ let test3 =
 #time
 
 // evaluate pi
-let res1 = test1 |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
-let res2 = test2 |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
-let res3 = test3 |> Eval.Gen.toSeq ignore |> Seq.take 5_000_000 |> Seq.last
+let res1 = test1 |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last
+let res2 = test2 |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last
+let res3 = test3 |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last

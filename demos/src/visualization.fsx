@@ -1,22 +1,21 @@
 ﻿
-#r "nuget: XPlot.Plotly.dll"
+#r "nuget: XPlot.Plotly"
 #r "../../src/FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 
 open System
 open FsLocalState
-open FsLocalState.Operators
 open XPlot.Plotly
 
 
 let monteCarlo =
-    0 <|> fun lastInsideCount r -> gen {
+    0 => fun lastInsideCount r -> gen {
         let! samples = Gen.countFrom 1 1
-        let! x = Gen.random()
-        let! y = Gen.random()
+        let! x = Gen.random ()
+        let! y = Gen.random ()
         let distance = Math.Sqrt (x*x + y*y)
         let isInsideCircle = distance < 1.0
         // let! insideCount = isInsideCircle <?> count <!> lastInsideCount
-        let insideCount = if isInsideCircle then lastInsideCount + 1 else lastInsideCount
+        let insideCount = lastInsideCount + (if isInsideCircle then 1 else 0)
         let pi = 4.0 * float insideCount / float samples
         return pi, insideCount
     }
@@ -26,13 +25,14 @@ let monteCarlo =
 
 let numSamples = 2_000
 
-let piSeq = monteCarlo |> Gen.toSeq ignore
-let calculatedPi = piSeq |> Seq.toListN numSamples
-
+let calculatedPi = monteCarlo |> Gen.toList numSamples
 let constPi = List.init numSamples (fun _ -> Math.PI)
 
-[calculatedPi; constPi]
-|> List.map (fun s -> Scatter(y = s))
+[
+    calculatedPi
+    constPi
+]
+|> List.map (fun s -> Scatter (y = s))
 |> Chart.Plot
 |> Chart.WithId "Hurz"
 |> Chart.Show

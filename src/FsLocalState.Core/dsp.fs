@@ -290,16 +290,19 @@ module Filter =
 module Osc =
 
     let noise() =
-        fun (state: Random) _ ->
-            let v = state.NextDouble()
-            Some (v, state)
-        |> Gen.createSeed (Random())
+        Random()
+        |> Gen.ofSeed  (fun random _ ->
+            let v = random.NextDouble()
+            Some (v, random)
+        )
 
     let private osc (frq: float) f =
-        fun angle (env: Env) ->
+        0.0
+        |> Gen.ofSeed (fun angle (env: Env) ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
             Some (f newAngle, newAngle)
-        |> Gen.createSeed 0.0
+        )
+        
 
     let sin (frq: float) = osc frq Math.Sin
     
