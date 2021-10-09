@@ -70,21 +70,38 @@ module Gen =
         fun _ _ -> None
         |> create
 
-    // TODO: Who really needs that?
-    //// TODO: Docu
-    //// TODO: other builder methods
-    //type GenBuilderEx<'a>() =
-    //    member _.Bind(m: Gen<_, _, 'a>, f) = bind m f
-    //    member _.Return x = ret x 
-    //    member _.ReturnFrom x = x
-    //    member _.Zero () = zero ()
-
     // TODO: other builder methods
     type GenBuilder<'r>() =
-        member _.Bind (m: Gen<_, _, 'r>, f: _ -> Gen<_, _, 'r>) = bind f m
-        member _.Return x = ofValue x
-        member _.ReturnFrom x = x
-        member _.Zero () = zero ()
+        member this.Bind(m: Gen<_, _, 'r>, f: _ -> Gen<_, _, 'r>) = bind f m
+        member this.Return(x) = ofValue x
+        member this.ReturnFrom(x) = x
+        member this.Zero() = zero ()
+        member this.Yield (x) = this.Return(x)
+        member this.YieldFrom(x) = x
+        member this.Delay(f) = f
+        member this.Run(f) = f ()
+        //member this.While (guard, body) =
+        //    if not (guard()) 
+        //    then this.Zero() 
+        //    else
+        //        this.Bind(body(), fun () ->
+        //            this.While (guard, body))  
+        member this.TryWith (body, handler) =
+            try this.ReturnFrom(body())
+            with e -> handler e
+        member this.TryFinally (body, compensation) =
+            try this.ReturnFrom(body ())
+            finally compensation () 
+        member this.Using (disposable: #System.IDisposable, body) =
+            let body' = fun () -> body disposable
+            this.TryFinally(body', fun () -> 
+                match disposable with 
+                    | null -> () 
+                    | disp -> disp.Dispose())
+        //member this.For (sequence: seq<_>, body) =
+        //    this.Using(sequence.GetEnumerator(), fun enum -> 
+        //        this.While(enum.MoveNext, 
+        //            this.Delay(fun () -> body enum.Current)))
 
     let gen<'a> = GenBuilder<'a>()
     let genu = GenBuilder<Unit>()
@@ -140,11 +157,6 @@ module Gen =
     let toEff (gen: Gen<'s, 'r, 'o>) : Eff<unit, 's, 'r, 'o> =
         fun () -> gen
 
-    // TODO: Implement a random number generator that exposes it's serializable state.
-    let private dotnetRandom = System.Random()
-    let random<'a> () =
-        fun _ (_: 'a) -> Some (dotnetRandom.NextDouble(), ())
-        |> create
 
     // ----------
     // Arithmetik

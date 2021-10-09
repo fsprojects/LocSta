@@ -3,11 +3,10 @@
 
 open System
 open FsLocalState
-open FsLocalState.Operators
 
 
 let monteCarlo =
-    0 <|> fun lastInsideCount (_: unit) -> gen {
+    0 => fun lastInsideCount (_: unit) -> gen {
         let! samples = Gen.countFrom 1 1
         let! x = Gen.random()
         let! y = Gen.random()

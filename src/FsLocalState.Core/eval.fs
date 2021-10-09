@@ -1,5 +1,4 @@
-﻿[<AutoOpen>]
-module FsLocalState.Gen.Eval
+﻿module FsLocalState.Gen.Eval
 
 open FsLocalState
     
