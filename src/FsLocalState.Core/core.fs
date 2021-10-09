@@ -12,7 +12,7 @@ type Eff<'input, 'output, 'state, 'reader> =
     'input -> Gen<'output, 'state, 'reader>
 
 [<Struct>]
-type StateAcc<'a, 'b> = { currState: 'a; subState: 'b }
+type State<'a, 'b> = { currState: 'a; subState: 'b }
 
 
 module Gen =
@@ -29,8 +29,8 @@ module Gen =
             f state r
         |> create
 
-    let bind (f: 'o1 -> Gen<'o2, 's2, 'r>) (m: Gen<'o1, 's1, 'r>) : Gen<'o2, StateAcc<'s1, 's2>, 'r> =
-        fun (s: StateAcc<'s1, 's2> option) r ->
+    let bind (f: 'o1 -> Gen<'o2, 's2, 'r>) (m: Gen<'o1, 's1, 'r>) : Gen<'o2, State<'s1, 's2>, 'r> =
+        fun (s: State<'s1, 's2> option) r ->
             let unpackedLocalState =
                 match s with
                 | None -> { currState = None; subState = None }
