@@ -120,6 +120,12 @@ module Gen =
             return! g f' 
         }
 
+    let kleisliFx (g: Eff<'b, 'c, _, _>) (f: Eff<'a, 'b, _, _>): Eff<'a, 'c, _, _> =
+        fun x -> gen {
+            let! f' = f x
+            return! g f' 
+        }
+
     
     // ------
     // Others
@@ -201,14 +207,8 @@ module Operators =
     /// Feedback with reader state
     let (=>) seed f = Gen.feedback seed f
 
-    /// map operator
-    let (<!>) gen projection = Gen.map projection gen
-
-    /// apply operator
-    let (<*>) fGen xGen = Gen.apply xGen fGen
-
     /// Kleisli operator (eff >> eff)
-    let (>=>) f g = Gen.kleisli g f
+    let (>=>) f g = Gen.kleisliFx g f
 
     /// Kleisli "pipe" operator (gen >> eff)
     let (|=>) f g = Gen.kleisli g f
