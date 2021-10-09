@@ -20,9 +20,7 @@ $packPath = "./.pack"
 dotnet pack ./src/FsLocalState.Core/FsLocalState.fsproj -o $packPath -c Release
 success
 
-cd $packPath
+$packageName = Get-ChildItem "$packPath/*.nupkg" | Sort-Object desc | select-object -first 1
 
-$packageName = Get-ChildItem "*.nupkg" | Sort-Object asc | select-object -first 1
-
-dotnet nuget push $packageName.Name -k $nugetKey -s $nugetServer
+dotnet nuget push "$packageName" -k $nugetKey -s $nugetServer
 success
