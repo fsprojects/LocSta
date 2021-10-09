@@ -8,8 +8,8 @@ open XPlot.Plotly
 
 
 let monteCarlo =
-    0 => fun lastInsideCount r -> gen {
-        let! samples = Gen.countFrom 1 1
+    0 => fun lastInsideCount -> gen {
+        let! samples = Gen.count 1 1
         let! x = Gen.random ()
         let! y = Gen.random ()
         let distance = Math.Sqrt (x*x + y*y)

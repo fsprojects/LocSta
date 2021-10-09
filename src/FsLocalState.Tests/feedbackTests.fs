@@ -11,13 +11,13 @@ type Env = unit
  /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
  /// When max is reached, counting begins with min again.
 let counterGen exclMin inclMax =
-    exclMin => fun state (env: Env) -> gen {
+    exclMin => fun state -> gen {
         let newValue = 1 + (if state = inclMax then exclMin else state)
         return newValue, newValue
     }
 
 let network seed counterMin counterMax =
-    seed => fun state (env: Env) ->
+    seed => fun state ->
          gen {
              let! i = counterGen counterMin counterMax
              let newValue = state + i

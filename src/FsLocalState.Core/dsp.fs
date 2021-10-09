@@ -24,7 +24,7 @@ module Envelopes =
     /// An Envelope follower (tc: [0.0 .. 1.0])
     let follow timeConstant release (input: float) =
         (0.0, Following)
-        => fun state _ -> gen {
+        => fun state -> gen {
             let lastValue, lastMode = state
             let lastMode' = if release then Releasing 1000 else lastMode
                 
@@ -80,10 +80,10 @@ module Filter =
         and on https://raw.githubusercontent.com/filoe/cscore/master/CSCore/DSP
     *)
     
-    let private biQuadBase (filterParams: BiQuadParams) (calcCoeffs: Env -> BiQuadCoeffs) input =
+    let private biQuadBase (env: Env) (filterParams: BiQuadParams) (calcCoeffs: Env -> BiQuadCoeffs) input =
         // seed: if we are run the first time, use default values for lastParams+lastCoeffs
         (filterParams, BiQuadCoeffs.Zero)
-        => fun (lastParams, lastCoeffs) env -> gen {
+        => fun (lastParams, lastCoeffs) -> gen {
             // calc the coeffs new if filter params have changed
             let coeffs =
                 match lastParams = filterParams with
@@ -103,7 +103,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let lowPass (p: BiQuadParams) input =
+    let lowPass (env: Env) (p: BiQuadParams) input =
         let calcCoeffs (env: Env) =
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
             let norm = 1.0 / (1.0 + k / p.q + k * k)
@@ -118,7 +118,7 @@ module Filter =
                   a2 = a2
                   b1 = b1
                   b2 = b2 }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
     let bandPassDef =
@@ -126,7 +126,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let bandPass (p: BiQuadParams) input =
+    let bandPass (env: Env) (p: BiQuadParams) input =
         let calcCoeffs (env: Env) =
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
             let norm = 1.0 / (1.0 + k / p.q + k * k)
@@ -141,7 +141,7 @@ module Filter =
                   a2 = a2
                   b1 = b1
                   b2 = b2 }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
     let highShelfDef =
@@ -149,7 +149,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let highShelf (p: BiQuadParams) input =
+    let highShelf (env: Env) (p: BiQuadParams) input =
         let calcCoeffs (env: Env) =
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
             let v = Math.Pow(10.0, Math.Abs(p.gain) / 20.0)
@@ -172,7 +172,7 @@ module Filter =
                       a2 = (1.0 - Const.sqrt2 * k + k * k) * norm
                       b1 = 2.0 * (k * k - v) * norm
                       b2 = (v - Math.Sqrt(2.0 * v) * k + k * k) * norm }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
     let hishPassDef =
@@ -180,7 +180,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let highPass (p: BiQuadParams) input =
+    let highPass (env: Env) (p: BiQuadParams) input =
         let calcCoeffs (env: Env) =
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
             let norm = 1.0 / (1.0 + k / p.q + k * k)
@@ -195,7 +195,7 @@ module Filter =
                   a2 = a2
                   b1 = b1
                   b2 = b2 }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
     let lowShelfDef =
@@ -203,7 +203,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let lowShelf (p: BiQuadParams) input =
+    let lowShelf (env: Env) (p: BiQuadParams) input =
         let calcCoeffs (env: Env) =
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
             let v = Math.Pow(10.0, Math.Abs(p.gain) / 20.0)
@@ -226,7 +226,7 @@ module Filter =
                       a2 = (1.0 - Const.sqrt2 * k + k * k) * norm
                       b1 = 2.0 * (v * k * k - 1.0) * norm
                       b2 = (1.0 - Math.Sqrt(2.0 * v) * k + v * k * k) * norm }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
     let notchDef =
@@ -234,7 +234,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let notch (p: BiQuadParams)  input=
+    let notch (env: Env) (p: BiQuadParams)  input=
         let calcCoeffs (env: Env) =
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
             let norm = 1.0 / (1.0 + k / p.q + k * k)
@@ -249,7 +249,7 @@ module Filter =
                   a2 = a2
                   b1 = b1
                   b2 = b2 }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
     let peakDef =
@@ -257,7 +257,7 @@ module Filter =
           q = 1.0
           gain = 0.0 }
 
-    let peak (p: BiQuadParams) input =
+    let peak (env: Env) (p: BiQuadParams) input =
         let calcCoeffs (env: Env) =
             let v = Math.Pow(10.0, Math.Abs(p.gain) / 20.0)
             let k = Math.Tan(Const.pi * p.frq / float env.sampleRate)
@@ -283,7 +283,7 @@ module Filter =
                       a2 = (1.0 - 1.0 / l) * norm
                       b1 = a1
                       b2 = (1.0 - v / l) * norm }
-        biQuadBase p calcCoeffs input
+        biQuadBase env p calcCoeffs input
 
 
 // TODO: phase
@@ -291,29 +291,29 @@ module Osc =
 
     let noise() =
         Random()
-        |> Gen.ofSeed  (fun random _ ->
+        |> Gen.ofSeed  (fun random ->
             let v = random.NextDouble()
             Some (v, random)
         )
 
-    let private osc (frq: float) f =
+    let private osc (env: Env) (frq: float) f =
         0.0
-        |> Gen.ofSeed (fun angle (env: Env) ->
+        |> Gen.ofSeed (fun angle ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
             Some (f newAngle, newAngle)
         )
         
 
-    let sin (frq: float) = osc frq Math.Sin
+    let sin (env: Env) (frq: float) = osc env frq Math.Sin
     
-    let saw (frq: float) = osc frq (fun angle -> 1.0 - (1.0 / Const.pi * angle))
+    let saw (env: Env) (frq: float) = osc env frq (fun angle -> 1.0 - (1.0 / Const.pi * angle))
 
-    let tri (frq: float) =
-        osc frq (fun angle ->
+    let tri (env: Env) (frq: float) =
+        osc env frq (fun angle ->
             if angle < Const.pi then -1.0 + (2.0 / Const.pi) * angle
             else 3.0 - (2.0 / Const.pi) * angle)
 
-    let square (frq: float) =
-        osc frq (fun angle ->
+    let square (env: Env) (frq: float) =
+        osc env frq (fun angle ->
             if angle < Const.pi then 1.0
             else -1.0)

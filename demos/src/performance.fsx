@@ -1,17 +1,10 @@
 ﻿
 #r "../../src/FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 
-open System
 open FsLocalState
 
-let countFrom seed increment =
-    (seed - 1) => fun state (_: unit) -> gen {
-        let newValue = state + increment
-        return newValue, newValue
-    }
-
 let dummy1 =
-    fun s (_: unit) ->
+    fun s ->
         let s = Option.defaultValue 0 s
         let v = s + 1
         Some (v, v)
@@ -19,13 +12,13 @@ let dummy1 =
 
 let dummy2 =
     0
-    |> Gen.ofSeed (fun s (_: unit) ->
+    |> Gen.ofSeed (fun s ->
         let v = s + 1
         Some (v, v)
     )
 
 let dummy3 =
-    0 => fun state (_: unit) -> gen {
+    0 => fun state -> gen {
         let v = state + 1
         return v, v
     }
