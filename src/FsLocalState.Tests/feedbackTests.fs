@@ -38,7 +38,7 @@ module Counter =
         gen {
             let! i = counterGen counterMin counterMax
             return i } 
-        |> Gen.toList sampleCount
+        |> Gen.toListn sampleCount
 
     [<Fact>]
     let ``Sample count`` () =

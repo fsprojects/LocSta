@@ -45,5 +45,8 @@ module Gen =
     let toListFx fx inputSeq =
         inputSeq |> toSeqFx fx |> Seq.toList
     
-    let toList count gen =
+    let toList gen =
+        toSeq gen |> Seq.toList
+    
+    let toListn count gen =
         toSeq gen |> Seq.truncate count |> Seq.toList

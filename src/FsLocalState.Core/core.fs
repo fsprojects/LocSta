@@ -45,21 +45,23 @@ module Gen =
             | None -> None
         |> create
 
+    type FeedbackState<'mine, 'inner> = { mine: 'mine; inner: 'inner option }
+
     let feedback
         (seed: 'workingState)
         (f: 'workingState -> Gen<'output * 'workingState, 'innerState>)
-        : Gen<'output, 'workingState * 'innerState option>
+        : Gen<'output, FeedbackState<'workingState, 'innerState>>
         =
-        fun (s: ('workingState * 'innerState option) option) ->
+        fun (s: FeedbackState<'workingState, 'innerState> option) ->
             let feedbackState, innerState =
                 match s with
                 | None -> seed, None
-                | Some (my, inner) -> my, inner
+                | Some { mine = mine; inner = inner } -> mine, inner
             match run (f feedbackState) innerState with
             | Some res ->
                 let feed = fst res
                 let innerState = snd res
-                Some (fst feed, (snd feed, Some innerState))
+                Some (fst feed, { mine = snd feed; inner = Some innerState })
             | None -> None
         |> create
         
@@ -97,10 +99,10 @@ module Gen =
         member this.Return(x) = ofValue x
         member this.ReturnFrom(x) = x
         member this.Zero() = zero ()
-        member this.Yield (x) = this.Return(x)
+        member this.Yield(x) = this.Return(x)
         member this.YieldFrom(x) = x
-        member this.Delay(f) = f
-        member this.Run(f) = f ()
+        //member this.Delay(f) = f
+        //member this.Run(f) = f ()
         //member this.While (guard, body) =
         //    if not (guard()) 
         //    then this.Zero() 
@@ -131,11 +133,18 @@ module Gen =
     // map / apply
     // --------
 
-    let map projection x =
-        gen {
-            let! res = x
-            return projection res
-        }
+    //let map projection x =
+    //    gen {
+    //        let! res = x
+    //        return projection res
+    //    }
+
+    let map (projection: 'a -> 'b) (x: Gen<'a, 's>) : Gen<'b, 's> =
+        fun state ->
+            match (run x) state with
+            | Some (x', state) -> Some (projection x', state)
+            | None -> None
+        |> create
 
     let apply (xGen: Gen<'o1, _>) (fGen: Gen<'o1 -> 'o2, _>) : Gen<'o2, _> =
         gen {

@@ -45,7 +45,7 @@ module CounterTest =
             let! i = counterGen counterMin counterMax
             return i
         }
-        |> Gen.toList sampleCount
+        |> Gen.toListn sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
@@ -86,7 +86,7 @@ module CounterAndAccu =
             let! acc = accuFx i accuSeed
             return acc
         }
-        |> Gen.toList sampleCount
+        |> Gen.toListn sampleCount
 
     [<Fact>]
     let ``Sample count`` () =
