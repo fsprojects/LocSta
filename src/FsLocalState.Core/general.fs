@@ -8,25 +8,25 @@ module Gen =
     // TODO: Implement a random number generator that exposes it's serializable state.
     let private dotnetRandom = System.Random()
     let random () =
-        fun _ -> Some (dotnetRandom.NextDouble(), ())
+        fun _ -> Value (dotnetRandom.NextDouble(), ())
         |> Gen.create
 
     let count inclusiveStart increment =
         fun s ->
             let state = Option.defaultWith (fun () -> inclusiveStart - 1) s
             let newValue = state + increment
-            Some (newValue, newValue)
+            Value (newValue, newValue)
         |> Gen.create
 
     let count_0_1 = count 0 1
 
     // TODO: countFloat
 
-    /// Delays a given value by 1 cycle.
-    let delay input seed =
-        seed => fun state -> gen {
-            return state, input
-        }
+    ///// Delays a given value by 1 cycle.
+    //let delay input seed =
+    //    seed => fun state -> gen {
+    //        return state, input
+    //    }
 
     /// Positive slope.
     let inline slopeP input seed =

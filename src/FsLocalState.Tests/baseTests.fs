@@ -12,6 +12,8 @@ open FsLocalState
 
 open Xunit
 
+
+
 [<AutoOpen>]
 module General =
     /// The type of the reader state fot the tests - here, unit.
@@ -20,18 +22,17 @@ module General =
     /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
     /// When max is reached, counting begins with min again.
     let counterGen exclMin inclMax =
-        exclMin => fun state -> gen {
+        exclMin |> Gen.ofSeed (fun state ->
             let newValue = (if state = inclMax then exclMin else state) + 1
-            return newValue, newValue
-        }
+            Value (newValue, newValue)
+        )
 
     /// An accumulator function summing up incoming values, starting with the given seed.
     let accuFx value seed =
-        seed => fun state ->
-            gen {
-                let newValue = state + value
-                return newValue, newValue
-            }
+        seed |> Gen.ofSeed (fun state ->
+            let newValue = state + value
+            Value (newValue, newValue)
+        )
 
 module CounterTest =
 
@@ -110,13 +111,18 @@ module DiscardingNone =
     
     [<Fact>]
     let filterByNone () =
-        let onlyEvenValues =
-            fun input -> gen {
+        let onlyEvenValues input =
+            gen {
+                printfn $"Value = {input}"
                 if input % 2 = 0 then
                     return input
             }
-            |> Gen.toSeqFx
                             
-        let res = [ 1; 2; 3; 4; 5; 6 ] |> onlyEvenValues |> Seq.toList
+        let res = 
+            [ 1; 2; 3; 4; 5; 6 ]
+            |> Gen.ofList
+            |> Gen.pipe onlyEvenValues
+            |> Gen.toList
+
         let isTrue = res = [ 2; 4; 6 ]
         Assert.True(isTrue)

@@ -7,34 +7,42 @@ module Gen =
 
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
-    let resumeOrStart state (g: Gen<_,_>) =
-        let f = Gen.run g
-        let mutable state = state
+    let resumeOrStart (state: 's option) (g: Gen<'o,'s>) =
         seq {
-            while true do
-                match f state with
-                | Some res ->
-                    state <- Some (snd res)
+            let f = Gen.run g
+            let mutable lastState = state
+            let mutable loop = true
+
+            while loop do
+                match f lastState with
+                | Value (res, s) ->
+                    lastState <- Some s
                     yield res
-                | None -> ()
+                | Discard s -> ()
+                | Stop -> loop <- false
         }
     
     let resume state (g: Gen<_,_>) = resumeOrStart (Some state) g
 
     let toSeqStateFx (fx: Fx<_,_,_>) =
         let mutable lastState = None
-        fun inputValues ->
+        let mutable loop = true
+
+        fun (inputValues: seq<_>) ->
+            let inputEnumerator = inputValues.GetEnumerator()
             seq {
-                for i,v in inputValues |> Seq.indexed do
-                    let local = fx v |> Gen.run
+                while inputEnumerator.MoveNext() && loop do
+                    let i = inputEnumerator.Current
+                    let local = fx i |> Gen.run
                     match local lastState with
-                    | Some res ->
-                        lastState <- Some (snd res)
+                    | Value (res, s) ->
+                        lastState <- Some s
                         yield res
-                    | None -> ()
+                    | Discard s -> ()
+                    | Stop -> loop <- false
             }
 
-    let toSeqFx  (fx: Fx<_,_,_>) =
+    let toSeqFx (fx: Fx<_,_,_>) =
         let evaluable = toSeqStateFx fx
         fun inputValues -> evaluable inputValues |> Seq.map fst
     

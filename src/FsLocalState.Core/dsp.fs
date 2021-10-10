@@ -293,14 +293,14 @@ module Osc =
         Random()
         |> Gen.ofSeed  (fun random ->
             let v = random.NextDouble()
-            Some (v, random)
+            Value (v, random)
         )
 
     let private osc (env: Env) (frq: float) f =
         0.0
         |> Gen.ofSeed (fun angle ->
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
-            Some (f newAngle, newAngle)
+            Value (f newAngle, newAngle)
         )
         
 
