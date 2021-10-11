@@ -1,8 +1,13 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
+type GenResult<'output, 'state> =
+    | Value of 'output * 'state
+    | Discard of 'state option
+    | Stop
+
 type GenFunc<'output, 'state> =
-    'state option -> ('output * 'state) option
+    'state option -> GenResult<'output, 'state>
 
 type Gen<'output, 'state> =
     | Gen of GenFunc<'output, 'state>
@@ -37,12 +42,15 @@ module Gen =
                 | None -> { currState = None; subState = None }
                 | Some v -> { currState = Some v.currState; subState = Some v.subState }
             match (run m) unpackedLocalState.currState with
-            | Some m' ->
-                let fGen = fst m' |> f
+            | Value (m', sm') ->
+                let fGen = f m'
                 match (run fGen) unpackedLocalState.subState with
-                | Some f' -> Some (fst f', { currState = snd m'; subState = snd f' })
-                | None -> None
-            | None -> None
+                | Value (f', sf') -> Value (f', { currState = sm'; subState = sf' })
+                | Discard (Some sf') -> Discard (Some { currState = sm'; subState = sf' })
+                | Discard None -> Discard None
+                | Stop -> Stop
+            | Discard (Some sm') -> Discard (Some { currState = sm'; subState = sf' })
+            | Stop -> Stop
         |> create
 
     type FeedbackState<'mine, 'inner> = { mine: 'mine; inner: 'inner option }
