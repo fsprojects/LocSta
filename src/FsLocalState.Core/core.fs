@@ -1,8 +1,13 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
+type GenResult<'output, 'state> =
+    | Value of 'output * 'state
+    | Discard of 'state option
+    | Stop
+
 type GenFunc<'output, 'state> =
-    'state option -> ('output * 'state) option
+    'state option -> GenResult<'output, 'state>
 
 type Gen<'output, 'state> =
     | Gen of GenFunc<'output, 'state>
@@ -12,7 +17,7 @@ type Fx<'input, 'output, 'state> =
     'input -> Gen<'output, 'state>
 
 [<Struct>]
-type State<'a, 'b> = { currState: 'a; subState: 'b }
+type State<'a, 'b> = { currState: 'a; subState: 'b option }
 
 module Gen =
 
@@ -31,44 +36,52 @@ module Gen =
     let ofSeed2 seed f = ofSeed seed f
 
     let bind (f: 'o1 -> Gen<'o2, 's2>) (m: Gen<'o1, 's1>) : Gen<'o2, State<'s1, 's2>> =
-        fun (s: State<'s1, 's2> option) ->
-            let unpackedLocalState =
-                match s with
-                | None -> { currState = None; subState = None }
-                | Some v -> { currState = Some v.currState; subState = Some v.subState }
-            match (run m) unpackedLocalState.currState with
-            | Some m' ->
-                let fGen = fst m' |> f
-                match (run fGen) unpackedLocalState.subState with
-                | Some f' -> Some (fst f', { currState = snd m'; subState = snd f' })
-                | None -> None
-            | None -> None
+        fun (state: State<'s1, 's2> option) ->
+            let lastStateM, lastStateF =
+                match state with
+                | None -> None, None
+                | Some v -> Some v.currState, v.subState
+            match (run m) lastStateM with
+            | Value (resM, stateM) ->
+                let fGen = f resM
+                match (run fGen) lastStateF with
+                | Value (resF, stateF) -> Value (resF, { currState = stateM; subState = Some stateF })
+                | Discard stateF -> Discard (Some { currState = stateM; subState = stateF })
+                | Stop -> Stop
+            | Discard (Some stateM) -> Discard (Some { currState = stateM; subState = lastStateF })
+            | Discard None ->
+                match lastStateM with
+                | Some lastStateM -> Discard (Some { currState = lastStateM; subState = lastStateF })
+                | None -> Discard None
+            | Stop -> Stop
         |> create
+
+    type FeedbackState<'mine, 'inner> = { mine: 'mine; inner: 'inner option }
 
     let feedback
         (seed: 'workingState)
         (f: 'workingState -> Gen<'output * 'workingState, 'innerState>)
-        : Gen<'output, 'workingState * 'innerState option>
+        : Gen<'output, FeedbackState<'workingState, 'innerState>>
         =
-        fun (s: ('workingState * 'innerState option) option) ->
+        fun (state: FeedbackState<'workingState, 'innerState> option) ->
             let feedbackState, innerState =
-                match s with
+                match state with
                 | None -> seed, None
-                | Some (my, inner) -> my, inner
+                | Some { mine = mine; inner = inner } -> mine, inner
             match run (f feedbackState) innerState with
-            | Some res ->
-                let feed = fst res
-                let innerState = snd res
-                Some (fst feed, (snd feed, Some innerState))
-            | None -> None
+            | Value ((resF, feedStateF), innerStateF) ->
+                Value (resF, { mine = feedStateF; inner = Some innerStateF })
+            | Discard (Some innerStateF) -> Discard (Some { mine = seed; inner = Some innerStateF })
+            | Discard None -> Discard None
+            | Stop -> Stop
         |> create
         
     let zero () =
-        fun _ -> None
+        fun _ -> Discard None
         |> create
 
     let ofValue x =
-        fun _ -> Some (x, ())
+        fun _ -> Value (x, ())
         |> create
     
     /// Transforms a generator function to an effect function.    
@@ -79,16 +92,16 @@ module Gen =
         s.GetEnumerator()
         |> ofSeed2 (fun enumerator ->
             match enumerator.MoveNext() with
-            | true -> Some (enumerator.Current, enumerator)
-            | false -> None
+            | true -> Value (enumerator.Current, enumerator)
+            | false -> Stop
         )
 
     let ofList (l: list<_>) =
         l
         |> ofSeed2 (fun l ->
             match l with
-            | x::xs -> Some (x, xs)
-            | [] -> None
+            | x::xs -> Value (x, xs)
+            | [] -> Stop
         )
 
     // TODO: other builder methods
@@ -97,10 +110,10 @@ module Gen =
         member this.Return(x) = ofValue x
         member this.ReturnFrom(x) = x
         member this.Zero() = zero ()
-        member this.Yield (x) = this.Return(x)
+        member this.Yield(x) = this.Return(x)
         member this.YieldFrom(x) = x
-        member this.Delay(f) = f
-        member this.Run(f) = f ()
+        //member this.Delay(f) = f
+        //member this.Run(f) = f ()
         //member this.While (guard, body) =
         //    if not (guard()) 
         //    then this.Zero() 
@@ -131,11 +144,19 @@ module Gen =
     // map / apply
     // --------
 
-    let map projection x =
-        gen {
-            let! res = x
-            return projection res
-        }
+    //let map projection x =
+    //    gen {
+    //        let! res = x
+    //        return projection res
+    //    }
+
+    let map (projection: 'a -> 'b) (x: Gen<'a, 's>) : Gen<'b, 's> =
+        fun state ->
+            match (run x) state with
+            | Value (x', state) -> Value (projection x', state)
+            | Discard s -> Discard s
+            | Stop -> Stop
+        |> create
 
     let apply (xGen: Gen<'o1, _>) (fGen: Gen<'o1 -> 'o2, _>) : Gen<'o2, _> =
         gen {
@@ -150,13 +171,13 @@ module Gen =
     // Kleisli
     // -------
 
-    let kleisli (g: Fx<'a, 'b, _>) (f: Gen<'a, _>) : Gen<'b, _> =
+    let pipe (g: Fx<'a, 'b, _>) (f: Gen<'a, _>) : Gen<'b, _> =
         gen {
             let! f' = f
             return! g f' 
         }
 
-    let kleisliFx (g: Fx<'b, 'c, _>) (f: Fx<'a, 'b, _>): Fx<'a, 'c, _> =
+    let pipeFx (g: Fx<'b, 'c, _>) (f: Fx<'a, 'b, _>): Fx<'a, 'c, _> =
         fun x -> gen {
             let! f' = f x
             return! g f' 
@@ -225,9 +246,9 @@ module Operators =
     let (=>) seed f = Gen.feedback seed f
 
     /// Kleisli operator (fx >> fx)
-    let (>=>) f g = Gen.kleisliFx g f
+    let (>=>) f g = Gen.pipeFx g f
 
     /// Kleisli "pipe" operator (gen >> fx)
-    let (|=>) f g = Gen.kleisli g f
+    let (|=>) f g = Gen.pipe g f
 
 let gen = Gen.gen
