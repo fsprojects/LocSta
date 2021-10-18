@@ -1,4 +1,4 @@
-﻿module FsLocalState.Dsp.Gen
+﻿module FsLocalState.Dsp
 
 open FsLocalState
 open System

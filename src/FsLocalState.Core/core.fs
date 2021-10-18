@@ -187,6 +187,29 @@ module Gen =
     // Arithmetik
     // ----------
 
+    let resetWhen (cond: bool) (inputGen: Gen<_,_>) =
+        fun state ->
+            match cond with
+            | false -> (run inputGen) state
+            | true -> (run inputGen) None
+        |> create
+    
+    let resetWith (cond: 'o -> bool) (inputGen: Gen<'o,_>) =
+        fun state ->
+            let res = (run inputGen) state
+            match res with
+            | Value (o,s) ->
+                match cond o with
+                | false -> res
+                | true -> (run inputGen) None
+            | _ -> res
+        |> create
+
+
+    // ----------
+    // Arithmetik
+    // ----------
+
     let inline binOpBoth left right f =
         gen {
             let! l = left
