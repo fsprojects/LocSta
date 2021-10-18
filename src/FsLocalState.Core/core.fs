@@ -12,7 +12,6 @@ type GenFunc<'output, 'state> =
 type Gen<'output, 'state> =
     | Gen of GenFunc<'output, 'state>
 
-// TODO: seems to be impossible having a single case DU here?
 type Fx<'input, 'output, 'state> =
     'input -> Gen<'output, 'state>
 
