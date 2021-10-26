@@ -1,15 +1,15 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
+type ReturnValue<'state> =
+    | ContinueWithState of 'state
+    | Continue
+    | Break
+
 type GenResult<'output, 'state> =
     | Value of 'output * 'state
     | Discard of 'state option
     | Stop
-
-type ReturnValue<'output, 'state> =
-    | V of 'output
-    | D
-    | S
 
 type GenFunc<'output, 'state> =
     'state option -> GenResult<'output, 'state>
@@ -75,7 +75,8 @@ module Gen =
             match run (f feedbackState) innerState with
             | Value ((resF, feedStateF), innerStateF) ->
                 Value (resF, { mine = feedStateF; inner = Some innerStateF })
-            | Discard (Some innerStateF) -> Discard (Some { mine = seed; inner = Some innerStateF })
+            | Discard (Some innerStateF) -> 
+                Discard (Some { mine = seed; inner = Some innerStateF })
             | Discard None -> Discard None
             | Stop -> Stop
         |> create
@@ -95,9 +96,9 @@ module Gen =
     let ofReturnValue x =
         fun _ ->
             match x with
-            | V v -> Value (v, ())
-            | D -> Discard None
-            | S -> Stop
+            | ContinueWithState s -> Discard (Some s)
+            | Continue -> Discard None
+            | Break -> Stop
         |> create
     
     /// Transforms a generator function to an effect function.    
@@ -111,10 +112,9 @@ module Gen =
             | true -> Value (enumerator.Current, enumerator)
             | false -> Stop
         )
-
+        
     let ofList (l: list<_>) =
-        l
-        |> ofSeed2 (fun l ->
+        l |> ofSeed2 (fun l ->
             match l with
             | x::xs -> Value (x, xs)
             | [] -> Stop

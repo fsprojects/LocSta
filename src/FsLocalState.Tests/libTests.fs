@@ -1,5 +1,6 @@
 #if INTERACTIVE
 #r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+open FsLocalState
 #endif
 
 module LibTests
@@ -49,11 +50,17 @@ let [<TestCase>] ``Filter map`` () =
     //   * in a maximum distance of 4 values
     [ 1; 2; 3; 4; 4; 0; 0; 10 ; 20 ]
     |> Gen.ofList
-    |> Gen.filterMapFx (fun i -> 0 => fun count -> gen {
+    |> Gen.filterMapFx (fun start curr -> 0 => fun count -> gen {
+        printfn $"initial = {start}  |  curr = {curr}"
         if count > 4 then
-            yield S
+            printfn "  - BREAK"
+            yield Break
+        else if curr >= start * 2 then
+            printfn "  - RET"
+            return curr, count + 1
         else
-            return "Super", count + 1
+            printfn $"  - CONT {curr}"
+            yield Continue
     })
     |> Gen.toListn 9
     |> List.last

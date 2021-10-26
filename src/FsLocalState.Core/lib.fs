@@ -87,14 +87,14 @@ module Gen =
 
     type FilterMapState<'v,'s> = { startValue: 'v; state: 's option }
 
-    let filterMapFx (pred: Fx<'i,'o,'s2>) (inputGen: Gen<'i,'s1>) =
+    let filterMapFx (pred: 'i -> Fx<'i,'o,'s2>) (inputGen: Gen<'i,'s1>) =
         [] => fun currentChecks -> gen {
             let! currentValue = inputGen
+            printfn $"CCCCCCCCCCCC = {currentValue}"
             let checks =
-                { startValue = currentValue; state = None }
-                :: currentChecks
+                currentChecks
                 |> List.map (fun checkState ->
-                    let checkRes = (currentValue |> pred |> Gen.run) checkState.state
+                    let checkRes = (pred checkState.startValue currentValue |> Gen.run) checkState.state
                     match checkRes with
                     | Value (res,_) -> Choice1Of3 (checkState.startValue, res)
                     | Discard s ->
@@ -106,11 +106,16 @@ module Gen =
                 )
             let successChecks = checks |> List.choose (function | Choice1Of3 v -> Some v | _ -> None)
             let activeChecks = checks |> List.choose (function | Choice2Of3 s -> Some s | _ -> None)
-            return successChecks,activeChecks
+
+            failwith "TODO"
+            //let ongoingChecks = { startValue = currentValue; state = None } :: activeChecks
+            //if successChecks.Length > 0
+            //    then yield Value (successChecks, { mine = ongoingChecks, ())
+            //    else yield ContinueWithState ongoingChecks
         }
 
-    let filterMap (pred: 'i -> GenResult<'i,_>) (inputGen: Gen<'i,'s>) =
-        inputGen |> filterMapFx (fun i -> Gen.ofValue (pred i))
+    let filterMap (pred: 'i -> 'i -> GenResult<'i,_>) (inputGen: Gen<'i,'s>) =
+        inputGen |> filterMapFx (fun start curr -> Gen.ofValue (pred start curr))
 
     // TODO: Implement a random number generator that exposes it's serializable state.
     let private dotnetRandom = System.Random()
