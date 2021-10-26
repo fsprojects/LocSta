@@ -133,7 +133,8 @@ module Gen =
                     | disp -> disp.Dispose())
         //member this.For (sequence: seq<_>, body) =
         //    this.Using(sequence.GetEnumerator(), fun enum -> 
-        //        this.While(enum.MoveNext, 
+        //        this.While(
+        //            enum.MoveNext, 
         //            this.Delay(fun () -> body enum.Current)))
 
     let gen = GenBuilder()

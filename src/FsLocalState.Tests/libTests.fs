@@ -29,3 +29,15 @@ let [<TestCase>] ``Partition by current`` () =
             [ 5; 4; 3 ]
             [ 2; 1; 0 ]
         ]
+
+let [<TestCase>] ``Example: Partition by current`` () =
+    count 0 1
+    |> partitionWithCurrent (fun v -> v % 3 = 0)
+    |> Gen.toListn 9
+    |> List.last
+    |> should equal
+        [
+            [ 8; 7; 6 ]
+            [ 5; 4; 3 ]
+            [ 2; 1; 0 ]
+        ]

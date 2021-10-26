@@ -55,7 +55,7 @@ module Gen =
     let reset (pred: bool) (inputGen: Gen<_,_>) =
         inputGen |> resetWithCurrent (fun _ -> pred)
         
-    let partitionWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
+    let partitionMapWithCurrent2 (pred: 'o -> bool) (proj: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
         [] => fun groups -> gen {
             let! res = inputGen
             let pred = pred res
@@ -66,14 +66,24 @@ module Gen =
                     match groups with
                     | [] -> [ [res] ]
                     | x::xs -> [ res :: x; yield! xs ]
-            return (newGroups, pred), newGroups
+            let! fxRes = proj res
+            return (fxRes, pred), newGroups
         }
+        
+    let partitionWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
+        partitionMapWithCurrent2 pred Gen.ofValue inputGen
+
+    let partitionMapWithCurrent (pred: 'o -> bool) (fx: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
+        inputGen |> partitionMapWithCurrent2 pred fx |> mapValue fst
 
     let partitionWithCurrent (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
-        inputGen |> partitionWithCurrent2 pred |> mapValue fst
+        partitionMapWithCurrent pred Gen.ofValue inputGen
+
+    let partitionMap (pred: bool) (fx: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
+        partitionMapWithCurrent (fun _ -> pred) fx inputGen
 
     let partition (pred: bool) (inputGen: Gen<'o,_>) =
-        inputGen |> partitionWithCurrent (fun _ -> pred)
+        partitionMap pred Gen.ofValue inputGen 
 
 
     // TODO: Implement a random number generator that exposes it's serializable state.
