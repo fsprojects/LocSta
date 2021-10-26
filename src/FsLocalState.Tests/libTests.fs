@@ -51,9 +51,9 @@ let [<TestCase>] ``Filter map`` () =
     |> Gen.ofList
     |> Gen.filterMapFx (fun i -> 0 => fun count -> gen {
         if count > 4 then
-            yield Stop
+            yield S
         else
-            return 3
+            return "Super", count + 1
     })
     |> Gen.toListn 9
     |> List.last

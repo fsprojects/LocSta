@@ -6,6 +6,11 @@ type GenResult<'output, 'state> =
     | Discard of 'state option
     | Stop
 
+type ReturnValue<'output, 'state> =
+    | V of 'output
+    | D
+    | S
+
 type GenFunc<'output, 'state> =
     'state option -> GenResult<'output, 'state>
 
@@ -87,6 +92,14 @@ module Gen =
         fun _ -> Value (x, ())
         |> create
     
+    let ofReturnValue x =
+        fun _ ->
+            match x with
+            | V v -> Value (v, ())
+            | D -> Discard None
+            | S -> Stop
+        |> create
+    
     /// Transforms a generator function to an effect function.    
     let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
         fun () -> gen
@@ -113,7 +126,7 @@ module Gen =
         member this.Return(x) = ofValue x
         member this.ReturnFrom(x) = x
         member this.Zero() = zero ()
-        member this.Yield(x) = this.Return(x)
+        member this.Yield(x) = ofReturnValue x
         member this.YieldFrom(x) = x
         //member this.Delay(f) = f
         //member this.Run(f) = f ()
