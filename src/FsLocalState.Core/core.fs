@@ -79,6 +79,10 @@ module Gen =
         fun _ -> Discard None
         |> create
 
+    let ofResult x =
+        fun _ -> x
+        |> create
+
     let ofValue x =
         fun _ -> Value (x, ())
         |> create

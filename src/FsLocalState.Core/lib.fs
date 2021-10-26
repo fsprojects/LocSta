@@ -83,8 +83,34 @@ module Gen =
         partitionMapWithCurrent (fun _ -> pred) fx inputGen
 
     let partition (pred: bool) (inputGen: Gen<'o,_>) =
-        partitionMap pred Gen.ofValue inputGen 
+        partitionMap pred Gen.ofValue inputGen
 
+    type FilterMapState<'v,'s> = { startValue: 'v; state: 's option }
+
+    let filterMapFx (pred: Fx<'i,'o,'s2>) (inputGen: Gen<'i,'s1>) =
+        [] => fun currentChecks -> gen {
+            let! currentValue = inputGen
+            let checks =
+                { startValue = currentValue; state = None }
+                :: currentChecks
+                |> List.map (fun checkState ->
+                    let checkRes = (currentValue |> pred |> Gen.run) checkState.state
+                    match checkRes with
+                    | Value (res,_) -> Choice1Of3 (checkState.startValue, res)
+                    | Discard s ->
+                        match s with
+                        | Some s -> Some s
+                        | None -> checkState.state
+                        |> fun s -> Choice2Of3 { checkState with state = s }
+                    | Stop -> Choice3Of3 ()
+                )
+            let successChecks = checks |> List.choose (function | Choice1Of3 v -> Some v | _ -> None)
+            let activeChecks = checks |> List.choose (function | Choice2Of3 s -> Some s | _ -> None)
+            return successChecks,activeChecks
+        }
+
+    let filterMap (pred: 'i -> GenResult<'i,_>) (inputGen: Gen<'i,'s>) =
+        inputGen |> filterMapFx (fun i -> Gen.ofValue (pred i))
 
     // TODO: Implement a random number generator that exposes it's serializable state.
     let private dotnetRandom = System.Random()
