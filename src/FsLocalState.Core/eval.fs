@@ -2,7 +2,7 @@
 module FsLocalState.Eval
 
 open FsLocalState
-    
+
 module Gen =
 
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx

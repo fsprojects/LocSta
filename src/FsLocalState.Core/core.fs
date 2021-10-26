@@ -128,7 +128,7 @@ module Gen =
         member this.Using (disposable: #System.IDisposable, body) =
             let body' = fun () -> body disposable
             this.TryFinally(body', fun () -> 
-                match disposable with 
+                match disposable with
                     | null -> () 
                     | disp -> disp.Dispose())
         //member this.For (sequence: seq<_>, body) =
@@ -181,29 +181,6 @@ module Gen =
             let! f' = f x
             return! g f' 
         }
-
-
-    // ----------
-    // Arithmetik
-    // ----------
-
-    let resetWhen (cond: bool) (inputGen: Gen<_,_>) =
-        fun state ->
-            match cond with
-            | false -> (run inputGen) state
-            | true -> (run inputGen) None
-        |> create
-    
-    let resetWith (cond: 'o -> bool) (inputGen: Gen<'o,_>) =
-        fun state ->
-            let res = (run inputGen) state
-            match res with
-            | Value (o,s) ->
-                match cond o with
-                | false -> res
-                | true -> (run inputGen) None
-            | _ -> res
-        |> create
 
 
     // ----------
