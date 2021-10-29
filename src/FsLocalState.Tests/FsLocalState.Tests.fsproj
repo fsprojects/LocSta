@@ -9,7 +9,6 @@
   <ItemGroup>
     <Compile Include="libTests.fs" />
     <Compile Include="baseTests.fs" />
-    <Compile Include="feedbackTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
