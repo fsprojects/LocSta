@@ -10,7 +10,7 @@ open NUnit.Framework
 let counter exclMin inclMax =
     exclMin => fun state -> gen {
         let newValue = 1 + (if state = inclMax then exclMin else state)
-        return newValue, newValue
+        return Value ((newValue, newValue), ())
     }
 
 let network seed counterMin counterMax =
@@ -18,7 +18,7 @@ let network seed counterMin counterMax =
          gen {
              let! i = counter counterMin counterMax
              let newValue = state + i
-             return newValue, newValue
+             return Value ((newValue, newValue), ())
          }
 
 let counterMin = 0
@@ -30,7 +30,8 @@ let counted =
     let x =
         gen {
             let! i = counter counterMin counterMax
-            return i } 
+            return Value (i, ())
+        }
     x |> Gen.toListn sampleCount
 
 let ``Sample count`` () =

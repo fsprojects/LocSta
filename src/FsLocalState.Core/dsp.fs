@@ -38,7 +38,7 @@ module Envelopes =
             let diff = lastValue - target
             let out = lastValue - diff * timeConstant
                 
-            return out, (out, newMode)
+            return Value ((out, (out, newMode)), ())
         }
 
     /// An Attack-Release envelope (a, r: [0.0 .. 1.0])
@@ -94,7 +94,7 @@ module Filter =
             let z1 = input * coeffs.a1 + coeffs.z2 - coeffs.b1 * o
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
-            return o, (filterParams, newCoeffs)
+            return Value ((o, (filterParams, newCoeffs)), ())
         }
 
 

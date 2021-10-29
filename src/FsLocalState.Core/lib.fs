@@ -67,7 +67,7 @@ module Gen =
                     | [] -> [ [res] ]
                     | x::xs -> [ res :: x; yield! xs ]
             let! fxRes = proj res
-            return (fxRes, pred), newGroups
+            return Value (((fxRes, pred), newGroups), ())
         }
         
     let partitionWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
@@ -90,7 +90,6 @@ module Gen =
     let filterMapFx (pred: 'i -> Fx<'i,'o,'s2>) (inputGen: Gen<'i,'s1>) =
         [] => fun currentChecks -> gen {
             let! currentValue = inputGen
-            printfn $"CCCCCCCCCCCC = {currentValue}"
             let checks =
                 currentChecks
                 |> List.map (fun checkState ->
@@ -137,21 +136,21 @@ module Gen =
     /// Delays a given value by 1 cycle.
     let delay input seed =
         seed => fun state -> gen {
-            return state, input
+            return Value ((state, input), ())
         }
 
     /// Positive slope.
     let inline slopeP input seed =
         seed => fun last -> gen {
             let res = last < input
-            return res, input
+            return Value ((res, input), ())
         }
 
     /// Negative slope.
     let inline slopeN input seed =
         seed => fun last -> gen {
             let res = last < input
-            return res, input
+            return Value ((res, input), ())
         }
 
 

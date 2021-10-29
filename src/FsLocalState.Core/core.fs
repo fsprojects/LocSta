@@ -1,11 +1,6 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
-type ReturnValue<'state> =
-    | ContinueWithState of 'state
-    | Continue
-    | Break
-
 type GenResult<'output, 'state> =
     | Value of 'output * 'state
     | Discard of 'state option
@@ -93,14 +88,6 @@ module Gen =
         fun _ -> Value (x, ())
         |> create
     
-    let ofReturnValue x =
-        fun _ ->
-            match x with
-            | ContinueWithState s -> Discard (Some s)
-            | Continue -> Discard None
-            | Break -> Stop
-        |> create
-    
     /// Transforms a generator function to an effect function.    
     let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
         fun () -> gen
@@ -123,19 +110,20 @@ module Gen =
     // TODO: other builder methods
     type GenBuilder() =
         member this.Bind(m: Gen<_, _>, f: _ -> Gen<_, _>) = bind f m
-        member this.Return(x) = ofValue x
+        member this.Return(x) = ofResult x
         member this.ReturnFrom(x) = x
         member this.Zero() = zero ()
-        member this.Yield(x) = ofReturnValue x
+        //member this.Yield(x) = ofReturnValue x
         member this.YieldFrom(x) = x
         //member this.Delay(f) = f
         //member this.Run(f) = f ()
         //member this.While (guard, body) =
-        //    if not (guard()) 
-        //    then this.Zero() 
-        //    else
-        //        this.Bind(body(), fun () ->
-        //            this.While (guard, body))  
+            //if not (guard()) 
+            //if not (guard()) 
+            //then this.Zero() 
+            //else
+            //    this.Bind(body(), fun () ->
+            //        this.While (guard, body))  
         member this.TryWith (body, handler) =
             try this.ReturnFrom(body())
             with e -> handler e
@@ -180,7 +168,7 @@ module Gen =
             let! l' = xGen
             let! f' = fGen
             let result = f' l'
-            return result
+            return Value (result, ())
         }
 
 
@@ -209,20 +197,21 @@ module Gen =
         gen {
             let! l = left
             let! r = right
-            return f l r }
+            return Value (f l r , ())
+        }
     
     let inline binOpLeft left right f =
         gen {
             let l = left
             let! r = right
-            return f l r
+            return Value (f l r, ())
         }
     
     let inline binOpRight left right f =
         gen {
             let! l = left
             let r = right
-            return f l r
+            return Value (f l r, ())
         }
 
 type Gen<'v, 's> with
@@ -267,5 +256,8 @@ module Operators =
 
     /// Kleisli "pipe" operator (gen >> fx)
     let (|=>) f g = Gen.pipe g f
+
+    /// Bind operator
+    let (>>=) m f = Gen.bind f m
 
 let gen = Gen.gen

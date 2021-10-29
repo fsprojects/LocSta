@@ -54,13 +54,13 @@ let [<TestCase>] ``Filter map`` () =
         printfn $"initial = {start}  |  curr = {curr}"
         if count > 4 then
             printfn "  - BREAK"
-            yield Break
+            return Stop
         else if curr >= start * 2 then
             printfn "  - RET"
-            return curr, count + 1
+            return Value((curr, count + 1), ())
         else
             printfn $"  - CONT {curr}"
-            yield Continue
+            return Discard None
     })
     |> Gen.toListn 9
     |> List.last

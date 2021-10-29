@@ -11,7 +11,7 @@ open NUnit.Framework
 let counter exclMin inclMax =
     exclMin => fun state -> gen {
         let newValue = (if state = inclMax then exclMin else state) + 1
-        return newValue, newValue
+        return Value ((newValue, newValue), ())
     }
 
 /// An accumulator function summing up incoming values, starting with the given seed.
@@ -19,7 +19,7 @@ let accu value seed =
     seed => fun state ->
         gen {
             let newValue = state + value
-            return newValue, newValue
+            return Value ((newValue, newValue), ())
         }
 
 
@@ -31,7 +31,7 @@ let sampleCount = 1000
 let counted =
     gen {
         let! i = counter counterMin counterMax
-        return i
+        return Value(i, ())
     }
     |> Gen.toListn sampleCount
 
@@ -66,7 +66,7 @@ module CounterAndAccu =
         gen {
             let! i = counter counterMin counterMax
             let! acc = accu i accuSeed
-            return acc
+            return Value (acc, ())
         }
         |> Gen.toListn sampleCount
 
@@ -90,7 +90,7 @@ let [<TestCase>] discardNone () =
     let onlyEvenValues =
         fun input -> gen {
             if input % 2 = 0 then
-                return input
+                return Value (input, ())
         }
                             
     [ 1; 2; 3; 4; 5; 6 ] 
