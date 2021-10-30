@@ -18,8 +18,16 @@ type Fx<'input, 'output, 'state> =
 [<Struct>]
 type State<'a, 'b> = { currState: 'a; subState: 'b option }
 
-module Gen =
+type Res<'a> = Res of 'a
 
+module Res =
+    let value v = Value (v, ()) |> Res
+    let discard<'a, 'b> : Res<GenResult<'a, 'b>> = Discard None |> Res
+    let discardWith state = Discard (Some state) |> Res
+    let stop<'a, 'b> : Res<GenResult<'a, 'b>> = Stop |> Res
+    let feedback value feedback = Value ((value, feedback), ()) |> Res
+
+module Gen =
     let internal run gen = let (Gen b) = gen in b
 
     // Creates a Gen from a function that takes optional state.
@@ -101,7 +109,8 @@ module Gen =
         )
         
     let ofList (l: list<_>) =
-        l |> ofSeed2 (fun l ->
+        l
+        |> ofSeed2 (fun l ->
             match l with
             | x::xs -> Value (x, xs)
             | [] -> Stop
@@ -110,10 +119,10 @@ module Gen =
     // TODO: other builder methods
     type GenBuilder() =
         member this.Bind(m: Gen<_, _>, f: _ -> Gen<_, _>) = bind f m
-        member this.Return(x) = ofResult x
+        member this.Return(x: Res<GenResult<'v, unit>>) = match x with | Res x -> ofResult x
         member this.ReturnFrom(x) = x
         member this.Zero() = zero ()
-        //member this.Yield(x) = ofReturnValue x
+        //member this.Yield(x: GenResult<_,_>) = ofResult x
         member this.YieldFrom(x) = x
         //member this.Delay(f) = f
         //member this.Run(f) = f ()
@@ -168,7 +177,7 @@ module Gen =
             let! l' = xGen
             let! f' = fGen
             let result = f' l'
-            return Value (result, ())
+            return Res.value result
         }
 
 
@@ -197,21 +206,21 @@ module Gen =
         gen {
             let! l = left
             let! r = right
-            return Value (f l r , ())
+            return Res.value (f l r)
         }
     
     let inline binOpLeft left right f =
         gen {
             let l = left
             let! r = right
-            return Value (f l r, ())
+            return Res.value (f l r)
         }
     
     let inline binOpRight left right f =
         gen {
             let! l = left
             let r = right
-            return Value (f l r, ())
+            return Res.value (f l r)
         }
 
 type Gen<'v, 's> with

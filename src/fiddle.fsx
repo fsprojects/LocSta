@@ -2,12 +2,62 @@
 #r "FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
-let count inclusiveStart increment =
-    fun s ->
-        let state = Option.defaultWith (fun () -> inclusiveStart - 1) s
-        let newValue = state + increment
-        Value (newValue, newValue)
+
+let getFeedback seed =
+    fun (state, feedback) ->
+        let feedback = feedback |> Option.defaultValue (Some seed)
+        Value (feedback, None, None)
     |> Gen.create
+
+let countEx start increment = 
+    gen {
+        let! state = getFeedback start
+        let nextValue = state + increment
+        return Value (state, (), Some nextValue)
+    }
+
+let countChars (seed: char) = 
+    gen {
+        let! state = getFeedback seed
+        let nextValue = (System.Convert.ToByte state) + 1uy |> System.Convert.ToChar
+        return Value (state, (), Some nextValue)
+    }
+
+gen {
+    let! c1 = countEx 0 1
+    //return Value(c1, (), None)
+    let! c2 = countChars 'a'
+    let! c3 = countChars 'A'
+    return Value($"{c1}.{c2}.{c3}", (), None)
+}
+|> Gen.toListn 1
+
+
+
+
+let count start increment =
+    fun (state, feedback) ->
+        let state = Option.defaultValue start state
+        let nextValue = state + increment
+        Value (state, nextValue, None)
+    |> Gen.create
+
+let countChars start increment =
+    fun (state, feedback) ->
+        let state = Option.defaultValue start state
+        let nextValue = state + increment
+        Value ("a", nextValue, None)
+    |> Gen.create
+
+gen {
+    let! c1 = count 0 1
+    let! c2 = countChars 10 2
+    return Value(c2, (), None)
+}
+|> Gen.toListn 10
+
+
+(*
 
 let test =
     gen {
@@ -124,3 +174,6 @@ module B =
         return state + v1
     }
     printfn "%A" b
+
+
+*)

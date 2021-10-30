@@ -10,6 +10,7 @@ open FsLocalState
 open NUnit.Framework
 
 
+
 let [<TestCase>] ``Reset by current`` () =
     let expectedResult = List.replicate 10 [ for i in 0..4 do i ] |> List.collect id
 
@@ -54,13 +55,13 @@ let [<TestCase>] ``Filter map`` () =
         printfn $"initial = {start}  |  curr = {curr}"
         if count > 4 then
             printfn "  - BREAK"
-            return Stop
+            return Res.stop
         else if curr >= start * 2 then
             printfn "  - RET"
-            return Value((curr, count + 1), ())
+            return Res.feedback curr (count + 1)
         else
             printfn $"  - CONT {curr}"
-            return Discard None
+            return Res.discard
     })
     |> Gen.toListn 9
     |> List.last

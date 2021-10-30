@@ -38,7 +38,7 @@ module Envelopes =
             let diff = lastValue - target
             let out = lastValue - diff * timeConstant
                 
-            return Value ((out, (out, newMode)), ())
+            return Res.feedback out (out, newMode)
         }
 
     /// An Attack-Release envelope (a, r: [0.0 .. 1.0])
@@ -94,7 +94,7 @@ module Filter =
             let z1 = input * coeffs.a1 + coeffs.z2 - coeffs.b1 * o
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
-            return Value ((o, (filterParams, newCoeffs)), ())
+            return Res.feedback o (filterParams, newCoeffs)
         }
 
 
@@ -290,18 +290,16 @@ module Filter =
 module Osc =
 
     let noise() =
-        Random()
-        |> Gen.ofSeed  (fun random ->
+        Random() => fun random -> gen {
             let v = random.NextDouble()
-            Value (v, random)
-        )
+            return Res.feedback v random
+        }
 
     let private osc (env: Env) (frq: float) f =
-        0.0
-        |> Gen.ofSeed (fun angle ->
+        0.0 => fun angle -> gen {
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
-            Value (f newAngle, newAngle)
-        )
+            return Res.feedback (f newAngle) newAngle
+        }
         
 
     let sin (env: Env) (frq: float) = osc env frq Math.Sin
