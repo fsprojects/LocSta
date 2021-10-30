@@ -25,3 +25,13 @@ let [<TestCase>] ``Discard Values`` () =
     |> Gen.toList
     |> should equal [ 2; 4; 6 ]
 
+
+let [<TestCase>] ``For Loop`` () =
+    gen {
+        for v in [ 1; 2; 3; 4; 5; 6 ] do
+            if v % 2 = 0 then
+                return Res.value v
+    }
+    |> Gen.toList
+    |> should equal [ 2; 4; 6 ]
+
