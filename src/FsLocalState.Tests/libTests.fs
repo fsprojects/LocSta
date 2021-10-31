@@ -10,7 +10,6 @@ open FsLocalState
 open NUnit.Framework
 
 
-
 let [<TestCase>] ``Reset by current`` () =
     let expectedResult =
         [ 0; 1; 2; 3; 4
@@ -30,29 +29,29 @@ let [<TestCase>] ``Reset by current`` () =
     |> should equal expectedResult
 
 
-let [<TestCase>] ``Partition by current`` () =
-    Gen.count 0 1
-    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)
-    |> Gen.toListn 9
-    |> List.last
-    |> should equal
-        [
-            [ 8; 7; 6 ]
-            [ 5; 4; 3 ]
-            [ 2; 1; 0 ]
-        ]
+//let [<TestCase>] ``Partition by current`` () =
+//    Gen.count 0 1
+//    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)
+//    |> Gen.toListn 9
+//    |> List.last
+//    |> should equal
+//        [
+//            [ 8; 7; 6 ]
+//            [ 5; 4; 3 ]
+//            [ 2; 1; 0 ]
+//        ]
 
-let [<TestCase>] ``Example: Partition by current`` () =
-    Gen.count 0 1
-    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)
-    |> Gen.toListn 9
-    |> List.last
-    |> should equal
-        [
-            [ 8; 7; 6 ]
-            [ 5; 4; 3 ]
-            [ 2; 1; 0 ]
-        ]
+//let [<TestCase>] ``Example: Partition by current`` () =
+//    Gen.count 0 1
+//    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)
+//    |> Gen.toListn 9
+//    |> List.last
+//    |> should equal
+//        [
+//            [ 8; 7; 6 ]
+//            [ 5; 4; 3 ]
+//            [ 2; 1; 0 ]
+//        ]
 
 //let [<TestCase>] ``Filter map`` () =
 //    // Task:

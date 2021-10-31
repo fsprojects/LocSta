@@ -5,7 +5,19 @@ VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsLocalState", "FsLocalState.Core\FsLocalState.fsproj", "{18D38D40-6D90-44BB-8F3C-4714E325C5FB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsLocalState.Tests", "FsLocalState.Tests\FsLocalState.Tests.fsproj", "{D567C820-F29C-47A1-A7E2-77E40E2D191F}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsLocalState.Tests", "FsLocalState.Tests\FsLocalState.Tests.fsproj", "{D567C820-F29C-47A1-A7E2-77E40E2D191F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scratches", "scratches", "{BA14153B-E107-48CC-BE42-AC657565D656}"
+	ProjectSection(SolutionItems) = preProject
+		scratches\feedbackBuilder.bak.fsx = scratches\feedbackBuilder.bak.fsx
+		scratches\feedbackBuilder.fsx = scratches\feedbackBuilder.fsx
+		scratches\feedbackBuilder2.fsx = scratches\feedbackBuilder2.fsx
+		scratches\feedbackBuilder_FINAL.fsx = scratches\feedbackBuilder_FINAL.fsx
+		scratches\fiddle.fsx = scratches\fiddle.fsx
+		scratches\mostInnerState.fsx = scratches\mostInnerState.fsx
+		scratches\withMut2.fsx = scratches\withMut2.fsx
+		scratches\withMutableWhile.fsx = scratches\withMutableWhile.fsx
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

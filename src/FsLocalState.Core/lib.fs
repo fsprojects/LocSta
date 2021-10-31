@@ -55,76 +55,78 @@ module Gen =
     let reset (pred: bool) (inputGen: Gen<_,_>) =
         inputGen |> resetWithCurrent (fun _ -> pred)
         
-    let partitionMapWithCurrent2 (pred: 'o -> bool) (proj: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
-        [] => fun groups -> gen {
-            let! res = inputGen
-            let pred = pred res
-            let newGroups =
-                match pred with
-                | true -> [res] :: groups
-                | false ->
-                    match groups with
-                    | [] -> [ [res] ]
-                    | x::xs -> [ res :: x; yield! xs ]
-            let! fxRes = proj res
-            return Res.feedback (fxRes, pred) newGroups
-        }
+    //let partitionMapWithCurrent2 (pred: 'o -> bool) (proj: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
+    //    [] => fun groups -> gen {
+    //        let! res = inputGen
+    //        let pred = pred res
+    //        let newGroups =
+    //            match pred with
+    //            | true -> [res] :: groups
+    //            | false ->
+    //                match groups with
+    //                | [] -> [ [res] ]
+    //                | x::xs -> [ res :: x; yield! xs ]
+    //        let! fxRes = proj res
+    //        return Res.feedback (fxRes, pred) newGroups
+    //    }
         
-    let partitionWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
-        partitionMapWithCurrent2 pred Gen.ofValue inputGen
+    //let partitionWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
+    //    partitionMapWithCurrent2 pred Gen.ofValue inputGen
 
-    let partitionMapWithCurrent (pred: 'o -> bool) (fx: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
-        inputGen |> partitionMapWithCurrent2 pred fx |> mapValue fst
+    //let partitionMapWithCurrent (pred: 'o -> bool) (fx: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
+    //    inputGen |> partitionMapWithCurrent2 pred fx |> mapValue fst
 
-    let partitionWithCurrent (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
-        partitionMapWithCurrent pred Gen.ofValue inputGen
+    //let partitionWithCurrent (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
+    //    partitionMapWithCurrent pred Gen.ofValue inputGen
 
-    let partitionMap (pred: bool) (fx: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
-        partitionMapWithCurrent (fun _ -> pred) fx inputGen
+    //let partitionMap (pred: bool) (fx: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
+    //    partitionMapWithCurrent (fun _ -> pred) fx inputGen
 
-    let partition (pred: bool) (inputGen: Gen<'o,_>) =
-        partitionMap pred Gen.ofValue inputGen
+    //let partition (pred: bool) (inputGen: Gen<'o,_>) =
+    //    partitionMap pred Gen.ofValue inputGen
 
-    type FilterMapState<'v,'s> = { startValue: 'v; state: 's option }
+    //type FilterMapState<'v,'s> = { startValue: 'v; state: 's option }
 
-    let filterMapFx (pred: 'i -> Fx<'i,'o,'s2>) (inputGen: Gen<'i,'s1>) =
-        [] => fun currentChecks -> gen {
-            let! currentValue = inputGen
-            let checks =
-                currentChecks
-                |> List.map (fun checkState ->
-                    let checkRes = (pred checkState.startValue currentValue |> Gen.asFunc) checkState.state
-                    match checkRes with
-                    | Value (res,_) -> Choice1Of3 (checkState.startValue, res)
-                    | Discard s ->
-                        match s with
-                        | Some s -> Some s
-                        | None -> checkState.state
-                        |> fun s -> Choice2Of3 { checkState with state = s }
-                    | Stop -> Choice3Of3 ()
-                )
-            let successChecks = checks |> List.choose (function | Choice1Of3 v -> Some v | _ -> None)
-            let activeChecks = checks |> List.choose (function | Choice2Of3 s -> Some s | _ -> None)
+    //let filterMapFx (pred: 'i -> Fx<'i,'o,'s2>) (inputGen: Gen<'i,'s1>) =
+    //    [] => fun currentChecks -> gen {
+    //        let! currentValue = inputGen
+    //        let checks =
+    //            currentChecks
+    //            |> List.map (fun checkState ->
+    //                let checkRes = (pred checkState.startValue currentValue |> Gen.asFunc) checkState.state
+    //                match checkRes with
+    //                | Value (res,_) -> Choice1Of3 (checkState.startValue, res)
+    //                | Discard s ->
+    //                    match s with
+    //                    | Some s -> Some s
+    //                    | None -> checkState.state
+    //                    |> fun s -> Choice2Of3 { checkState with state = s }
+    //                | Stop -> Choice3Of3 ()
+    //            )
+    //        let successChecks = checks |> List.choose (function | Choice1Of3 v -> Some v | _ -> None)
+    //        let activeChecks = checks |> List.choose (function | Choice2Of3 s -> Some s | _ -> None)
 
-            failwith "TODO"
-            //let ongoingChecks = { startValue = currentValue; state = None } :: activeChecks
-            //if successChecks.Length > 0
-            //    then yield Value (successChecks, { mine = ongoingChecks, ())
-            //    else yield ContinueWithState ongoingChecks
-        }
+    //        failwith "TODO"
+    //        //let ongoingChecks = { startValue = currentValue; state = None } :: activeChecks
+    //        //if successChecks.Length > 0
+    //        //    then yield Value (successChecks, { mine = ongoingChecks, ())
+    //        //    else yield ContinueWithState ongoingChecks
+    //    }
 
-    let filterMap (pred: 'i -> 'i -> GenResult<'i,_>) (inputGen: Gen<'i,'s>) =
-        inputGen |> filterMapFx (fun start curr -> Gen.ofValue (pred start curr))
+    //let filterMap (pred: 'i -> 'i -> GenResult<'i,_>) (inputGen: Gen<'i,'s>) =
+    //    inputGen |> filterMapFx (fun start curr -> Gen.ofValue (pred start curr))
 
-    // TODO: Implement a random number generator that exposes it's serializable state.
-    let private dotnetRandom = System.Random()
-    let random () =
-        dotnetRandom => fun random -> gen {
-            return Res.feedback (dotnetRandom.NextDouble()) random
-        }
+    //// TODO: Implement a random number generator that exposes it's serializable state.
+    //let private dotnetRandom = System.Random()
+    //let random () =
+    //    fdb {
+    //        let! random = init dotnetRandom
+    //        return Res.feedback (dotnetRandom.NextDouble()) random
+    //    }
 
     let count inclusiveStart increment =
-        inclusiveStart => fun curr -> gen {
+        fdb {
+            let! curr = init inclusiveStart
             return Res.feedback curr (curr + increment)
         }
 
@@ -134,20 +136,23 @@ module Gen =
 
     /// Delays a given value by 1 cycle.
     let delay input seed =
-        seed => fun state -> gen {
+        fdb {
+            let! state = init seed
             return Res.feedback state input
         }
 
     /// Positive slope.
     let inline slopeP input seed =
-        seed => fun last -> gen {
-            let res = last < input
+        fdb {
+            let! state = init seed
+            let res = state < input
             return Res.feedback res input
         }
 
     /// Negative slope.
     let inline slopeN input seed =
-        seed => fun last -> gen {
-            let res = last < input
+        fdb {
+            let! state = init seed
+            let res = state < input
             return Res.feedback res input
         }

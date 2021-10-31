@@ -9,18 +9,19 @@ open NUnit.Framework
 /// An 1-incremental counter with min (seed) and max, written in "feedback" notation.
 /// When max is reached, counting begins with min again.
 let counter exclMin inclMax =
-    exclMin => fun state -> gen {
+    fdb {
+        let! state = init exclMin
         let newValue = (if state = inclMax then exclMin else state) + 1
         return Res.feedback newValue newValue
     }
 
 /// An accumulator function summing up incoming values, starting with the given seed.
 let accu value seed =
-    seed => fun state ->
-        gen {
-            let newValue = state + value
-            return Res.feedback newValue newValue
-        }
+    fdb {
+        let! state = init seed
+        let newValue = state + value
+        return Res.feedback newValue newValue
+    }
 
 
 let counterMin = 0

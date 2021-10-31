@@ -23,8 +23,8 @@ module Envelopes =
 
     /// An Envelope follower (tc: [0.0 .. 1.0])
     let follow timeConstant release (input: float) =
-        (0.0, Following)
-        => fun state -> gen {
+        fdb {
+            let! state = init (0.0, Following)
             let lastValue, lastMode = state
             let lastMode' = if release then Releasing 1000 else lastMode
                 
@@ -82,8 +82,8 @@ module Filter =
     
     let private biQuadBase (env: Env) (filterParams: BiQuadParams) (calcCoeffs: Env -> BiQuadCoeffs) input =
         // seed: if we are run the first time, use default values for lastParams+lastCoeffs
-        (filterParams, BiQuadCoeffs.Zero)
-        => fun (lastParams, lastCoeffs) -> gen {
+        fdb {
+            let! lastParams, lastCoeffs = init (filterParams, BiQuadCoeffs.Zero)
             // calc the coeffs new if filter params have changed
             let coeffs =
                 match lastParams = filterParams with
@@ -290,13 +290,15 @@ module Filter =
 module Osc =
 
     let noise() =
-        Random() => fun random -> gen {
+        fdb {
+            let! random = init (Random())
             let v = random.NextDouble()
             return Res.feedback v random
         }
 
     let private osc (env: Env) (frq: float) f =
-        0.0 => fun angle -> gen {
+        fdb {
+            let! angle = init 0.0
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
             return Res.feedback (f newAngle) newAngle
         }

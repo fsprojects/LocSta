@@ -1,34 +1,40 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
-type GenResult<'output, 'state> =
-    | Value of 'output * 'state
-    | Discard of 'state option
+type Control<'o, 's> =
+    | Value of 'o * 's
+    | Discard of 's option
     | Stop
 
-type GenFunc<'output, 'state> =
-    'state option -> GenResult<'output, 'state>
+[<RequireQualifiedAccess>]
+type Fdb<'o, 's> =
+    | Fdb of Control<'o, 's>
 
-type Gen<'output, 'state> =
-    | Gen of GenFunc<'output, 'state>
+type GenFunc<'o, 's> =
+    's option -> Control<'o, 's>
 
-type Fx<'input, 'output, 'state> =
-    'input -> Gen<'output, 'state>
+type Gen<'o, 's> =
+    | Gen of GenFunc<'o, 's>
+
+type Fx<'i, 'o, 's> =
+    'i -> Gen<'o, 's>
 
 [<Struct>]
-type State<'a, 'b> = { currState: 'a; subState: 'b option }
+type State<'sCurr, 'sSub> = 
+    { currState: 'sCurr
+      subState: 'sSub option }
 
-[<Struct>]
-type FeedbackState<'mine, 'inner> = { mine: 'mine; inner: 'inner option }
-
-type Res<'a> = Res of 'a
+[<Struct>] 
+type FeedbackState<'f, 's> = 
+    { feedback: 'f
+      inner: 's option }
 
 module Res =
-    let value v = Value (v, ()) |> Res
-    let discard<'a, 'b> : Res<GenResult<'a, 'b>> = Discard None |> Res
-    let discardWith state = Discard (Some state) |> Res
-    let stop<'a, 'b> : Res<GenResult<'a, 'b>> = Stop |> Res
-    let feedback value feedback = Value ((value, feedback), ()) |> Res
+    let value v = Value (v, ())
+    let feedback value feedback = Value ((value, Some feedback), ()) |> Fdb.Fdb
+    let discard<'a, 'b> : Control<'a, 'b> = Discard None
+    let discardWith state = Discard (Some state)
+    let stop<'a, 'b> : Control<'a, 'b> = Stop
 
 module Gen =
     let asFunc gen = let (Gen b) = gen in b
@@ -71,7 +77,7 @@ module Gen =
             let lastFeed, lastMSstate, lastFState =
                 match state with
                 | None -> None, None, None
-                | Some { mine = mine; inner = inner } ->
+                | Some { feedback = mine; inner = inner } ->
                     match inner with
                     | None -> mine, None, None
                     | Some v -> mine, Some v.currState, v.subState
@@ -84,31 +90,12 @@ module Gen =
                 | Value ((fres, ffeed), fstate) ->
                     Value (
                         fres, 
-                        { mine = ffeed
+                        { feedback = ffeed
                           inner = Some { currState = mstate
                                          subState = Some fstate } }
                     )
                 | _ -> failwith "TODO"
             | _ -> failwith "TODO"
-        |> create
-
-    let feedback
-        (seed: 'workingState)
-        (f: 'workingState -> Gen<'output * 'workingState, 'innerState>)
-        : Gen<'output, FeedbackState<'workingState, 'innerState>>
-        =
-        fun (state: FeedbackState<'workingState, 'innerState> option) ->
-            let feedbackState, innerState =
-                match state with
-                | None -> seed, None
-                | Some { mine = mine; inner = inner } -> mine, inner
-            match asFunc (f feedbackState) innerState with
-            | Value ((resF, feedStateF), innerStateF) ->
-                Value (resF, { mine = feedStateF; inner = Some innerStateF })
-            | Discard (Some innerStateF) -> 
-                Discard (Some { mine = seed; inner = Some innerStateF })
-            | Discard None -> Discard None
-            | Stop -> Stop
         |> create
         
     let zero () =
@@ -145,8 +132,9 @@ module Gen =
 
     // TODO: other builder methods
     type GenBuilder() =
-        member _.Bind(m, f) = bind f m
-        member _.Return(x: Res<GenResult<'v, unit>>) = match x with | Res x -> ofResult x
+        member _.Bind(m, f) = bind f m 
+        member _.Return(x) = ofResult x
+            //match x with | Res x -> ofResult x
         member this.Yield(x) = this.Return(x)
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = x
@@ -176,15 +164,25 @@ module Gen =
             genSeq |> bind body
 
     type FeedbackBuilder() =
-        inherit GenBuilder()
         member this.Bind(m, f) = bind f m
         member this.Bind(m, f) = bindFdb f m
-        member this.Return(x) = ofResult x
+        member this.Return(x) = match x with | Fdb.Fdb x -> ofResult x
     
     let gen = GenBuilder()
     let fdb = FeedbackBuilder()
     
+
+    // --------
+    // feedback
+    // --------
+
+    let inline init seed =
+        fun feedback -> gen {
+            let feedback = feedback |> Option.defaultValue seed
+            return Value ((feedback, feedback), ())
+        }
     
+
     // --------
     // map / apply
     // --------
@@ -286,10 +284,7 @@ type Gen<'v, 's> with
     static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
 
 [<AutoOpen>]
-module Operators =
-
-    /// Feedback with reader state
-    let (=>) seed f = Gen.feedback seed f
+module Globals =
 
     /// Kleisli operator (fx >> fx)
     let (>=>) f g = Gen.pipeFx g f
@@ -300,5 +295,6 @@ module Operators =
     /// Bind operator
     let (>>=) m f = Gen.bind f m
 
-let gen = Gen.gen
-let fdb = Gen.fdb
+    let gen = Gen.gen
+    let fdb = Gen.fdb
+    let init = Gen.init

@@ -46,17 +46,11 @@ let forValue res = match res with | Value (v,s) -> v,s | _ -> failwith "unexpect
 let run g state = state |> Gen.asFunc g |> forValue
 
 
-let init seed =
-    fun feedback -> gen {
-        let feedback = feedback |> Option.defaultValue seed
-        return Res.feedback feedback feedback
-    }
-
 let count (start: string) (inc: int) =
     fdb {
         let! v = init start
         let nextValue = v + (string inc)
-        return Value ((v, Some nextValue), ())
+        return Res.feedback v nextValue
     }
 
 
@@ -83,6 +77,6 @@ fdb {
         |> System.Convert.ToChar
     let! v = count "Hallo" 1
     let res = (string s) + "-" + v
-    return Value ((res, Some nextChar), ())
+    return Res.feedback res nextChar
 }
 |> Gen.toListn 3
