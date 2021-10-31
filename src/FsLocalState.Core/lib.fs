@@ -14,18 +14,20 @@ module Gen =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | Value (v,s) -> Value(proj v s, s)
-            | Discard s -> Discard s
-            | Stop -> Stop
+            | GenResult.Value (v,s) -> GenResult.Value (proj v s, s)
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     let mapValue proj (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | Value (v,s) -> Value(proj v, s)
-            | Discard s -> Discard s
-            | Stop -> Stop
+            | GenResult.Value (v,s) -> GenResult.Value (proj v, s)
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     let includeState (inputGen: Gen<_,_>) =
@@ -34,21 +36,22 @@ module Gen =
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let resetWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
+    let resetWithCurrent2 (pred: _ -> bool) (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | Value (o,s) ->
+            | GenResult.Value (o,s) ->
                 match pred o with
-                | false -> Value((o,false), s)
+                | false -> GenResult.Value ((o,false), s)
                 | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.unwrap) None
-            | Discard s -> Discard s
-            | Stop -> Stop
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
-    let resetWithCurrent (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
+    let resetWithCurrent (pred: _ -> bool) (inputGen: Gen<_,_>) =
         inputGen |> resetWithCurrent2 pred |> mapValue fst
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
@@ -124,13 +127,13 @@ module Gen =
     //        return Res.feedback (dotnetRandom.NextDouble()) random
     //    }
 
-    let count inclusiveStart increment =
+    let inline count (inclusiveStart: int) increment =
         fdb {
             let! curr = init inclusiveStart
             return fdb.value curr (curr + increment)
         }
 
-    let count_0_1 = count 0 1
+    let count_0_1<'a> = count 0 1
 
     // TODO: countFloat
 

@@ -28,22 +28,22 @@ let [<TestCase>] ``Pairwise using For Loop`` () =
 
 let [<TestCase>] ``Discard values (gen)`` () =
     gen {
-        let! v = [ 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
+        let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
             return gen.value v
     }
     |> Gen.toList
-    |> should equal [ 2; 4; 6 ]
+    |> should equal [ 0; 2; 4; 6 ]
 
 
 let [<TestCase>] ``Discard value using For Loop (gen)`` () =
     gen {
-        for v in [ 1; 2; 3; 4; 5; 6 ] do
+        for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
                 return gen.value v
     }
     |> Gen.toList
-    |> should equal [ 2; 4; 6 ]
+    |> should equal [ 0; 2; 4; 6 ]
 
     
 let [<TestCase>] ``Discard values (fdb)`` () =
@@ -53,8 +53,8 @@ let [<TestCase>] ``Discard values (fdb)`` () =
         if state % 2 = 0 then
             return fdb.value state nextValue
         else
-            return fdb.discard nextValue
+            return fdb.discardWith (Some nextValue)
     }
-    |> Gen.toList
-    |> should equal [ 2; 4; 6 ]
+    |> Gen.toListn 4
+    |> should equal [ 0; 2; 4; 6 ]
     

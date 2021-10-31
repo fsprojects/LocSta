@@ -7,27 +7,27 @@ module Gen =
 
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
-    let resumeOrStart (state: 's option) (g: Gen<'o, 's>) =
+    let resumeOrStart (state: 's option) (g: Gen<_,'s>) =
         let f = Gen.unwrap g
         let mutable state = state
         let mutable resume = true
         seq {
             while resume do
                 match f state with
-                | Value (resF, stateF) ->
+                | GenResult.Value (resF, stateF) ->
                     state <- Some stateF
                     yield (resF, stateF)
-                | Discard (Some stateF) ->
+                | GenResult.DiscardWith stateF ->
                     state <- Some stateF
-                | Discard None ->
+                | GenResult.Discard ->
                     ()
-                | Stop ->
+                | GenResult.Stop ->
                     resume <- false
         }
     
-    let resume state (g: Gen<'o, 's>) = resumeOrStart (Some state) g
+    let resume state (g: Gen<_,'s>) = resumeOrStart (Some state) g
 
-    let toSeqStateFx (fx: Fx<'i, 'o, 's>) : seq<'i> -> seq<'o * 's> =
+    let toSeqStateFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_ * 's> =
         let mutable state = None
         let mutable resume = true
 
@@ -38,18 +38,18 @@ module Gen =
                     let value = enumerator.Current
                     let local = fx value |> Gen.unwrap
                     match local state with
-                    | Value (resF, stateF) ->
+                    | GenResult.Value (resF, stateF) ->
                         state <- Some stateF
                         yield (resF, stateF)
-                    | Discard (Some stateF) ->
+                    | GenResult.DiscardWith stateF ->
                         state <- Some stateF
-                    | Discard None ->
+                    | GenResult.Discard ->
                         ()
-                    | Stop ->
+                    | GenResult.Stop ->
                         resume <- false
             }
 
-    let toSeqFx (fx: Fx<'i, 'o, 's>) : seq<'i> -> seq<'o> =
+    let toSeqFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_> =
         let evaluable = toSeqStateFx fx
         fun inputValues -> evaluable inputValues |> Seq.map fst
     
