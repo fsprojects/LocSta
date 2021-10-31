@@ -18,6 +18,9 @@ type Fx<'input, 'output, 'state> =
 [<Struct>]
 type State<'a, 'b> = { currState: 'a; subState: 'b option }
 
+[<Struct>]
+type FeedbackState<'mine, 'inner> = { mine: 'mine; inner: 'inner option }
+
 type Res<'a> = Res of 'a
 
 module Res =
@@ -28,7 +31,7 @@ module Res =
     let feedback value feedback = Value ((value, feedback), ()) |> Res
 
 module Gen =
-    let internal run gen = let (Gen b) = gen in b
+    let asFunc gen = let (Gen b) = gen in b
 
     // Creates a Gen from a function that takes optional state.
     let create f = Gen f
@@ -44,26 +47,50 @@ module Gen =
 
     let bind (f: 'o1 -> Gen<'o2, 's2>) (m: Gen<'o1, 's1>) : Gen<'o2, State<'s1, 's2>> =
         fun (state: State<'s1, 's2> option) ->
-            let lastStateM, lastStateF =
+            let lastMState, lastFState =
                 match state with
                 | None -> None, None
                 | Some v -> Some v.currState, v.subState
-            match (run m) lastStateM with
-            | Value (resM, stateM) ->
-                let fGen = f resM
-                match (run fGen) lastStateF with
-                | Value (resF, stateF) -> Value (resF, { currState = stateM; subState = Some stateF })
-                | Discard stateF -> Discard (Some { currState = stateM; subState = stateF })
+            match (asFunc m) lastMState with
+            | Value (mres, mstate) ->
+                let fGen = f mres
+                match (asFunc fGen) lastFState with
+                | Value (fres, fstate) -> Value (fres, { currState = mstate; subState = Some fstate })
+                | Discard stateF -> Discard (Some { currState = mstate; subState = stateF })
                 | Stop -> Stop
-            | Discard (Some stateM) -> Discard (Some { currState = stateM; subState = lastStateF })
+            | Discard (Some stateM) -> Discard (Some { currState = stateM; subState = lastFState })
             | Discard None ->
-                match lastStateM with
-                | Some lastStateM -> Discard (Some { currState = lastStateM; subState = lastStateF })
+                match lastMState with
+                | Some lastStateM -> Discard (Some { currState = lastStateM; subState = lastFState })
                 | None -> Discard None
             | Stop -> Stop
         |> create
 
-    type FeedbackState<'mine, 'inner> = { mine: 'mine; inner: 'inner option }
+    let bindFdb (f: 'o1 -> Gen<('o2 * 'f option), 's2>) (m: 'f option -> Gen<('o1 * 'f), 's1>) =
+        fun state ->
+            let lastFeed, lastMSstate, lastFState =
+                match state with
+                | None -> None, None, None
+                | Some { mine = mine; inner = inner } ->
+                    match inner with
+                    | None -> mine, None, None
+                    | Some v -> mine, Some v.currState, v.subState
+            let mgen = m lastFeed
+            match (asFunc mgen) lastMSstate with
+            | Value ((mres, mfeed), mstate) ->
+                // TODO: mf is discarded - that sound ok
+                let fgen = f mres
+                match (asFunc fgen) lastFState with
+                | Value ((fres, ffeed), fstate) ->
+                    Value (
+                        fres, 
+                        { mine = ffeed
+                          inner = Some { currState = mstate
+                                         subState = Some fstate } }
+                    )
+                | _ -> failwith "TODO"
+            | _ -> failwith "TODO"
+        |> create
 
     let feedback
         (seed: 'workingState)
@@ -75,7 +102,7 @@ module Gen =
                 match state with
                 | None -> seed, None
                 | Some { mine = mine; inner = inner } -> mine, inner
-            match run (f feedbackState) innerState with
+            match asFunc (f feedbackState) innerState with
             | Value ((resF, feedStateF), innerStateF) ->
                 Value (resF, { mine = feedStateF; inner = Some innerStateF })
             | Discard (Some innerStateF) -> 
@@ -118,16 +145,15 @@ module Gen =
 
     // TODO: other builder methods
     type GenBuilder() =
-        member this.Bind(m: Gen<_, _>, f: _ -> Gen<_, _>) = bind f m
-        member this.Return(x: Res<GenResult<'v, unit>>) = match x with | Res x -> ofResult x
-        member this.ReturnFrom(x) = x
-        member this.Zero() = zero ()
-        //member this.Yield(x: GenResult<_,_>) = ofResult x
-        member this.YieldFrom(x) = x
+        member _.Bind(m, f) = bind f m
+        member _.Return(x: Res<GenResult<'v, unit>>) = match x with | Res x -> ofResult x
+        member this.Yield(x) = this.Return(x)
+        member _.ReturnFrom(x) = x
+        member _.YieldFrom(x) = x
+        member _.Zero() = zero ()
         //member this.Delay(f) = f
         //member this.Run(f) = f ()
         //member this.While (guard, body) =
-            //if not (guard()) 
             //if not (guard()) 
             //then this.Zero() 
             //else
@@ -138,18 +164,25 @@ module Gen =
             with e -> handler e
         member this.TryFinally (body, compensation) =
             try this.ReturnFrom(body ())
-            finally compensation () 
+            finally compensation ()
         member this.Using (disposable: #System.IDisposable, body) =
             let body' = fun () -> body disposable
             this.TryFinally(body', fun () -> 
                 match disposable with
                     | null -> () 
                     | disp -> disp.Dispose())
-        member this.For (sequence: seq<'a>, body: 'a -> Gen<'b, _>) =
+        member _.For (sequence: seq<'a>, body: 'a -> Gen<'b, _>) =
             let genSeq = ofSeq sequence 
             genSeq |> bind body
 
+    type FeedbackBuilder() =
+        inherit GenBuilder()
+        member this.Bind(m, f) = bind f m
+        member this.Bind(m, f) = bindFdb f m
+        member this.Return(x) = ofResult x
+    
     let gen = GenBuilder()
+    let fdb = FeedbackBuilder()
     
     
     // --------
@@ -164,7 +197,7 @@ module Gen =
 
     let map (projection: 'a -> 'b) (x: Gen<'a, 's>) : Gen<'b, 's> =
         fun state ->
-            match (run x) state with
+            match (asFunc x) state with
             | Value (x', state) -> Value (projection x', state)
             | Discard s -> Discard s
             | Stop -> Stop
@@ -268,3 +301,4 @@ module Operators =
     let (>>=) m f = Gen.bind f m
 
 let gen = Gen.gen
+let fdb = Gen.fdb

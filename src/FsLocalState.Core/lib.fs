@@ -12,7 +12,7 @@ module Gen =
 
     let mapValue2 proj (inputGen: Gen<_,_>) =
         fun state ->
-            let res = (Gen.run inputGen) state
+            let res = (Gen.asFunc inputGen) state
             match res with
             | Value (v,s) -> Value(proj v s, s)
             | Discard s -> Discard s
@@ -21,7 +21,7 @@ module Gen =
 
     let mapValue proj (inputGen: Gen<_,_>) =
         fun state ->
-            let res = (Gen.run inputGen) state
+            let res = (Gen.asFunc inputGen) state
             match res with
             | Value (v,s) -> Value(proj v, s)
             | Discard s -> Discard s
@@ -36,12 +36,12 @@ module Gen =
     /// It resurns the value and a bool indicating is a reset did happen.
     let resetWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
         fun state ->
-            let res = (Gen.run inputGen) state
+            let res = (Gen.asFunc inputGen) state
             match res with
             | Value (o,s) ->
                 match pred o with
                 | false -> Value((o,false), s)
-                | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.run) None
+                | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.asFunc) None
             | Discard s -> Discard s
             | Stop -> Stop
         |> Gen.create
@@ -93,7 +93,7 @@ module Gen =
             let checks =
                 currentChecks
                 |> List.map (fun checkState ->
-                    let checkRes = (pred checkState.startValue currentValue |> Gen.run) checkState.state
+                    let checkRes = (pred checkState.startValue currentValue |> Gen.asFunc) checkState.state
                     match checkRes with
                     | Value (res,_) -> Choice1Of3 (checkState.startValue, res)
                     | Discard s ->

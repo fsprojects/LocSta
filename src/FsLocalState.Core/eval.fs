@@ -8,7 +8,7 @@ module Gen =
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
     let resumeOrStart (state: 's option) (g: Gen<'o, 's>) =
-        let f = Gen.run g
+        let f = Gen.asFunc g
         let mutable state = state
         let mutable resume = true
         seq {
@@ -36,7 +36,7 @@ module Gen =
                 let enumerator = inputValues.GetEnumerator()
                 while enumerator.MoveNext() && resume do
                     let value = enumerator.Current
-                    let local = fx value |> Gen.run
+                    let local = fx value |> Gen.asFunc
                     match local state with
                     | Value (resF, stateF) ->
                         state <- Some stateF
