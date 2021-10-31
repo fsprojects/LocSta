@@ -31,9 +31,15 @@ type FeedbackState<'f, 's> =
 module Gen =
     let unwrap gen = let (Gen b) = gen in b
 
-    // Creates a Gen from a function that takes optional state.
+    /// Single case DU constructor.
     let create f = Gen f
     
+    /// Wraps a BaseResult into a gen.
+    let ofResult (x: BaseResult<_,_>) : Gen<_,_> = create (fun _ -> x)
+
+    /// Wraps an arbitrary value into a gen.
+    let ofValue x = create (fun _ -> Value (x, ()))
+
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
     let ofSeed f seed =
         fun s ->
@@ -66,7 +72,7 @@ module Gen =
 
     let bindFdb (f: 'o1 -> Gen<('o2 * 'f option), 's2>) (m: 'f option -> Gen<('o1 * 'f), 's1>) =
         fun state ->
-            let lastFeed, lastMSstate, lastFState =
+            let lastFeed, lastMState, lastFState =
                 match state with
                 | None -> None, None, None
                 | Some { feedback = mine; inner = inner } ->
@@ -74,7 +80,7 @@ module Gen =
                     | None -> mine, None, None
                     | Some v -> mine, Some v.currState, v.subState
             let mgen = m lastFeed
-            match (unwrap mgen) lastMSstate with
+            match (unwrap mgen) lastMState with
             | Value ((mres, mfeed), mstate) ->
                 // TODO: mf is discarded - that sound ok
                 let fgen = f mres
@@ -86,12 +92,37 @@ module Gen =
                           inner = Some { currState = mstate
                                          subState = Some fstate } }
                     )
-                | _ -> failwith "TODO"
-            | _ -> failwith "TODO"
+                | Discard (Some fstate) ->
+                    Discard (
+                        Some  { feedback = lastFeed
+                                inner = Some { currState = mstate
+                                               subState = Some fstate } }
+                    )
+                | Discard None ->
+                    Discard (
+                        Some  { feedback = lastFeed
+                                inner = Some { currState = mstate
+                                               subState = lastFState } }
+                    )
+                | Stop -> Stop
+            | Discard (Some mstate) ->
+                Discard (
+                    Some  { feedback = lastFeed
+                            inner = Some { currState = mstate
+                                           subState = lastFState } }
+                )
+            | Discard None ->
+                match lastMState with
+                | Some lastMState ->
+                    Discard (
+                        Some  { feedback = lastFeed
+                                inner = Some { currState = lastMState
+                                               subState = lastFState } }
+                    )
+                | None ->
+                    Discard None
+            | Stop -> Stop
         |> create
-
-    let ofResult x = create (fun _ -> x)
-    let ofValue x = create (fun _ -> Value (x, ()))
 
     /// Transforms a generator function to an effect function.    
     let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =

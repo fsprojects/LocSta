@@ -49,8 +49,11 @@ let [<TestCase>] ``Discard value using For Loop (gen)`` () =
 let [<TestCase>] ``Discard values (fdb)`` () =
     fdb {
         let! state = init 0
+        let nextValue = state + 1
         if state % 2 = 0 then
-            return fdb.value state (state + 1)
+            return fdb.value state nextValue
+        else
+            return fdb.discard nextValue
     }
     |> Gen.toList
     |> should equal [ 2; 4; 6 ]
