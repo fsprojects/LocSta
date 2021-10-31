@@ -1,5 +1,5 @@
 
-#r "FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
 type While<'v> =
