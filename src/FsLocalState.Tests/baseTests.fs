@@ -58,3 +58,27 @@ let [<TestCase>] ``Discard values (fdb)`` () =
     |> Gen.toListn 4
     |> should equal [ 0; 2; 4; 6 ]
     
+
+let [<TestCase>] ``Stop (gen)`` () =
+    gen {
+        let! v = count_0_1
+        if v < 5 then
+            return gen.value v
+        else
+            return gen.stop ()
+    }
+    |> Gen.toList
+    |> should equal [ 0 .. 4 ]
+
+
+let [<TestCase>] ``Stop (fdb)`` () =
+    fdb {
+        let! v = init 0
+        let nextValue = v + 1
+        if v < 5 then
+            return fdb.value v nextValue
+        else
+            return fdb.stop ()
+    }
+    |> Gen.toList
+    |> should equal [ 0 .. 4 ]

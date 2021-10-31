@@ -164,9 +164,9 @@ module Gen =
         
         // result ctors
         member _.value(v) = GenResult.Value (v, ())
-        member _.discard<'a, 'b>() = GenResult.Discard
-        member _.discard(state) = GenResult.DiscardWith state
-        member _.stop<'a, 'b>() = GenResult.Stop
+        member _.discard() : GenResult<'a, 's> = GenResult.Discard
+        member _.discardWith(state) : GenResult<'a, 's> = GenResult.DiscardWith state
+        member _.stop() : GenResult<'a, 's> = GenResult.Stop
 
     type FeedbackBuilder() =
         inherit BaseBuilder()
