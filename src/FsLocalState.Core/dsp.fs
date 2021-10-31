@@ -38,7 +38,7 @@ module Envelopes =
             let diff = lastValue - target
             let out = lastValue - diff * timeConstant
                 
-            return Res.feedback out (out, newMode)
+            return fdb.value out (out, newMode)
         }
 
     /// An Attack-Release envelope (a, r: [0.0 .. 1.0])
@@ -94,7 +94,7 @@ module Filter =
             let z1 = input * coeffs.a1 + coeffs.z2 - coeffs.b1 * o
             let z2 = input * coeffs.a2 - coeffs.b2 * o
             let newCoeffs = { coeffs with z1 = z1;  z2 = z2 }
-            return Res.feedback o (filterParams, newCoeffs)
+            return fdb.value o (filterParams, newCoeffs)
         }
 
 
@@ -293,14 +293,14 @@ module Osc =
         fdb {
             let! random = init (Random())
             let v = random.NextDouble()
-            return Res.feedback v random
+            return fdb.value v random
         }
 
     let private osc (env: Env) (frq: float) f =
         fdb {
             let! angle = init 0.0
             let newAngle = (angle + Const.pi2 * frq / (float env.sampleRate)) % Const.pi2
-            return Res.feedback (f newAngle) newAngle
+            return fdb.value (f newAngle) newAngle
         }
         
 

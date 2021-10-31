@@ -12,7 +12,7 @@ let counter exclMin inclMax =
     fdb {
         let! state = init exclMin
         let newValue = (if state = inclMax then exclMin else state) + 1
-        return Res.feedback newValue newValue
+        return fdb.value newValue newValue
     }
 
 /// An accumulator function summing up incoming values, starting with the given seed.
@@ -20,7 +20,7 @@ let accu value seed =
     fdb {
         let! state = init seed
         let newValue = state + value
-        return Res.feedback newValue newValue
+        return fdb.value newValue newValue
     }
 
 
@@ -32,7 +32,7 @@ let sampleCount = 1000
 let counted =
     gen {
         let! i = counter counterMin counterMax
-        return Res.value i
+        return gen.value i
     }
     |> Gen.toListn sampleCount
 
@@ -67,7 +67,7 @@ module CounterAndAccu =
         gen {
             let! i = counter counterMin counterMax
             let! acc = accu i accuSeed
-            return Res.value acc
+            return gen.value acc
         }
         |> Gen.toListn sampleCount
 

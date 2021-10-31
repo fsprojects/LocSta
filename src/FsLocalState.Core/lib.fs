@@ -12,7 +12,7 @@ module Gen =
 
     let mapValue2 proj (inputGen: Gen<_,_>) =
         fun state ->
-            let res = (Gen.asFunc inputGen) state
+            let res = (Gen.unwrap inputGen) state
             match res with
             | Value (v,s) -> Value(proj v s, s)
             | Discard s -> Discard s
@@ -21,7 +21,7 @@ module Gen =
 
     let mapValue proj (inputGen: Gen<_,_>) =
         fun state ->
-            let res = (Gen.asFunc inputGen) state
+            let res = (Gen.unwrap inputGen) state
             match res with
             | Value (v,s) -> Value(proj v, s)
             | Discard s -> Discard s
@@ -36,12 +36,12 @@ module Gen =
     /// It resurns the value and a bool indicating is a reset did happen.
     let resetWithCurrent2 (pred: 'o -> bool) (inputGen: Gen<'o,_>) =
         fun state ->
-            let res = (Gen.asFunc inputGen) state
+            let res = (Gen.unwrap inputGen) state
             match res with
             | Value (o,s) ->
                 match pred o with
                 | false -> Value((o,false), s)
-                | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.asFunc) None
+                | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.unwrap) None
             | Discard s -> Discard s
             | Stop -> Stop
         |> Gen.create
@@ -127,7 +127,7 @@ module Gen =
     let count inclusiveStart increment =
         fdb {
             let! curr = init inclusiveStart
-            return Res.feedback curr (curr + increment)
+            return fdb.value curr (curr + increment)
         }
 
     let count_0_1 = count 0 1
@@ -138,7 +138,7 @@ module Gen =
     let delay input seed =
         fdb {
             let! state = init seed
-            return Res.feedback state input
+            return fdb.value state input
         }
 
     /// Positive slope.
@@ -146,7 +146,7 @@ module Gen =
         fdb {
             let! state = init seed
             let res = state < input
-            return Res.feedback res input
+            return fdb.value res input
         }
 
     /// Negative slope.
@@ -154,5 +154,5 @@ module Gen =
         fdb {
             let! state = init seed
             let res = state < input
-            return Res.feedback res input
+            return fdb.value res input
         }
