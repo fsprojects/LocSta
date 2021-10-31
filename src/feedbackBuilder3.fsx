@@ -51,23 +51,13 @@ open FsLocalState.Core
 open FsLocalState.Core.Gen
 
 
-
-type F1<'f, 'o, 's> = 'f -> 's option -> GenResult<('o * 'f), 's>
-
-let f1ToGen m =
-    fun feedback -> ((fun state -> m feedback state) |> Gen.create)
-
-let bindFeedback4 m f =
-    fun feedback state ->
-        let res = Gen.feedback feedback (f1ToGen m) |> Gen.bind f
-        (Gen.run res) state
-
-type FeedbackBuilder<'a>(seed : 'a) =
-    member this.Bind(m, f) =
+type FeedbackBuilder() =
+    member this.Bind(m, f) = Gen.GenBuilder().Bind(m, f)
+    member this.Bind(m: 'f option -> Gen<('a * 'f), 'sm>, f) =
         fun state ->
             let last_feed, last_mstate, last_fstate =
                 match state with
-                | None -> seed, None, None
+                | None -> None, None, None
                 | Some { mine = mine; inner = inner } ->
                     match inner with
                     | None -> mine, None, None
@@ -76,62 +66,39 @@ type FeedbackBuilder<'a>(seed : 'a) =
             match (Gen.run mgen) last_mstate with
             | Value ((mres, mfeed), mstate) ->
                 // TODO: mf is discarded - that sound ok
-                let fgen = f mres last_feed
+                let fgen = f mres
                 match (Gen.run fgen) last_fstate with
                 | Value ((fres, ffeed), fstate) ->
-                    Value (fres, { mine = ffeed; inner = Some { currState = mstate; subState = Some fstate } })
-                    //Value (fr, { mine = ff; inner = Some fs })
+                    Value (
+                        fres, 
+                        { mine = ffeed
+                          inner = Some { currState = mstate
+                                         subState = Some fstate } }
+                    )
                 | _ -> failwith "TODO"
             | _ -> failwith "TODO"
         |> Gen.create
+    member this.Return(x) = Gen.ofResult x
 
+let fdb = FeedbackBuilder()
 
-            //match run (f feedbackState) innerState with
-            //| Value ((resF, feedStateF), innerStateF) ->
-            //    Value (resF, { mine = feedStateF; inner = Some innerStateF })
-            //| Discard (Some innerStateF) -> 
-            //    Discard (Some { mine = seed; inner = Some innerStateF })
-            //| Discard None -> Discard None
-            //| Stop -> Stop
-        //|> Gen.create
-
-        //seed => fun state -> gen {
-        //    let! mres = m state
-        //    let fm = f mres
-        //    let! fres = seed => fun state -> fm state
-        //    return fres
-        //}
-
-        //seed => (fun feedback -> gen {
-        //    printfn "FFFFFFFF %A" feedback
-        //    let! mres = m feedback
-        //    return! f mres
-        //})
-        
-        //fun state ->
-        //    let a = "sdfsdf"
-        //    let res = Gen.feedback seed (f1ToGen m) |> Gen.bind f
-        //    let res2 = (runGen res) state
-        //    res2
-        //|> Gen.create
-
-        //(bindFeedback4 m f |> f1ToGen) seed
-    member this.Return(x) = fun _ -> Gen.ofResult x
-
-let inline fdb seed = FeedbackBuilder(seed)
-
-let state =
+let init seed =
     fun feedback -> gen {
+        let feedback = feedback |> Option.defaultValue seed
         return Res.feedback feedback feedback
     }
 
 let count (start: string) (inc: int) =
-    fdb start {
-        let! v = state
+    fdb {
+        let! v = init start
         let nextValue = v + (string inc)
-        return Value ((v, nextValue), ())
+        return Value ((v, Some nextValue), ())
     }
 
+
+//////////
+// Tests
+//////////
 
 let g = count "start" 1
 
@@ -140,21 +107,18 @@ let v2,s2 = run g (Some s1)
 let v3,s3 = run g (Some s2)
 
 let res = count "start" 1 |> Gen.toSeqState |> Seq.truncate 2 |> Seq.toList
-let res2 = count "start" 1 |> Gen.toListn 10
+let res2 = count "start" 1 |> Gen.toListn 3
 
-fdb () {
-    let! s = state
-    let! v1 = count "Hallo" 1
-    return Value ((v1 + v2, ()), ())
+
+
+fdb {
+    let! s = init 'a'
+    let nextChar = 
+        System.Convert.ToByte s
+        |> fun x -> x + 1uy
+        |> System.Convert.ToChar
+    let! v = count "Hallo" 1
+    let res = (string s) + "-" + v
+    return Value ((res, Some nextChar), ())
 }
-
-
-//let count start inc =
-//    fdb {
-//        let! v = init ()
-//        let nextValue = v + inc
-//        return Value ((v, nextValue), ())
-//    }
-
-//let res = count 0 1 |> f1ToGen
-//0 |> res |> Gen.toListn 10
+|> Gen.toListn 3
