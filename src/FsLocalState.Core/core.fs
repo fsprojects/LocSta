@@ -2,6 +2,10 @@
 module FsLocalState.Core
 
 [<RequireQualifiedAccess>]
+type InitResult<'o, 'f> =
+    | Init of 'o * 'f
+
+[<RequireQualifiedAccess>]
 type GenResult<'o, 's> =
     | Value of 'o * 's
     | Discard
@@ -15,11 +19,8 @@ type FdbResult<'o, 'f> =
     | DiscardWith of 'f
     | Stop
 
-type GenFunc<'o, 's> =
-    's option -> 'o
-
 type Gen<'o, 's> =
-    | Gen of GenFunc<'o, 's>
+    | Gen of ('s option -> 'o)
 
 type Fx<'i, 'o, 's> =
     'i -> Gen<'o, 's>
@@ -39,18 +40,6 @@ module Gen =
 
     /// Single case DU constructor.
     let create f = Gen f
-    
-    /// Wraps a BaseResult into a gen.
-    let ofValue x : Gen<_,_> = create (fun _ -> x)
-
-    // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
-    let ofSeed f seed =
-        fun s ->
-            let state = Option.defaultValue seed s
-            f state
-        |> create
-
-    let ofSeed2 seed f = ofSeed seed f
 
     let bind
         (f: 'o1 -> Gen<GenResult<'o2, 's2>, 's2>) 
@@ -84,10 +73,11 @@ module Gen =
                 GenResult.Stop
         |> create
 
-    // bindFdb is invoked only ONCE per fdb { .. } with the first "let! state = init .." bang
+    /// 'bindFdb' is invoked only ONCE per fdb { .. } with
+    /// the first "let! state = init .." exp returning an InitResult.
     let bindFdb
         (f: 'o1 -> Gen<FdbResult<'o2, 'f option>, 's2>)
-        (m: 'f option -> Gen<GenResult<('o1 * 'f), 's1>, 's1>)
+        (m: 'f option -> Gen<InitResult<'o1, 'f>, unit>)
         : _ // TODO
         =
         fun state ->
@@ -100,7 +90,7 @@ module Gen =
                     | Some v -> feedback, Some v.currState, v.subState
             let mgen = m lastFeed
             match (unwrap mgen) lastMState with
-            | GenResult.Value ((mres, mfeed), mstate) ->
+            | InitResult.Init (mres, mfeed) ->
                 // TODO: mf is discarded - that sound ok
                 let fgen = f mres
                 match (unwrap fgen) lastFState with
@@ -108,36 +98,33 @@ module Gen =
                     GenResult.Value (
                         fres, 
                         { feedback = ffeed
-                          inner = Some { currState = mstate
+                          inner = Some { currState = ()
                                          subState = None } }
                     )
                 | FdbResult.DiscardWith ffeed ->
                     GenResult.DiscardWith
                         { feedback = ffeed
-                          inner = Some { currState = mstate
+                          inner = Some { currState = ()
                                          subState = None } }
                 | FdbResult.Discard ->
                     GenResult.DiscardWith
                         { feedback = lastFeed
-                          inner = Some { currState = mstate
+                          inner = Some { currState = ()
                                          subState = lastFState } }
                 | FdbResult.Stop -> GenResult.Stop
-            | GenResult.DiscardWith mstate ->
-                GenResult.DiscardWith
-                    { feedback = lastFeed
-                      inner = Some { currState = mstate
-                                     subState = lastFState } }
-            | GenResult.Discard ->
-                match lastMState with
-                | Some lastMState ->
-                    GenResult.DiscardWith
-                        { feedback = lastFeed
-                          inner = Some { currState = lastMState
-                                         subState = lastFState } }
-                | None ->
-                    GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
         |> create
+        
+    /// Wraps a BaseResult into a gen.
+    let ofValue x : Gen<_,_> = create (fun _ -> x)
+
+    // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
+    let ofSeed f seed =
+        fun s ->
+            let state = Option.defaultValue seed s
+            f state
+        |> create
+
+    let ofSeed2 seed f = ofSeed seed f
 
     /// Transforms a generator function to an effect function.    
     let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
@@ -164,29 +151,7 @@ module Gen =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = x
         member _.Zero() = ofValue GenResult.Discard
-        //member this.Delay(f) = f
-        //member this.Run(f) = f ()
-        //member this.While (guard, body) =
-            //if not (guard()) 
-            //then this.Zero() 
-            //else
-            //    this.Bind(body(), fun () ->
-            //        this.While (guard, body))  
-        member this.TryWith (body, handler) =
-            try this.ReturnFrom(body())
-            with e -> handler e
-        member this.TryFinally (body, compensation) =
-            try this.ReturnFrom(body ())
-            finally compensation ()
-        member this.Using (disposable: #System.IDisposable, body) =
-            let body' = fun () -> body disposable
-            this.TryFinally(body', fun () -> 
-                match disposable with
-                    | null -> () 
-                    | disp -> disp.Dispose())
-        member _.For (sequence: seq<'a>, body) =
-            let genSeq = ofSeq sequence 
-            genSeq |> bind body
+        member _.For (sequence: seq<'a>, body) = ofSeq sequence |> bind body
 
     // TODO: other builder methods
     type GenBuilder() =
@@ -226,22 +191,17 @@ module Gen =
     // feedback
     // --------
 
+    /// Initialized the `fdb { .. }` workflow.
     let inline init seed =
         fun feedback -> gen {
             let feedback = feedback |> Option.defaultValue seed
-            return GenResult.Value ((feedback, feedback), ())
+            return InitResult.Init (feedback, feedback)
         }
 
 
     // --------
     // map / apply
     // --------
-
-    //let map projection x =
-    //    gen {
-    //        let! res = x
-    //        return projection res
-    //    }
 
     let map projection x =
         fun state ->
@@ -335,7 +295,7 @@ type Gen<'v, 's> with
     static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
 
 [<AutoOpen>]
-module Globals =
+module TopLevelOperators =
 
     /// Kleisli operator (fx >> fx)
     let (>=>) f g = Gen.pipeFx g f
@@ -346,6 +306,6 @@ module Globals =
     /// Bind operator
     let (>>=) m f = Gen.bind f m
 
-    let gen = Gen.gen
-    let fdb = Gen.fdb
-    let init = Gen.init
+let gen = Gen.gen
+let fdb = Gen.fdb
+let init = Gen.init
