@@ -20,9 +20,14 @@ type State<'sCurr, 'sSub> =
     { currState: 'sCurr
       subState: 'sSub option }
 
-module Res =
+type Combined<'sa, 'sb> =
+    private
+    | UseA of 'sa option 
+    | UseB of 'sb option
+    
+type SingleRun = SingleRun
 
-    type SingleRun = SingleRun
+module Res =
 
     /// Wraps a BaseResult into a gen.
     let private repeat value : Gen<_,_> =
@@ -31,13 +36,6 @@ module Res =
     /// Wraps a BaseResult into a gen.
     let value value : Gen<_,_> =
         ValueAndState(value, ()) |> repeat
-
-    let singleton value =
-        fun state ->
-            match state with
-            | None -> ValueAndState(value, SingleRun)
-            | Some SingleRun -> Stop
-        |> Gen
 
     let feedback value feedback = 
         ValueAndState(value, feedback) |> repeat
@@ -137,8 +135,15 @@ module Gen =
 
 
     // --------
-    // seq / list
+    // singleton / seq / list
     // --------
+    
+    let singleton value =
+        fun state ->
+            match state with
+            | None -> ValueAndState(value, SingleRun)
+            | Some SingleRun -> Stop
+        |> Gen
 
     let ofSeq (s: seq<_>) =
         s.GetEnumerator()
@@ -156,9 +161,10 @@ module Gen =
             | [] -> Stop
         )
 
-    type Combined<'sa, 'sb> = 
-        | UseA of 'sa option 
-        | UseB of 'sb option
+
+    // --------
+    // combine
+    // --------
 
     let combine (a: Gen<GenResult<'o, 'sa>, 'sa>) (b: unit -> Gen<GenResult<'o, 'sb>, 'sb>) =
         printfn "Combine"
@@ -185,7 +191,6 @@ module Gen =
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
-        member _.YieldFrom(x) = x
         member _.Zero() = Res.discard
         member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         member _.Combine(x, delayed) = combine x delayed
@@ -196,14 +201,14 @@ module Gen =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
         member _.Return(x: Gen<GenResult<'o, 's>, 's>) = x
-        member this.Yield(x) = this.Return(x)
+        member _.Yield(x) = singleton x
+        member _.YieldFrom(x) = ofList x
         
     type FeedbackBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindFdb f m
         member _.Return(x: Gen<GenResult<'o, 's>, 's>) = x
-        member this.Yield(x) = this.Return(x)
     
     let gen = GenBuilder()
     let fdb = FeedbackBuilder()
