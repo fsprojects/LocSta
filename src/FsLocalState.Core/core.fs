@@ -13,13 +13,6 @@ type GenResult<'o, 's> =
     | DiscardWith of 's
     | Stop
 
-[<RequireQualifiedAccess>]
-type FdbResult<'o, 'f> =
-    | Feedback of 'o * 'f
-    | Discard
-    | DiscardWith of 'f
-    | Stop
-
 type Gen<'o, 's> =
     | Gen of ('s option -> 'o)
 
@@ -81,7 +74,7 @@ module Gen =
     /// The returned "feedback state" is then passed into f, which itself finally returns a
     /// Gen<FdbResult>.
     let bindFdb
-        (f: 'f -> Gen<FdbResult<'o, 'f>, 's>)
+        (f: 'f -> Gen<GenResult<'o, 'f>, 's>)
         (m: InitResult<'f>)
         //: Gen<GenResult<'o2, FdbState<'f, GenState<unit, 's2>>>, FdbState<'f, GenState<unit, 's2>>>
         =
@@ -92,13 +85,13 @@ module Gen =
                 | Some { feedback = feedback; inner = inner } -> feedback, inner
             let fgen = f lastFeed
             match (unwrap fgen) lastFState with
-            | FdbResult.Feedback (fres, ffeed) ->
+            | GenResult.Value (fres, ffeed) ->
                 GenResult.Value (fres, { feedback = ffeed; inner = None })
-            | FdbResult.DiscardWith ffeed ->
+            | GenResult.DiscardWith ffeed ->
                 GenResult.DiscardWith { feedback = ffeed; inner = None }
-            | FdbResult.Discard ->
+            | GenResult.Discard ->
                 GenResult.DiscardWith { feedback = lastFeed; inner = lastFState }
-            | FdbResult.Stop ->
+            | GenResult.Stop ->
                 GenResult.Stop
         |> create
         
@@ -139,35 +132,25 @@ module Gen =
         member _.YieldFrom(x) = x
         member _.Zero() = ofValue GenResult.Discard
         member _.For (sequence: seq<'a>, body) = ofSeq sequence |> bind body
-
-    type GenBuilder() =
-        inherit BaseBuilder()
-        
-        // builder methods
-        member _.Bind(m, f) = bind f m
-        member _.Return(x: GenResult<_,_>) = ofValue x
-        member this.Yield(x: GenResult<_,_>) = this.Return(x)
-        
         // result ctors
         member _.value(v) = GenResult.Value (v, ())
+        member _.feedback value feedback = GenResult.Value (value, feedback)
         member _.discard() : GenResult<'a, 's> = GenResult.Discard
         member _.discardWith(state) : GenResult<'a, 's> = GenResult.DiscardWith state
         member _.stop() : GenResult<'a, 's> = GenResult.Stop
 
+    type GenBuilder() =
+        inherit BaseBuilder()
+        member _.Bind(m, f) = bind f m
+        member _.Return(x: GenResult<_,_>) = ofValue x
+        member this.Yield(x: GenResult<_,_>) = this.Return(x)
+        
     type FeedbackBuilder() =
         inherit BaseBuilder()
-        
-        // builder methods
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindFdb f m
-        member _.Return(x: FdbResult<_,_>) = ofValue x
-        member this.Yield(x: FdbResult<_,_>) = this.Return(x)
-        
-        // result ctors
-        member _.value value feedback = FdbResult.Feedback (value, feedback)
-        member _.discard() : FdbResult<'a, 'f> = FdbResult.Discard
-        member _.discardWith(feedback: 'f) : FdbResult<'a, 'f> = FdbResult.DiscardWith feedback
-        member _.stop() : FdbResult<'a, 'f> = FdbResult.Stop
+        member _.Return(x: GenResult<_,_>) = ofValue x
+        member this.Yield(x: GenResult<_,_>) = this.Return(x)
     
     let gen = GenBuilder()
     let fdb = FeedbackBuilder()

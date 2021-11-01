@@ -130,7 +130,7 @@ module Gen =
     let inline count inclusiveStart increment =
         fdb {
             let! curr = Init inclusiveStart
-            return fdb.value curr (curr + increment)
+            return fdb.feedback curr (curr + increment)
         }
 
     let count01<'a> = count 0 1
@@ -141,7 +141,7 @@ module Gen =
     let delay input seed =
         fdb {
             let! state = Init seed
-            return fdb.value state input
+            return fdb.feedback state input
         }
 
     /// Positive slope.
@@ -149,7 +149,7 @@ module Gen =
         fdb {
             let! state = Init seed
             let res = state < input
-            return fdb.value res input
+            return fdb.feedback res input
         }
 
     /// Negative slope.
@@ -157,5 +157,5 @@ module Gen =
         fdb {
             let! state = Init seed
             let res = state < input
-            return fdb.value res input
+            return fdb.feedback res input
         }

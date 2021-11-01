@@ -50,7 +50,7 @@ let [<TestCase>] ``Discard values (fdb)`` () =
         let! state = Init 0
         let nextValue = state + 1
         if state % 2 = 0 then
-            return fdb.value state nextValue
+            return fdb.feedback state nextValue
         else
             return fdb.discardWith nextValue
     }
@@ -75,7 +75,7 @@ let [<TestCase>] ``Stop (fdb)`` () =
         let! v = Init 0
         let nextValue = v + 1
         if v < 5 then
-            return fdb.value v nextValue
+            return fdb.feedback v nextValue
         else
             return fdb.stop ()
     }
