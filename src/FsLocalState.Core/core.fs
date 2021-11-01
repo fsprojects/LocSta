@@ -4,12 +4,18 @@ module FsLocalState.Core
 type InitResult<'f> =
     | Init of 'f
 
-[<RequireQualifiedAccess>]
 type GenResult<'o, 's> =
-    | Value of 'o * 's
+    | ValueAndState of 'o * 's
     | Discard
     | DiscardWith of 's
     | Stop
+
+module Res =
+    let value value = ValueAndState(value, ())
+    let feedback value feedback = ValueAndState(value, feedback)
+    let discard : GenResult<'o, 's> = Discard
+    let discardWith state : GenResult<'o, 's> = DiscardWith state
+    let stop : GenResult<'o, 's> = Stop
 
 type Gen<'o, 's> =
     | Gen of ('s option -> 'o)
@@ -39,25 +45,25 @@ module Gen =
                 | None -> None, None
                 | Some v -> Some v.currState, v.subState
             match (unwrap m) lastMState with
-            | GenResult.Value (mres, mstate) ->
+            | ValueAndState (mres, mstate) ->
                 let fGen = f mres
                 match (unwrap fGen) lastFState with
-                | GenResult.Value (fres, fstate) -> 
-                    GenResult.Value (fres, { currState = mstate; subState = Some fstate })
-                | GenResult.DiscardWith stateF -> 
-                    GenResult.DiscardWith { currState = mstate; subState = Some stateF }
-                | GenResult.Discard ->
-                    GenResult.DiscardWith { currState = mstate; subState = None }
-                | GenResult.Stop -> 
-                    GenResult.Stop
-            | GenResult.DiscardWith stateM ->
-                GenResult.DiscardWith { currState = stateM; subState = lastFState }
-            | GenResult.Discard ->
+                | ValueAndState (fres, fstate) -> 
+                    ValueAndState (fres, { currState = mstate; subState = Some fstate })
+                | DiscardWith stateF -> 
+                    DiscardWith { currState = mstate; subState = Some stateF }
+                | Discard ->
+                    DiscardWith { currState = mstate; subState = None }
+                | Stop -> 
+                    Stop
+            | DiscardWith stateM ->
+                DiscardWith { currState = stateM; subState = lastFState }
+            | Discard ->
                 match lastMState with
-                | Some lastStateM -> GenResult.DiscardWith { currState = lastStateM; subState = lastFState }
-                | None -> GenResult.Discard
-            | GenResult.Stop ->
-                GenResult.Stop
+                | Some lastStateM -> DiscardWith { currState = lastStateM; subState = lastFState }
+                | None -> Discard
+            | Stop ->
+                Stop
         |> create
 
     /// 'bindFdb' is invoked only ONCE per fdb { .. }.
@@ -76,14 +82,14 @@ module Gen =
                 | Some { currState = feedback; subState = inner } -> feedback, inner
             let fgen = f lastFeed
             match (unwrap fgen) lastFState with
-            | GenResult.Value (fres, ffeed) ->
-                GenResult.Value (fres, { currState = ffeed; subState = None })
-            | GenResult.DiscardWith ffeed ->
-                GenResult.DiscardWith { currState = ffeed; subState = None }
-            | GenResult.Discard ->
-                GenResult.DiscardWith { currState = lastFeed; subState = lastFState }
-            | GenResult.Stop ->
-                GenResult.Stop
+            | ValueAndState (fres, ffeed) ->
+                ValueAndState (fres, { currState = ffeed; subState = None })
+            | DiscardWith ffeed ->
+                DiscardWith { currState = ffeed; subState = None }
+            | Discard ->
+                DiscardWith { currState = lastFeed; subState = lastFState }
+            | Stop ->
+                Stop
         |> create
         
     /// Wraps a BaseResult into a gen.
@@ -106,29 +112,23 @@ module Gen =
         s.GetEnumerator()
         |> ofSeed2 (fun enumerator ->
             match enumerator.MoveNext() with
-            | true -> GenResult.Value (enumerator.Current, enumerator)
-            | false -> GenResult.Stop
+            | true -> ValueAndState (enumerator.Current, enumerator)
+            | false -> Stop
         )
         
     let ofList (l: list<_>) =
         l
         |> ofSeed2 (fun l ->
             match l with
-            | x::xs -> GenResult.Value (x, xs)
-            | [] -> GenResult.Stop
+            | x::xs -> ValueAndState (x, xs)
+            | [] -> Stop
         )
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = x
-        member _.Zero() = ofValue GenResult.Discard
+        member _.Zero() = ofValue Discard
         member _.For (sequence: seq<'a>, body) = ofSeq sequence |> bind body
-        // result ctors
-        member _.value(v) = GenResult.Value (v, ())
-        member _.feedback value feedback = GenResult.Value (value, feedback)
-        member _.discard() : GenResult<'a, 's> = GenResult.Discard
-        member _.discardWith(state) : GenResult<'a, 's> = GenResult.DiscardWith state
-        member _.stop() : GenResult<'a, 's> = GenResult.Stop
 
     type GenBuilder() =
         inherit BaseBuilder()
@@ -154,10 +154,10 @@ module Gen =
     let map projection x =
         fun state ->
             match (unwrap x) state with
-            | GenResult.Value (x', state) -> GenResult.Value (projection x', state)
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
+            | ValueAndState (x', state) -> ValueAndState (projection x', state)
+            | DiscardWith s -> DiscardWith s
+            | Discard -> Discard
+            | Stop -> Stop
         |> create
 
     let apply xGen fGen =
@@ -165,7 +165,7 @@ module Gen =
             let! l' = xGen
             let! f' = fGen
             let result = f' l'
-            return gen.value result
+            return Res.value result
         }
 
 
@@ -194,21 +194,21 @@ module Gen =
         gen {
             let! l = left
             let! r = right
-            return gen.value (f l r)
+            return Res.value (f l r)
         }
     
     let inline binOpLeft left right f =
         gen {
             let l = left
             let! r = right
-            return gen.value (f l r)
+            return Res.value (f l r)
         }
     
     let inline binOpRight left right f =
         gen {
             let! l = left
             let r = right
-            return gen.value (f l r)
+            return Res.value (f l r)
         }
 
 type Gen<'o,'s> with

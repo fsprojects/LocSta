@@ -9,7 +9,7 @@ let [<TestCase>] ``Pairwise`` () =
     gen {
         let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
         let! v2 = Gen.ofList [  1 ;  2 ;  3 ;  4  ]
-        return gen.value (v1,v2)
+        return Res.value (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
@@ -19,7 +19,7 @@ let [<TestCase>] ``Pairwise using For Loop`` () =
     gen {
         for v1 in [ "a"; "b"; "c"; "d" ] do
         for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            return gen.value (v1,v2)
+            return Res.value (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
@@ -29,7 +29,7 @@ let [<TestCase>] ``Discard values (gen)`` () =
     gen {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
-            return gen.value v
+            return Res.value v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
@@ -39,7 +39,7 @@ let [<TestCase>] ``Discard value using For Loop (gen)`` () =
     gen {
         for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
-                return gen.value v
+                return Res.value v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
@@ -50,9 +50,9 @@ let [<TestCase>] ``Discard values (fdb)`` () =
         let! state = Init 0
         let nextValue = state + 1
         if state % 2 = 0 then
-            return fdb.feedback state nextValue
+            return Res.feedback state nextValue
         else
-            return fdb.discardWith nextValue
+            return Res.discardWith nextValue
     }
     |> Gen.toListn 4
     |> should equal [ 0; 2; 4; 6 ]
@@ -62,9 +62,9 @@ let [<TestCase>] ``Stop (gen)`` () =
     gen {
         let! v = count01
         if v < 5 then
-            return gen.value v
+            return Res.value v
         else
-            return gen.stop ()
+            return Res.stop
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
@@ -75,9 +75,9 @@ let [<TestCase>] ``Stop (fdb)`` () =
         let! v = Init 0
         let nextValue = v + 1
         if v < 5 then
-            return fdb.feedback v nextValue
+            return Res.feedback v nextValue
         else
-            return fdb.stop ()
+            return Res.stop
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
