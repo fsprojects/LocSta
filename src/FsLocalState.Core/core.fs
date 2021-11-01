@@ -2,8 +2,8 @@
 module FsLocalState.Core
 
 [<RequireQualifiedAccess>]
-type InitResult<'o, 'f> =
-    | Init of 'o * 'f
+type InitResult<'f> =
+    | Init of 'f
 
 [<RequireQualifiedAccess>]
 type GenResult<'o, 's> =
@@ -26,12 +26,12 @@ type Fx<'i, 'o, 's> =
     'i -> Gen<'o, 's>
 
 [<Struct>]
-type State<'sCurr, 'sSub> = 
+type GenState<'sCurr, 'sSub> =
     { currState: 'sCurr
       subState: 'sSub option }
 
 [<Struct>] 
-type FeedbackState<'f, 's> = 
+type FdbState<'f, 's> = 
     { feedback: 'f
       inner: 's option }
 
@@ -44,9 +44,9 @@ module Gen =
     let bind
         (f: 'o1 -> Gen<GenResult<'o2, 's2>, 's2>) 
         (m: Gen<GenResult<'o1, 's1>, 's1>)
-        : Gen<GenResult<'o2, State<'s1, 's2>>, State<'s1, 's2>>
+        : Gen<GenResult<'o2, GenState<'s1, 's2>>, GenState<'s1, 's2>>
         =
-        fun (state: State<'s1, 's2> option) ->
+        fun (state: GenState<'s1, 's2> option) ->
             let lastMState, lastFState =
                 match state with
                 | None -> None, None
@@ -73,12 +73,14 @@ module Gen =
                 GenResult.Stop
         |> create
 
-    /// 'bindFdb' is invoked only ONCE per fdb { .. } with
-    /// the first "let! state = init .." exp returning an InitResult.
+    /// 'bindFdb' is invoked only ONCE per fdb { .. }.
+    /// It takes a Gen<InitResult>, which is the first "let! state = init .." expression.
+    /// The returned "feedback state" is then passed into f, which itself finally returns a
+    /// Gen<FdbResult>.
     let bindFdb
-        (f: 'o1 -> Gen<FdbResult<'o2, 'f option>, 's2>)
-        (m: 'f option -> Gen<InitResult<'o1, 'f>, unit>)
-        : _ // TODO
+        (f: 'f -> Gen<FdbResult<'o2, 'f option>, 's2>)
+        (m: 'f option -> Gen<InitResult<'f>, unit>)
+        : Gen<GenResult<'o2, FdbState<'f option, GenState<unit, 's2>>>, FdbState<'f option, GenState<unit, 's2>>>
         =
         fun state ->
             let lastFeed, lastMState, lastFState =
@@ -90,7 +92,7 @@ module Gen =
                     | Some v -> feedback, Some v.currState, v.subState
             let mgen = m lastFeed
             match (unwrap mgen) lastMState with
-            | InitResult.Init (mres, mfeed) ->
+            | InitResult.Init mres ->
                 // TODO: mf is discarded - that sound ok
                 let fgen = f mres
                 match (unwrap fgen) lastFState with
@@ -146,21 +148,20 @@ module Gen =
             | [] -> GenResult.Stop
         )
 
-    // TODO: other builder methods
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = x
         member _.Zero() = ofValue GenResult.Discard
         member _.For (sequence: seq<'a>, body) = ofSeq sequence |> bind body
 
-    // TODO: other builder methods
     type GenBuilder() =
         inherit BaseBuilder()
         
         // builder methods
-        member _.Bind(m, f) = bind f m 
-        member _.Return(x) = ofValue x
-        member this.Yield(x) = this.Return(x)
+        member _.Bind(m, f) = bind f m
+        member _.Return(x: GenResult<_,_>) = ofValue x
+        member _.Return(x: InitResult<_>) = ofValue x
+        member this.Yield(x: GenResult<_,_>) = this.Return(x)
         
         // result ctors
         member _.value(v) = GenResult.Value (v, ())
@@ -174,8 +175,8 @@ module Gen =
         // builder methods
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindFdb f m
-        member _.Return(x) = ofValue x
-        member this.Yield(x) = this.Return(x)
+        member _.Return(x: FdbResult<_,_>) = ofValue x
+        member this.Yield(x: FdbResult<_,_>) = this.Return(x)
         
         // result ctors
         member _.value value feedback = FdbResult.Feedback (value, Some feedback)
@@ -195,7 +196,7 @@ module Gen =
     let inline init seed =
         fun feedback -> gen {
             let feedback = feedback |> Option.defaultValue seed
-            return InitResult.Init (feedback, feedback)
+            return InitResult.Init feedback
         }
 
 
