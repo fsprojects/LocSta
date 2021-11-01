@@ -65,3 +65,12 @@ module Gen =
     
     let toListn count gen =
         toSeq gen |> Seq.truncate count |> Seq.toList
+
+////open System.Collections
+////open System.Collections.Generic
+
+////type Gen<'o, 's> with
+////    interface IEnumerable with
+////        member this.GetEnumerator() : IEnumerator = failwith ""
+////    interface IEnumerable<'o> with
+////        member this.GetEnumerator() : IEnumerator<'o> = failwith ""

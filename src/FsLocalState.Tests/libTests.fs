@@ -24,6 +24,12 @@ let [<TestCase>] ``Reset by current`` () =
     |> should equal expectedResult
 
 
+let [<TestCase>] ``Count 0 1`` () =
+    Gen.count01
+    |> Gen.toListn 5
+    |> should equal [ 0 .. 4 ]
+
+
 //let [<TestCase>] ``Partition by current`` () =
 //    Gen.count 0 1
 //    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)

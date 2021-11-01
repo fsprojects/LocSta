@@ -1,9 +1,10 @@
 ﻿[<AutoOpen>]
 module FsLocalState.Core
 
-[<RequireQualifiedAccess>]
 type InitResult<'f> =
     | Init of 'f
+
+// TODO: Why are GenResult and FdbResult the same?
 
 [<RequireQualifiedAccess>]
 type GenResult<'o, 's> =
@@ -24,6 +25,8 @@ type Gen<'o, 's> =
 
 type Fx<'i, 'o, 's> =
     'i -> Gen<'o, 's>
+
+// TODO: Why are GenState and FdbState the same?
 
 [<Struct>]
 type GenState<'sCurr, 'sSub> =
@@ -78,42 +81,25 @@ module Gen =
     /// The returned "feedback state" is then passed into f, which itself finally returns a
     /// Gen<FdbResult>.
     let bindFdb
-        (f: 'f -> Gen<FdbResult<'o2, 'f option>, 's2>)
-        (m: 'f option -> Gen<InitResult<'f>, unit>)
-        : Gen<GenResult<'o2, FdbState<'f option, GenState<unit, 's2>>>, FdbState<'f option, GenState<unit, 's2>>>
+        (f: 'f -> Gen<FdbResult<'o, 'f>, 's>)
+        (m: InitResult<'f>)
+        //: Gen<GenResult<'o2, FdbState<'f, GenState<unit, 's2>>>, FdbState<'f, GenState<unit, 's2>>>
         =
         fun state ->
-            let lastFeed, lastMState, lastFState =
+            let lastFeed, lastFState =
                 match state with
-                | None -> None, None, None
-                | Some { feedback = feedback; inner = inner } ->
-                    match inner with
-                    | None -> feedback, None, None
-                    | Some v -> feedback, Some v.currState, v.subState
-            let mgen = m lastFeed
-            match (unwrap mgen) lastMState with
-            | InitResult.Init mres ->
-                // TODO: mf is discarded - that sound ok
-                let fgen = f mres
-                match (unwrap fgen) lastFState with
-                | FdbResult.Feedback (fres, ffeed) ->
-                    GenResult.Value (
-                        fres, 
-                        { feedback = ffeed
-                          inner = Some { currState = ()
-                                         subState = None } }
-                    )
-                | FdbResult.DiscardWith ffeed ->
-                    GenResult.DiscardWith
-                        { feedback = ffeed
-                          inner = Some { currState = ()
-                                         subState = None } }
-                | FdbResult.Discard ->
-                    GenResult.DiscardWith
-                        { feedback = lastFeed
-                          inner = Some { currState = ()
-                                         subState = lastFState } }
-                | FdbResult.Stop -> GenResult.Stop
+                | None -> let (Init m) = m in m, None
+                | Some { feedback = feedback; inner = inner } -> feedback, inner
+            let fgen = f lastFeed
+            match (unwrap fgen) lastFState with
+            | FdbResult.Feedback (fres, ffeed) ->
+                GenResult.Value (fres, { feedback = ffeed; inner = None })
+            | FdbResult.DiscardWith ffeed ->
+                GenResult.DiscardWith { feedback = ffeed; inner = None }
+            | FdbResult.Discard ->
+                GenResult.DiscardWith { feedback = lastFeed; inner = lastFState }
+            | FdbResult.Stop ->
+                GenResult.Stop
         |> create
         
     /// Wraps a BaseResult into a gen.
@@ -160,7 +146,6 @@ module Gen =
         // builder methods
         member _.Bind(m, f) = bind f m
         member _.Return(x: GenResult<_,_>) = ofValue x
-        member _.Return(x: InitResult<_>) = ofValue x
         member this.Yield(x: GenResult<_,_>) = this.Return(x)
         
         // result ctors
@@ -179,25 +164,13 @@ module Gen =
         member this.Yield(x: FdbResult<_,_>) = this.Return(x)
         
         // result ctors
-        member _.value value feedback = FdbResult.Feedback (value, Some feedback)
+        member _.value value feedback = FdbResult.Feedback (value, feedback)
         member _.discard() : FdbResult<'a, 'f> = FdbResult.Discard
         member _.discardWith(feedback: 'f) : FdbResult<'a, 'f> = FdbResult.DiscardWith feedback
         member _.stop() : FdbResult<'a, 'f> = FdbResult.Stop
     
     let gen = GenBuilder()
     let fdb = FeedbackBuilder()
-    
-
-    // --------
-    // feedback
-    // --------
-
-    /// Initialized the `fdb { .. }` workflow.
-    let inline init seed =
-        fun feedback -> gen {
-            let feedback = feedback |> Option.defaultValue seed
-            return InitResult.Init feedback
-        }
 
 
     // --------
@@ -264,7 +237,7 @@ module Gen =
             return gen.value (f l r)
         }
 
-type Gen<'v, 's> with
+type Gen<'o,'s> with
     static member inline (+) (left, right) = Gen.binOpBoth left right (+)
     static member inline (-) (left, right) = Gen.binOpBoth left right (-)
     static member inline (*) (left, right) = Gen.binOpBoth left right (*)
@@ -309,4 +282,3 @@ module TopLevelOperators =
 
 let gen = Gen.gen
 let fdb = Gen.fdb
-let init = Gen.init

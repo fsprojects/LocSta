@@ -127,27 +127,27 @@ module Gen =
     //        return Res.feedback (dotnetRandom.NextDouble()) random
     //    }
 
-    let inline count (inclusiveStart: int) increment =
+    let inline count inclusiveStart increment =
         fdb {
-            let! curr = init inclusiveStart
+            let! curr = Init inclusiveStart
             return fdb.value curr (curr + increment)
         }
 
-    let count_0_1<'a> = count 0 1
+    let count01<'a> = count 0 1
 
     // TODO: countFloat
 
     /// Delays a given value by 1 cycle.
     let delay input seed =
         fdb {
-            let! state = init seed
+            let! state = Init seed
             return fdb.value state input
         }
 
     /// Positive slope.
     let inline slopeP input seed =
         fdb {
-            let! state = init seed
+            let! state = Init seed
             let res = state < input
             return fdb.value res input
         }
@@ -155,7 +155,7 @@ module Gen =
     /// Negative slope.
     let inline slopeN input seed =
         fdb {
-            let! state = init seed
+            let! state = Init seed
             let res = state < input
             return fdb.value res input
         }

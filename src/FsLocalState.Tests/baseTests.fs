@@ -1,4 +1,3 @@
-
 module BaseTests
 
 open FsUnit
@@ -48,12 +47,12 @@ let [<TestCase>] ``Discard value using For Loop (gen)`` () =
     
 let [<TestCase>] ``Discard values (fdb)`` () =
     fdb {
-        let! state = init 0
+        let! state = Init 0
         let nextValue = state + 1
         if state % 2 = 0 then
             return fdb.value state nextValue
         else
-            return fdb.discardWith (Some nextValue)
+            return fdb.discardWith nextValue
     }
     |> Gen.toListn 4
     |> should equal [ 0; 2; 4; 6 ]
@@ -61,7 +60,7 @@ let [<TestCase>] ``Discard values (fdb)`` () =
 
 let [<TestCase>] ``Stop (gen)`` () =
     gen {
-        let! v = count_0_1
+        let! v = count01
         if v < 5 then
             return gen.value v
         else
@@ -73,7 +72,7 @@ let [<TestCase>] ``Stop (gen)`` () =
 
 let [<TestCase>] ``Stop (fdb)`` () =
     fdb {
-        let! v = init 0
+        let! v = Init 0
         let nextValue = v + 1
         if v < 5 then
             return fdb.value v nextValue
@@ -82,3 +81,4 @@ let [<TestCase>] ``Stop (fdb)`` () =
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
+
