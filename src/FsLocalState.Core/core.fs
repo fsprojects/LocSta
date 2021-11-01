@@ -4,8 +4,6 @@ module FsLocalState.Core
 type InitResult<'f> =
     | Init of 'f
 
-// TODO: Why are GenResult and FdbResult the same?
-
 [<RequireQualifiedAccess>]
 type GenResult<'o, 's> =
     | Value of 'o * 's
@@ -25,11 +23,6 @@ type Fx<'i, 'o, 's> =
 type GenState<'sCurr, 'sSub> =
     { currState: 'sCurr
       subState: 'sSub option }
-
-[<Struct>] 
-type FdbState<'f, 's> = 
-    { feedback: 'f
-      inner: 's option }
 
 module Gen =
     let unwrap gen = let (Gen b) = gen in b
@@ -82,15 +75,15 @@ module Gen =
             let lastFeed, lastFState =
                 match state with
                 | None -> let (Init m) = m in m, None
-                | Some { feedback = feedback; inner = inner } -> feedback, inner
+                | Some { currState = feedback; subState = inner } -> feedback, inner
             let fgen = f lastFeed
             match (unwrap fgen) lastFState with
             | GenResult.Value (fres, ffeed) ->
-                GenResult.Value (fres, { feedback = ffeed; inner = None })
+                GenResult.Value (fres, { currState = ffeed; subState = None })
             | GenResult.DiscardWith ffeed ->
-                GenResult.DiscardWith { feedback = ffeed; inner = None }
+                GenResult.DiscardWith { currState = ffeed; subState = None }
             | GenResult.Discard ->
-                GenResult.DiscardWith { feedback = lastFeed; inner = lastFState }
+                GenResult.DiscardWith { currState = lastFeed; subState = lastFState }
             | GenResult.Stop ->
                 GenResult.Stop
         |> create
