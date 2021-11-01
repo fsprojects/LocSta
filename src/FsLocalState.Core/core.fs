@@ -17,8 +17,6 @@ type Gen<'o, 's> =
 type Fx<'i, 'o, 's> =
     'i -> Gen<'o, 's>
 
-// TODO: Why are GenState and FdbState the same?
-
 [<Struct>]
 type GenState<'sCurr, 'sSub> =
     { currState: 'sCurr
