@@ -31,12 +31,19 @@ module Gen =
         |> Gen.create
 
     let includeState (inputGen: Gen<_,_>) =
-        inputGen |> mapValue2 (fun v s -> v,s)
+        fun state ->
+            let res = (Gen.unwrap inputGen) state
+            match res with
+            | ValueAndState (v,s) -> ValueAndState ((v, s), s)
+            | DiscardWith s -> DiscardWith s
+            | Discard -> Discard
+            | Stop -> Stop
+        |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let resetWithCurrent2 (pred: _ -> bool) (inputGen: Gen<_,_>) =
+    let resetWhenFunc2 (pred: _ -> bool) (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
@@ -51,12 +58,18 @@ module Gen =
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
-    let resetWithCurrent (pred: _ -> bool) (inputGen: Gen<_,_>) =
-        inputGen |> resetWithCurrent2 pred |> mapValue fst
+    let resetWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
+        inputGen |> resetWhenFunc2 pred |> mapValue fst
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
-    let reset (pred: bool) (inputGen: Gen<_,_>) =
-        inputGen |> resetWithCurrent (fun _ -> pred)
+    let resetWhenValue (pred: bool) (inputGen: Gen<_,_>) =
+        inputGen |> resetWhenFunc (fun _ -> pred)
+
+    let resetWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+        gen {
+            let! pred = pred
+            return! resetWhenValue pred inputGen
+        }
         
     //let partitionMapWithCurrent2 (pred: 'o -> bool) (proj: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
     //    [] => fun groups -> gen {

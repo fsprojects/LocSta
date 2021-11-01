@@ -19,7 +19,7 @@ let [<TestCase>] ``Reset by current`` () =
           0; 1; 2; 3; 4 ]
 
     Gen.count 0 1
-    |> Gen.resetWithCurrent (fun v -> v = 5)
+    |> Gen.resetWhenFunc (fun v -> v = 5)
     |> Gen.toListn (5 * 5)
     |> should equal expectedResult
 

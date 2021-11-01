@@ -8,10 +8,11 @@ open NUnit.Framework
 //let [<TestCase>] ``Take value and (n - 1) successors`` () =
 //    let taken count =
 //        fun input -> fdb {
-//            let! elements = init []
+//            let! elements = Init []
 //            let newElements = input :: elements
 //            if newElements.Length = count then
-//                return fdb.value newElements newElements
+//                return Res.feedback newElements newElements
+//                return Res.stop
 //            else
 //                return FdbResult.DiscardWith (Some newElements)
 //        }

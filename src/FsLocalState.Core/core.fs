@@ -1,5 +1,4 @@
-﻿[<AutoOpen>]
-module FsLocalState.Core
+﻿namespace FsLocalState
 
 type InitResult<'f> =
     | Init of 'f
@@ -92,17 +91,18 @@ module Gen =
                 Stop
         |> create
         
+    // TODO: this is an infinite value. There's no way of returning a single value in gen mode.
     /// Wraps a BaseResult into a gen.
     let ofValue x : Gen<_,_> = create (fun _ -> x)
 
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
-    let ofSeed f seed =
+    let createWithSeed f seed =
         fun s ->
             let state = Option.defaultValue seed s
             f state
         |> create
 
-    let ofSeed2 seed f = ofSeed seed f
+    let createWithSeed2 seed f = createWithSeed seed f
 
     /// Transforms a generator function to an effect function.    
     let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
@@ -110,7 +110,7 @@ module Gen =
 
     let ofSeq (s: seq<_>) =
         s.GetEnumerator()
-        |> ofSeed2 (fun enumerator ->
+        |> createWithSeed2 (fun enumerator ->
             match enumerator.MoveNext() with
             | true -> ValueAndState (enumerator.Current, enumerator)
             | false -> Stop
@@ -118,17 +118,46 @@ module Gen =
         
     let ofList (l: list<_>) =
         l
-        |> ofSeed2 (fun l ->
+        |> createWithSeed2 (fun l ->
             match l with
             | x::xs -> ValueAndState (x, xs)
             | [] -> Stop
         )
 
+    type Combined<'sa, 'sb> = 
+        | UseA of 'sa option 
+        | UseB of 'sb option
+
+    let combine a b =
+        printfn "Combine"
+        let getValue g state = (unwrap g) state
+        fun state ->
+            let state = state |> Option.defaultValue (UseA None)
+            match state with
+            | UseA state ->
+                match getValue a state with
+                | ValueAndState (va, sa) ->
+                    ValueAndState (va, UseA (Some sa))
+                | Discard
+                | DiscardWith _ -> Discard
+                | Stop -> DiscardWith (UseB None)
+            | UseB state ->
+                match getValue (b ()) state with
+                | ValueAndState (vb, sb) ->
+                    ValueAndState (vb, UseB (Some sb))
+                | Discard
+                | DiscardWith _ -> Discard
+                | Stop -> Stop
+        |> create
+
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = x
         member _.Zero() = ofValue Discard
-        member _.For (sequence: seq<'a>, body) = ofSeq sequence |> bind body
+        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
+        member _.Combine(x, delayed) = combine x delayed
+        member _.Delay(delayed) = delayed
+        member _.Run(delayed) = delayed ()
 
     type GenBuilder() =
         inherit BaseBuilder()
@@ -254,5 +283,5 @@ module TopLevelOperators =
     /// Bind operator
     let (>>=) m f = Gen.bind f m
 
-let gen = Gen.gen
-let fdb = Gen.fdb
+    let gen = Gen.gen
+    let fdb = Gen.fdb

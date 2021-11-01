@@ -1,3 +1,8 @@
+#if INTERACTIVE
+#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+open FsLocalState
+#endif
+
 module BaseTests
 
 open FsUnit
@@ -82,3 +87,20 @@ let [<TestCase>] ``Stop (fdb)`` () =
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
 
+
+let [<TestCase>] ``Singleton`` () =
+    gen {
+        return Res.value 0
+    }
+    |> Gen.toList
+    |> should equal [ 0 ]
+
+
+let [<TestCase>] ``Combine`` () =
+    gen {
+        return Res.value 0
+        return Res.value 1
+        return! Gen.ofList [ 2; 3; 4 ]
+    }
+    |> Gen.toList
+    |> should equal [ 0; 1; 2; 3; 4 ]
