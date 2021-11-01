@@ -90,7 +90,7 @@ let [<TestCase>] ``Stop (fdb)`` () =
 
 let [<TestCase>] ``Singleton`` () =
     gen {
-        return Res.value 0
+        return Res.valueAndStop 0
     }
     |> Gen.toList
     |> should equal [ 0 ]
@@ -98,8 +98,8 @@ let [<TestCase>] ``Singleton`` () =
 
 let [<TestCase>] ``Combine`` () =
     gen {
-        return Res.value 0
-        return Res.value 1
+        return Res.valueAndStop 0
+        return Res.valueAndStop 1
         return! Gen.ofList [ 2; 3; 4 ]
     }
     |> Gen.toList
