@@ -32,7 +32,7 @@ module Res =
     let value value : Gen<_,_> =
         ValueAndState(value, ()) |> repeat
 
-    let valueAndStop value =
+    let singleton value =
         fun state ->
             match state with
             | None -> ValueAndState(value, SingleRun)
