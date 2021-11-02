@@ -47,7 +47,7 @@ let [<TestCase>] ``Count until repeat`` () =
 let [<TestCase>] ``Accumulate once`` () =
     gen {
         for x in [0..10] do
-            let! values = accumulateOnce 3 x
+            let! values = accumulateOnePart 3 x
             return Res.ValueAndLoop values
     }
     |> Gen.toList
@@ -59,7 +59,7 @@ let [<TestCase>] ``Accumulate once`` () =
 let [<TestCase>] ``Accumulate all`` () =
     gen {
         for x in [0..10] do
-            let! values = accumulateAll 3 x
+            let! values = accumulateManyParts 3 x
             return Res.ValueAndLoop values
     }
     |> Gen.toList

@@ -26,17 +26,24 @@ module Gen =
     let includeState (inputGen: Gen<_,_>) =
         mapValueAndState (fun v s -> v,s) inputGen
 
+
+    let private resetFuncForDoWhen (inputGen: Gen<_,_>) =
+        fun _ -> (inputGen |> Gen.unwrap) None
+
+    let private stopFuncForDoWhen =
+        fun _ -> GenResult.Stop
+
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let resetWhenFunc2 (pred: _ -> bool) (inputGen: Gen<_,_>) =
+    let doWhenFunc (pred: _ -> bool) f (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
             | GenResult.ValueAndState (o,s) ->
                 match pred o with
-                | false -> GenResult.ValueAndState ((o,false), s)
-                | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.unwrap) None
+                | false -> GenResult.ValueAndState (o,s)
+                | true -> f (o,s)
             | GenResult.DiscardWith s -> GenResult.DiscardWith s
             | GenResult.Discard -> GenResult.Discard
             | GenResult.Stop -> GenResult.Stop
@@ -45,18 +52,36 @@ module Gen =
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     let resetWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
-        inputGen |> resetWhenFunc2 pred |> mapValue fst
+        doWhenFunc pred (resetFuncForDoWhen inputGen) inputGen
+
+    let stopWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
+        doWhenFunc pred stopFuncForDoWhen inputGen
+
+    /// When the given predicate is true, the input gen is evaluated with an empty state.
+    let doWhenValue (pred: bool) f (inputGen: Gen<_,_>) =
+        inputGen |> doWhenFunc (fun _ -> pred) f
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
     let resetWhenValue (pred: bool) (inputGen: Gen<_,_>) =
-        inputGen |> resetWhenFunc (fun _ -> pred)
+        doWhenValue pred (resetFuncForDoWhen inputGen) inputGen
 
-    let resetWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+    let stopWhenValue (pred: bool) (inputGen: Gen<_,_>) =
+        doWhenValue pred stopFuncForDoWhen inputGen
+
+    let doWhenGen (pred: Gen<_,_>) f (inputGen: Gen<_,_>) =
         gen {
             let! pred = pred
-            return! resetWhenValue pred inputGen
+            return! doWhenValue pred f inputGen
         }
-    
+
+    let resetWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+        doWhenGen pred (resetFuncForDoWhen inputGen) inputGen
+
+    let stopWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+        doWhenGen pred stopFuncForDoWhen inputGen
+
+    // TODO: doOnStop?
+
     let resetOnStop (inputGen: Gen<_,_>) =
         let rec genFunc state =
             let g = (Gen.unwrap inputGen)
@@ -85,11 +110,18 @@ module Gen =
 
     let count01<'a> = count 0 1
 
-    let resetWhenCount count (inputGen: Gen<_,_>) =
+    let doWhenCount count f (inputGen: Gen<_,_>) =
         gen {
             let! c = countCyclic 0 1 (count - 1)
-            return! resetWhenValue (c = count) inputGen
+            return! doWhenValue (c = count) f inputGen
         }
+
+    let resetWhenCount count (inputGen: Gen<_,_>) =
+        doWhenCount count (resetFuncForDoWhen inputGen) inputGen
+
+    let stopWhenCount count (inputGen: Gen<_,_>) =
+        doWhenCount count stopFuncForDoWhen inputGen
+
 
     // TODO: Implement a random number generator that exposes it's serializable state.
     let private dotnetRandom() = System.Random()
@@ -129,8 +161,11 @@ module Gen =
             return Res.Feedback (newElements, newElements)
         }
 
-    let accumulateOnce count currentValue =
-        accumulate currentValue |> resetWhenCount count
+    let accumulateOnePart count currentValue =
+        gen {
+            let acc = accumulate currentValue
+        }
+        //accumulate currentValue |> stopWhenCount count
 
-    let accumulateAll count currentValue =
-        accumulateOnce count currentValue |> resetOnStop
+    let accumulateManyParts count currentValue =
+        accumulate currentValue |> resetWhenCount count
