@@ -34,6 +34,16 @@ let [<TestCase>] ``Count 0 1`` () =
     |> Gen.toListn 5
     |> should equal [0..4]
 
+let [<TestCase>] ``Count until repeat`` () =
+    Gen.countCyclic 0 1 3
+    |> Gen.toListn 12
+    |> should equal
+        [
+            yield! [0..3]
+            yield! [0..3]
+            yield! [0..3]
+        ]
+
 let [<TestCase>] ``Accumulate once`` () =
     gen {
         for x in [0..10] do
@@ -60,29 +70,6 @@ let [<TestCase>] ``Accumulate all`` () =
             [ 8 ; 7 ; 6 ]
         ]
 
-//let [<TestCase>] ``Partition by current`` () =
-//    Gen.count 0 1
-//    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)
-//    |> Gen.toListn 9
-//    |> List.last
-//    |> should equal
-//        [
-//            [ 8; 7; 6 ]
-//            [ 5; 4; 3 ]
-//            [ 2; 1; 0 ]
-//        ]
-
-//let [<TestCase>] ``Example: Partition by current`` () =
-//    Gen.count 0 1
-//    |> Gen.partitionWithCurrent (fun v -> v % 3 = 0)
-//    |> Gen.toListn 9
-//    |> List.last
-//    |> should equal
-//        [
-//            [ 8; 7; 6 ]
-//            [ 5; 4; 3 ]
-//            [ 2; 1; 0 ]
-//        ]
 
 //let [<TestCase>] ``Filter map`` () =
 //    // Task:
@@ -111,27 +98,3 @@ let [<TestCase>] ``Accumulate all`` () =
 //            [ 5; 4; 3 ]
 //            [ 2; 1; 0 ]
 //        ]
-
-
-//    //[ 1; 2; 3; 4; 4; 0; 0; 10 ; 20 ]
-//    //|> Gen.ofList
-//    //|> Gen.filterMapFx (fun start curr -> 0 => fun count -> gen {
-//    //    printfn $"initial = {start}  |  curr = {curr}"
-//    //    if count > 4 then
-//    //        printfn "  - BREAK"
-//    //        return Res.stop
-//    //    else if curr >= start * 2 then
-//    //        printfn "  - RET"
-//    //        return Res.feedback curr (count + 1)
-//    //    else
-//    //        printfn $"  - CONT {curr}"
-//    //        return Res.discard
-//    //})
-//    //|> Gen.toListn 9
-//    //|> List.last
-//    //|> should equal
-//    //    [
-//    //        [ 8; 7; 6 ]
-//    //        [ 5; 4; 3 ]
-//    //        [ 2; 1; 0 ]
-//    //    ]
