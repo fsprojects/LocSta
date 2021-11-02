@@ -14,30 +14,30 @@ module Gen =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | ValueAndState (v,s) -> ValueAndState (proj v s, s)
-            | DiscardWith s -> DiscardWith s
-            | Discard -> Discard
-            | Stop -> Stop
+            | GenResult.ValueAndState (v,s) -> GenResult.ValueAndState (proj v s, s)
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     let mapValue proj (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | ValueAndState (v,s) -> ValueAndState (proj v, s)
-            | DiscardWith s -> DiscardWith s
-            | Discard -> Discard
-            | Stop -> Stop
+            | GenResult.ValueAndState (v,s) -> GenResult.ValueAndState (proj v, s)
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     let includeState (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | ValueAndState (v,s) -> ValueAndState ((v, s), s)
-            | DiscardWith s -> DiscardWith s
-            | Discard -> Discard
-            | Stop -> Stop
+            | GenResult.ValueAndState (v,s) -> GenResult.ValueAndState ((v, s), s)
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -47,13 +47,13 @@ module Gen =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | ValueAndState (o,s) ->
+            | GenResult.ValueAndState (o,s) ->
                 match pred o with
-                | false -> ValueAndState ((o,false), s)
+                | false -> GenResult.ValueAndState ((o,false), s)
                 | true -> (inputGen |> mapValue (fun v -> v,true) |> Gen.unwrap) None
-            | DiscardWith s -> DiscardWith s
-            | Discard -> Discard
-            | Stop -> Stop
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -143,7 +143,7 @@ module Gen =
     let inline count inclusiveStart increment =
         fdb {
             let! curr = Init inclusiveStart
-            return Res.feedback curr (curr + increment)
+            return Res.Feedback(curr, curr + increment)
         }
 
     let count01<'a> = count 0 1
@@ -154,7 +154,7 @@ module Gen =
     let delay input seed =
         fdb {
             let! state = Init seed
-            return Res.feedback state input
+            return Res.Feedback(state, input)
         }
 
     /// Positive slope.
@@ -162,7 +162,7 @@ module Gen =
         fdb {
             let! state = Init seed
             let res = state < input
-            return Res.feedback res input
+            return Res.Feedback(res, input)
         }
 
     /// Negative slope.
@@ -170,5 +170,5 @@ module Gen =
         fdb {
             let! state = Init seed
             let res = state < input
-            return Res.feedback res input
+            return Res.Feedback(res, input)
         }

@@ -3,6 +3,7 @@
 type InitResult<'f> =
     | Init of 'f
 
+[<RequireQualifiedAccess>]
 type GenResult<'o, 's> =
     | ValueAndState of 'o * 's
     | Discard
@@ -16,38 +17,19 @@ type Fx<'i, 'o, 's> =
     'i -> Gen<'o, 's>
 
 [<Struct>]
-type State<'sCurr, 'sSub> =
-    { currState: 'sCurr
-      subState: 'sSub option }
+type State<'scurr, 'ssub> =
+    { currState: 'scurr
+      subState: 'ssub option }
 
-type Combined<'sa, 'sb> =
-    private
-    | UseA of 'sa option 
-    | UseB of 'sb option
-    
-type SingleRun = SingleRun
 
 module Res =
+    type ValueAndLoop<'value> = ValueAndLoop of 'value
+    type ValueAndStop<'value> = ValueAndStop of 'value
+    type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
+    type Discard = Discard
+    type DiscardWith<'state> = DiscardWith of 'state
+    type Stop = Stop
 
-    /// Wraps a BaseResult into a gen.
-    let private repeat value : Gen<_,_> =
-        Gen (fun _ -> value)
-
-    /// Wraps a BaseResult into a gen.
-    let value value : Gen<_,_> =
-        ValueAndState(value, ()) |> repeat
-
-    let feedback value feedback = 
-        ValueAndState(value, feedback) |> repeat
-
-    let discard<'o, 's> : Gen<GenResult<'o, 's>, 's> = 
-        Discard |> repeat
-
-    let discardWith state : Gen<GenResult<'o, 's>, 's> = 
-        DiscardWith state |> repeat
-
-    let stop<'o, 's> : Gen<GenResult<'o, 's>, 's> = 
-        Stop |> repeat
 
 module Gen =
     
@@ -86,25 +68,25 @@ module Gen =
                 | None -> None, None
                 | Some v -> Some v.currState, v.subState
             match (unwrap m) lastMState with
-            | ValueAndState (mres, mstate) ->
+            | GenResult.ValueAndState (mres, mstate) ->
                 let fGen = f mres
                 match (unwrap fGen) lastFState with
-                | ValueAndState (fres, fstate) -> 
-                    ValueAndState (fres, { currState = mstate; subState = Some fstate })
-                | DiscardWith stateF -> 
-                    DiscardWith { currState = mstate; subState = Some stateF }
-                | Discard ->
-                    DiscardWith { currState = mstate; subState = None }
-                | Stop -> 
-                    Stop
-            | DiscardWith stateM ->
-                DiscardWith { currState = stateM; subState = lastFState }
-            | Discard ->
+                | GenResult.ValueAndState (fres, fstate) -> 
+                    GenResult.ValueAndState (fres, { currState = mstate; subState = Some fstate })
+                | GenResult.DiscardWith stateF -> 
+                    GenResult.DiscardWith { currState = mstate; subState = Some stateF }
+                | GenResult.Discard ->
+                    GenResult.DiscardWith { currState = mstate; subState = None }
+                | GenResult.Stop -> 
+                    GenResult.Stop
+            | GenResult.DiscardWith stateM ->
+                GenResult.DiscardWith { currState = stateM; subState = lastFState }
+            | GenResult.Discard ->
                 match lastMState with
-                | Some lastStateM -> DiscardWith { currState = lastStateM; subState = lastFState }
-                | None -> Discard
-            | Stop ->
-                Stop
+                | Some lastStateM -> GenResult.DiscardWith { currState = lastStateM; subState = lastFState }
+                | None -> GenResult.Discard
+            | GenResult.Stop ->
+                GenResult.Stop
         |> create
 
     /// 'bindFdb' is invoked only ONCE per fdb { .. }.
@@ -123,42 +105,65 @@ module Gen =
                 | Some { currState = feedback; subState = inner } -> feedback, inner
             let fgen = f lastFeed
             match (unwrap fgen) lastFState with
-            | ValueAndState (fres, ffeed) ->
-                ValueAndState (fres, { currState = ffeed; subState = None })
-            | DiscardWith ffeed ->
-                DiscardWith { currState = ffeed; subState = None }
-            | Discard ->
-                DiscardWith { currState = lastFeed; subState = lastFState }
-            | Stop ->
-                Stop
+            | GenResult.ValueAndState (fres, ffeed) ->
+                GenResult.ValueAndState (fres, { currState = ffeed; subState = None })
+            | GenResult.DiscardWith ffeed ->
+                GenResult.DiscardWith { currState = ffeed; subState = None }
+            | GenResult.Discard ->
+                GenResult.DiscardWith { currState = lastFeed; subState = lastFState }
+            | GenResult.Stop ->
+                GenResult.Stop
         |> create
+
+
+    // --------
+    // return / yield
+    // --------
+
+    type SingletonState = private | SingletonState
+
+    let ofSingletonValue value =
+        fun state ->
+            match state with
+            | None -> GenResult.ValueAndState(value, SingletonState)
+            | Some SingletonState -> GenResult.Stop
+        |> create
+
+    let ofRepeatingValue (value: 'a) : Gen<_,_> =
+        create (fun _ -> value)
+
+    let ofValueAndLoop value : Gen<_,_> =
+        GenResult.ValueAndState(value, ()) |> ofRepeatingValue
+    let ofValueAndStop value : Gen<_,_> = 
+        ofSingletonValue value
+    let ofFeedback value feedback =
+        GenResult.ValueAndState(value, feedback) |> ofRepeatingValue
+    let ofDiscard<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
+        GenResult.Discard |> ofRepeatingValue
+    let ofDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
+        GenResult.DiscardWith state |> ofRepeatingValue
+    let ofStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
+        GenResult.Stop |> ofRepeatingValue
 
 
     // --------
     // singleton / seq / list
     // --------
-    
-    let singleton value =
-        fun state ->
-            match state with
-            | None -> ValueAndState(value, SingleRun)
-            | Some SingleRun -> Stop
-        |> Gen
 
     let ofSeq (s: seq<_>) =
         s.GetEnumerator()
         |> createWithSeed2 (fun enumerator ->
             match enumerator.MoveNext() with
-            | true -> ValueAndState (enumerator.Current, enumerator)
-            | false -> Stop
+            | true -> GenResult.ValueAndState (enumerator.Current, enumerator)
+            | false -> GenResult.Stop
         )
         
     let ofList (l: list<_>) =
         l
         |> createWithSeed2 (fun l ->
             match l with
-            | x::xs -> ValueAndState (x, xs)
-            | [] -> Stop
+            | x::xs -> GenResult.ValueAndState (x, xs)
+            | [] -> GenResult.Stop
         )
 
 
@@ -166,6 +171,11 @@ module Gen =
     // combine
     // --------
 
+    type CombineState<'sa, 'sb> =
+        private
+        | UseA of 'sa option 
+        | UseB of 'sb option
+    
     let combine (a: Gen<GenResult<'o, 'sa>, 'sa>) (b: unit -> Gen<GenResult<'o, 'sb>, 'sb>) =
         printfn "Combine"
         let b = b ()
@@ -175,23 +185,21 @@ module Gen =
             match state with
             | UseA lastSa ->
                 match getValue a lastSa with
-                | ValueAndState (va, sa) ->
-                    ValueAndState (va, UseA (Some sa))
-                | Discard -> Discard
-                | DiscardWith sa -> DiscardWith (UseA (Some sa))
-                | Stop -> DiscardWith (UseB None)
+                | GenResult.ValueAndState (va, sa) -> GenResult.ValueAndState (va, UseA (Some sa))
+                | GenResult.Discard -> GenResult.Discard
+                | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
+                | GenResult.Stop -> GenResult.DiscardWith (UseB None)
             | UseB lastSb ->
                 match getValue b lastSb with
-                | ValueAndState (vb, sb) ->
-                    ValueAndState (vb, UseB (Some sb))
-                | Discard -> Discard
-                | DiscardWith sb -> DiscardWith (UseB (Some sb))
-                | Stop -> Stop
+                | GenResult.ValueAndState (vb, sb) -> GenResult.ValueAndState (vb, UseB (Some sb))
+                | GenResult.Discard -> GenResult.Discard
+                | GenResult.DiscardWith sb -> GenResult.DiscardWith (UseB (Some sb))
+                | GenResult.Stop -> GenResult.Stop
         |> create
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
-        member _.Zero() = Res.discard
+        member _.Zero() = ofDiscard
         member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         member _.Combine(x, delayed) = combine x delayed
         member _.Delay(delayed) = delayed
@@ -200,15 +208,23 @@ module Gen =
     type GenBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
-        member _.Return(x: Gen<GenResult<'o, 's>, 's>) = x
-        member _.Yield(x) = singleton x
         member _.YieldFrom(x) = ofList x
+        // returns
+        member _.Return(Res.ValueAndLoop value) = ofValueAndLoop value
+        member _.Return(Res.ValueAndStop value) = ofValueAndStop value
+        member _.Return(Res.Discard) = ofDiscard
+        member _.Return(Res.DiscardWith state) = ofDiscardWith state
+        member _.Return(Res.Stop) = ofStop
         
     type FeedbackBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindFdb f m
-        member _.Return(x: Gen<GenResult<'o, 's>, 's>) = x
+        // returns
+        member _.Return(Res.Feedback (value, feedback)) = ofFeedback value feedback
+        member _.Return(Res.Discard) = ofDiscard
+        member _.Return(Res.DiscardWith state) = ofDiscardWith state
+        member _.Return(Res.Stop) = ofStop
     
     let gen = GenBuilder()
     let fdb = FeedbackBuilder()
@@ -221,10 +237,10 @@ module Gen =
     let map projection x =
         fun state ->
             match (unwrap x) state with
-            | ValueAndState (x', state) -> ValueAndState (projection x', state)
-            | DiscardWith s -> DiscardWith s
-            | Discard -> Discard
-            | Stop -> Stop
+            | GenResult.ValueAndState (x', state) -> GenResult.ValueAndState (projection x', state)
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> create
 
     let apply xGen fGen =
@@ -232,7 +248,7 @@ module Gen =
             let! l' = xGen
             let! f' = fGen
             let result = f' l'
-            return Res.value result
+            return Res.ValueAndLoop result
         }
 
     /// Transforms a generator function to an effect function.    
@@ -265,21 +281,21 @@ module Gen =
         gen {
             let! l = left
             let! r = right
-            return Res.value (f l r)
+            return Res.ValueAndLoop (f l r)
         }
     
     let inline binOpLeft left right f =
         gen {
             let l = left
             let! r = right
-            return Res.value (f l r)
+            return Res.ValueAndLoop (f l r)
         }
     
     let inline binOpRight left right f =
         gen {
             let! l = left
             let r = right
-            return Res.value (f l r)
+            return Res.ValueAndLoop (f l r)
         }
 
 type Gen<'o,'s> with

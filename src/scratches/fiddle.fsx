@@ -177,3 +177,25 @@ module B =
 
 
 *)
+
+
+
+
+module A =
+    type T =
+        | Int of int
+        | String of string
+        | Tuple of int * int
+
+    type Builder() =
+        member this.Yield (x, y) = Tuple (x, y)
+        member this.Combine(a, b) = [a;b]
+        member this.Delay(f) = f()
+
+    let b = Builder()
+
+    b {
+            yield (24, 34)
+    }
+
+let continue = 22

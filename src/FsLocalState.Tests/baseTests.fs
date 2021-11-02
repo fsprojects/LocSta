@@ -14,7 +14,7 @@ let [<TestCase>] ``Pairwise`` () =
     gen {
         let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
         let! v2 = Gen.ofList [  1 ;  2 ;  3 ;  4  ]
-        return Res.value (v1,v2)
+        return Res.ValueAndLoop (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
@@ -24,7 +24,7 @@ let [<TestCase>] ``Pairwise using For Loop`` () =
     gen {
         for v1 in [ "a"; "b"; "c"; "d" ] do
         for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            return Res.value (v1,v2)
+            return Res.ValueAndLoop (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
@@ -34,7 +34,7 @@ let [<TestCase>] ``Discard values (gen)`` () =
     gen {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
-            return Res.value v
+            return Res.ValueAndLoop v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
@@ -44,7 +44,7 @@ let [<TestCase>] ``Discard value using For Loop (gen)`` () =
     gen {
         for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
-                return Res.value v
+                return Res.ValueAndLoop v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
@@ -55,9 +55,9 @@ let [<TestCase>] ``Discard values (fdb)`` () =
         let! state = Init 0
         let nextValue = state + 1
         if state % 2 = 0 then
-            return Res.feedback state nextValue
+            return Res.Feedback (state, nextValue)
         else
-            return Res.discardWith nextValue
+            return Res.DiscardWith nextValue
     }
     |> Gen.toListn 4
     |> should equal [ 0; 2; 4; 6 ]
@@ -67,9 +67,9 @@ let [<TestCase>] ``Stop (gen)`` () =
     gen {
         let! v = count01
         if v < 5 then
-            return Res.value v
+            return Res.ValueAndLoop v
         else
-            return Res.stop
+            return Res.Stop
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
@@ -80,9 +80,9 @@ let [<TestCase>] ``Stop (fdb)`` () =
         let! v = Init 0
         let nextValue = v + 1
         if v < 5 then
-            return Res.feedback v nextValue
+            return Res.Feedback(v, nextValue)
         else
-            return Res.stop
+            return Res.Stop
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
@@ -90,7 +90,7 @@ let [<TestCase>] ``Stop (fdb)`` () =
 
 let [<TestCase>] ``Singleton`` () =
     gen {
-        return Gen.singleton 0
+        return Res.ValueAndStop 0
     }
     |> Gen.toList
     |> should equal [ 0 ]
@@ -98,7 +98,7 @@ let [<TestCase>] ``Singleton`` () =
 
 let [<TestCase>] ``Singleton with Yield`` () =
     gen {
-        yield 0
+        return Res.ValueAndStop 0
     }
     |> Gen.toList
     |> should equal [ 0 ]
@@ -106,8 +106,8 @@ let [<TestCase>] ``Singleton with Yield`` () =
 
 let [<TestCase>] ``Combine`` () =
     gen {
-        return Gen.singleton 0
-        return Gen.singleton 1
+        return Res.ValueAndStop 0
+        return Res.ValueAndStop 1
         return! Gen.ofList [ 2; 3; 4 ]
     }
     |> Gen.toList
@@ -115,8 +115,8 @@ let [<TestCase>] ``Combine`` () =
 
 let [<TestCase>] ``Combine with Yield`` () =
     gen {
-        yield 0
-        yield 1
+        return Res.ValueAndStop 0
+        return Res.ValueAndStop 1
         yield! [ 2; 3; 4 ]
     }
     |> Gen.toList
