@@ -11,24 +11,54 @@ open NUnit.Framework
 
 
 let [<TestCase>] ``Reset by current`` () =
-    let expectedResult =
+    Gen.count 0 1
+    |> Gen.resetWhenFunc (fun v -> v = 5)
+    |> Gen.toListn (5 * 3)
+    |> should equal
         [ 0; 1; 2; 3; 4
-          0; 1; 2; 3; 4
-          0; 1; 2; 3; 4
           0; 1; 2; 3; 4
           0; 1; 2; 3; 4 ]
 
-    Gen.count 0 1
-    |> Gen.resetWhenFunc (fun v -> v = 5)
-    |> Gen.toListn (5 * 5)
-    |> should equal expectedResult
-
+let [<TestCase>] ``Reset on stop`` () =
+    [0..2]
+    |> Gen.ofList
+    |> resetOnStop
+    |> Gen.toListn 9
+    |> should equal
+        [ 0; 1; 2 
+          0; 1; 2 
+          0; 1; 2 ]
 
 let [<TestCase>] ``Count 0 1`` () =
     Gen.count01
     |> Gen.toListn 5
-    |> should equal [ 0 .. 4 ]
+    |> should equal [0..4]
 
+let [<TestCase>] ``Accumulate once`` () =
+    gen {
+        for x in [0..10] do
+            let! values = accumulateOnce 3 x
+            return Res.ValueAndLoop values
+    }
+    |> Gen.toList
+    |> should equal
+        [
+            [ 2 ; 1 ; 0 ]
+        ]
+
+let [<TestCase>] ``Accumulate all`` () =
+    gen {
+        for x in [0..10] do
+            let! values = accumulateAll 3 x
+            return Res.ValueAndLoop values
+    }
+    |> Gen.toList
+    |> should equal
+        [
+            [ 2 ; 1 ; 0 ]
+            [ 5 ; 4 ; 3 ]
+            [ 8 ; 7 ; 6 ]
+        ]
 
 //let [<TestCase>] ``Partition by current`` () =
 //    Gen.count 0 1

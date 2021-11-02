@@ -5,23 +5,6 @@ open FsLocalState
 open NUnit.Framework
 
 
-//let [<TestCase>] ``Take value and (n - 1) successors`` () =
-//    let taken count =
-//        fun input -> fdb {
-//            let! elements = Init []
-//            let newElements = input :: elements
-//            if newElements.Length = count then
-//                return Res.feedback newElements newElements
-//                return Res.stop
-//            else
-//                return FdbResult.DiscardWith (Some newElements)
-//        }
-    
-//    let inputValues = [ 1; 3; 6; 3; 0; 0; 4; 5 ]
-//    gen {
-//        let! values = taken
-
-//    }
 
 
 

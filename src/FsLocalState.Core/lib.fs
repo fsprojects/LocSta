@@ -10,7 +10,7 @@ module Gen =
     // Control
     // ----------
 
-    let mapValue2 proj (inputGen: Gen<_,_>) =
+    let mapValueAndState (proj: 'v -> 's -> 'a) (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
@@ -21,24 +21,10 @@ module Gen =
         |> Gen.create
 
     let mapValue proj (inputGen: Gen<_,_>) =
-        fun state ->
-            let res = (Gen.unwrap inputGen) state
-            match res with
-            | GenResult.ValueAndState (v,s) -> GenResult.ValueAndState (proj v, s)
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
-        |> Gen.create
+        mapValueAndState (fun v _ -> proj v) inputGen
 
     let includeState (inputGen: Gen<_,_>) =
-        fun state ->
-            let res = (Gen.unwrap inputGen) state
-            match res with
-            | GenResult.ValueAndState (v,s) -> GenResult.ValueAndState ((v, s), s)
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
-        |> Gen.create
+        mapValueAndState (fun v s -> v,s) inputGen
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
@@ -70,7 +56,16 @@ module Gen =
             let! pred = pred
             return! resetWhenValue pred inputGen
         }
-        
+    
+    let resetOnStop (inputGen: Gen<_,_>) =
+        let rec genFunc state =
+            let g = (Gen.unwrap inputGen)
+            let res = g state
+            match res with
+            | GenResult.Stop -> genFunc None
+            | _ -> res
+        Gen.create genFunc
+
     //let partitionMapWithCurrent2 (pred: 'o -> bool) (proj: Fx<_,_,_>) (inputGen: Gen<'o,_>) =
     //    [] => fun groups -> gen {
     //        let! res = inputGen
@@ -172,3 +167,19 @@ module Gen =
             let res = state < input
             return Res.Feedback(res, input)
         }
+
+    let accumulateOnce count currentValue =
+        fdb {
+            let! elements = Init []
+            let newElements = currentValue :: elements
+            match newElements.Length with
+            | x when x = count ->
+                return Res.Feedback (newElements, newElements)
+            | x when x > count ->
+                return Res.Stop
+            | _ ->
+                return Res.DiscardWith newElements
+        }
+
+    let accumulateAll count currentValue =
+        accumulateOnce count currentValue |> resetOnStop
