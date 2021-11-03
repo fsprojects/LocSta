@@ -14,6 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scratches", "scratches", "{
 		scratches\feedbackBuilder2.fsx = scratches\feedbackBuilder2.fsx
 		scratches\feedbackBuilder_FINAL.fsx = scratches\feedbackBuilder_FINAL.fsx
 		scratches\fiddle.fsx = scratches\fiddle.fsx
+		scratches\fiddle2.fsx = scratches\fiddle2.fsx
 		scratches\mostInnerState.fsx = scratches\mostInnerState.fsx
 		scratches\withMut2.fsx = scratches\withMut2.fsx
 		scratches\withMutableWhile.fsx = scratches\withMutableWhile.fsx

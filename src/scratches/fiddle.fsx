@@ -2,7 +2,6 @@
 #r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
-
 let getFeedback seed =
     fun (state, feedback) ->
         let feedback = feedback |> Option.defaultValue (Some seed)

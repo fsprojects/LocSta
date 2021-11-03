@@ -19,10 +19,12 @@ module Gen =
                     yield (resF, stateF)
                 | GenResult.DiscardWith stateF ->
                     state <- Some stateF
-                | GenResult.Discard ->
+                | GenResult.Discard -> 
                     ()
                 | GenResult.Stop ->
                     resume <- false
+                | GenResult.Reset ->
+                    state <- None
         }
     
     let resume state (g: Gen<_,'s>) = resumeOrStart (Some state) g
@@ -47,6 +49,8 @@ module Gen =
                         ()
                     | GenResult.Stop ->
                         resume <- false
+                    | GenResult.Reset ->
+                        state <- None
             }
 
     let toSeqFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_> =

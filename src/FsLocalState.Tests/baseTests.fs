@@ -18,7 +18,6 @@ let [<TestCase>] ``Pairwise`` () =
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
-
 let [<TestCase>] ``Pairwise using For Loop`` () =
     gen {
         for v1 in [ "a"; "b"; "c"; "d" ] do
@@ -28,8 +27,7 @@ let [<TestCase>] ``Pairwise using For Loop`` () =
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
-
-let [<TestCase>] ``Discard values (gen)`` () =
+let [<TestCase>] ``Zero (gen)`` () =
     gen {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
@@ -38,8 +36,7 @@ let [<TestCase>] ``Discard values (gen)`` () =
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
-
-let [<TestCase>] ``Discard value using For Loop (gen)`` () =
+let [<TestCase>] ``Zero For Loop (gen)`` () =
     gen {
         for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
@@ -47,9 +44,8 @@ let [<TestCase>] ``Discard value using For Loop (gen)`` () =
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
-
     
-let [<TestCase>] ``Discard values (fdb)`` () =
+let [<TestCase>] ``Discard with (fdb)`` () =
     fdb {
         let! state = Init 0
         let nextValue = state + 1
@@ -61,7 +57,6 @@ let [<TestCase>] ``Discard values (fdb)`` () =
     |> Gen.toListn 4
     |> should equal [ 0; 2; 4; 6 ]
     
-
 let [<TestCase>] ``Stop (gen)`` () =
     gen {
         let! v = count01
@@ -72,7 +67,6 @@ let [<TestCase>] ``Stop (gen)`` () =
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
-
 
 let [<TestCase>] ``Stop (fdb)`` () =
     fdb {
@@ -86,6 +80,25 @@ let [<TestCase>] ``Stop (fdb)`` () =
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
 
+let [<TestCase>] ``Reset (gen)`` () =
+    gen {
+        let! prove = count01
+        let! v = gen {
+            let! c = count01
+            if c = 3 then
+                return Control.Reset
+            else
+                return Control.EmitAndLoop c
+        }
+        return Control.EmitAndLoop (prove, v)
+    }
+    |> Gen.toListn 9
+    |> should equal 
+        [
+            0,0; 1,1; 2,2
+            3,0; 4,1; 5,2
+            6,0; 7,1; 8,2
+        ]
 
 let [<TestCase>] ``Singleton`` () =
     gen {
@@ -131,11 +144,11 @@ let [<TestCase>] ``Operator +`` () =
 
 let [<TestCase>] ``Operator =`` () =
     gen {
-        let! proove = count01
+        let! prove = count01
         let! res = count01 == 5
         if res then
-            return Control.EmitAndLoop proove
-        else if proove > 10 then
+            return Control.EmitAndLoop prove
+        else if prove > 10 then
             return Control.Stop
         else
             return Control.Discard

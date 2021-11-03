@@ -30,6 +30,7 @@ module Gen =
             | GenResult.DiscardWith s -> GenResult.DiscardWith s
             | GenResult.Discard -> GenResult.Discard
             | GenResult.Stop -> GenResult.Stop
+            | GenResult.Reset -> GenResult.Reset
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:

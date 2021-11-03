@@ -8,6 +8,7 @@ type GenResult<'v, 's> =
     | Emit of 'v * 's
     | Discard
     | DiscardWith of 's
+    | Reset
     | Stop
 
 type Gen<'o, 's> =
@@ -28,6 +29,7 @@ module Control =
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
     type Discard = Discard
     type DiscardWith<'state> = DiscardWith of 'state
+    type Reset = Reset
     type Stop = Stop
 
 
@@ -63,30 +65,38 @@ module Gen =
         : Gen<GenResult<'o2, State<'s1, 's2>>, State<'s1, 's2>>
         =
         fun (state: State<'s1, 's2> option) ->
+            let evalf fgen mstate lastFState =
+                match (unwrap fgen) lastFState with
+                | GenResult.Emit (fres, fstate) ->
+                    GenResult.Emit (fres, { currState = mstate; subState = Some fstate })
+                | GenResult.DiscardWith fstate -> 
+                    GenResult.DiscardWith { currState = mstate; subState = Some fstate }
+                | GenResult.Discard ->
+                    GenResult.DiscardWith { currState = mstate; subState = None }
+                | GenResult.Reset ->
+                    GenResult.Reset
+                | GenResult.Stop -> 
+                    GenResult.Stop
+            let rec evalm lastMState lastFState =
+                match (unwrap m) lastMState with
+                | GenResult.Emit (mres, mstate) ->
+                    let fgen = f mres
+                    evalf fgen mstate lastFState
+                | GenResult.DiscardWith stateM ->
+                    GenResult.DiscardWith { currState = stateM; subState = lastFState }
+                | GenResult.Discard ->
+                    match lastMState with
+                    | Some lastStateM -> GenResult.DiscardWith { currState = lastStateM; subState = lastFState }
+                    | None -> GenResult.Discard
+                | GenResult.Reset ->
+                    evalm None None
+                | GenResult.Stop ->
+                    GenResult.Stop
             let lastMState, lastFState =
                 match state with
                 | None -> None, None
                 | Some v -> Some v.currState, v.subState
-            match (unwrap m) lastMState with
-            | GenResult.Emit (mres, mstate) ->
-                let fGen = f mres
-                match (unwrap fGen) lastFState with
-                | GenResult.Emit (fres, fstate) ->
-                    GenResult.Emit (fres, { currState = mstate; subState = Some fstate })
-                | GenResult.DiscardWith stateF -> 
-                    GenResult.DiscardWith { currState = mstate; subState = Some stateF }
-                | GenResult.Discard ->
-                    GenResult.DiscardWith { currState = mstate; subState = None }
-                | GenResult.Stop -> 
-                    GenResult.Stop
-            | GenResult.DiscardWith stateM ->
-                GenResult.DiscardWith { currState = stateM; subState = lastFState }
-            | GenResult.Discard ->
-                match lastMState with
-                | Some lastStateM -> GenResult.DiscardWith { currState = lastStateM; subState = lastFState }
-                | None -> GenResult.Discard
-            | GenResult.Stop ->
-                GenResult.Stop
+            evalm lastMState lastFState
         |> create
 
     /// 'bindFdb' is invoked only ONCE per fdb { .. }.
@@ -113,6 +123,8 @@ module Gen =
                 GenResult.DiscardWith { currState = lastFeed; subState = lastFState }
             | GenResult.Stop ->
                 GenResult.Stop
+            | GenResult.Reset ->
+                GenResult.Reset
         |> create
 
 
@@ -142,6 +154,8 @@ module Gen =
         GenResult.Discard |> ofRepeatingValue
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
         GenResult.DiscardWith state |> ofRepeatingValue
+    let returnReset<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
+        GenResult.Reset |> ofRepeatingValue
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
         GenResult.Stop |> ofRepeatingValue
 
@@ -189,12 +203,14 @@ module Gen =
                 | GenResult.Discard -> GenResult.Discard
                 | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
                 | GenResult.Stop -> GenResult.DiscardWith (UseB None)
+                | GenResult.Reset -> GenResult.DiscardWith (UseA None)
             | UseB lastSb ->
                 match getValue b lastSb with
                 | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, UseB (Some sb))
                 | GenResult.Discard -> GenResult.Discard
                 | GenResult.DiscardWith sb -> GenResult.DiscardWith (UseB (Some sb))
                 | GenResult.Stop -> GenResult.Stop
+                | GenResult.Reset -> GenResult.DiscardWith (UseB None)
         |> create
 
     type BaseBuilder() =
@@ -214,6 +230,7 @@ module Gen =
         member _.Return(Control.EmitAndStop value) = returnValueAndStop value
         member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
+        member _.Return(Control.Reset) = returnReset
         member _.Return(Control.Stop) = returnStop
         
     type FeedbackBuilder() =
@@ -224,6 +241,7 @@ module Gen =
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
         member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
+        member _.Return(Control.Reset) = returnReset
         member _.Return(Control.Stop) = returnStop
     
     let gen = GenBuilder()
@@ -241,6 +259,7 @@ module Gen =
             | GenResult.DiscardWith s -> GenResult.DiscardWith s
             | GenResult.Discard -> GenResult.Discard
             | GenResult.Stop -> GenResult.Stop
+            | GenResult.Reset -> GenResult.Reset
         |> create
 
     let mapValue proj (inputGen: Gen<_,_>) =
