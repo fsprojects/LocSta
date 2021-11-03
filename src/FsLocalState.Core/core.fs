@@ -175,30 +175,46 @@ module Gen =
     // combine
     // --------
 
+    type CombineRunState<'s> =
+        | Running of 's option
+        | Done
+    type CombineNext = A | B
     type CombineState<'sa, 'sb> =
-        private
-        | UseA of 'sa option 
-        | UseB of 'sb option
+        { a: CombineRunState<'sa>
+          b: CombineRunState<'sb>
+          next: CombineNext }
     
     let combine (a: Gen<GenResult<'o, 'sa>, 'sa>) (b: unit -> Gen<GenResult<'o, 'sb>, 'sb>) =
-        printfn "Combine"
         let b = b ()
-        let getValue g state = (unwrap g) state
+        let eval g state = (unwrap g) state
         fun state ->
-            let state = state |> Option.defaultValue (UseA None)
-            match state with
-            | UseA lastSa ->
-                match getValue a lastSa with
+            let (g1, s1), (g2, s2) =
+                match state.next with
+                | A -> (eval a, state.a), (b, state.b)
+                | B -> (b, state.b), (a, state.a)
+            match s1, s2 with
+            | Done, Done ->
+                GenResult.Stop
+            | Running s, Done ->
+                match eval this s with
                 | GenResult.Emit (va, sa) -> GenResult.Emit (va, UseA (Some sa))
                 | GenResult.Discard -> GenResult.Discard
                 | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
                 | GenResult.Stop -> GenResult.DiscardWith (UseB None)
-            | UseB lastSb ->
-                match getValue b lastSb with
-                | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, UseB (Some sb))
-                | GenResult.Discard -> GenResult.Discard
-                | GenResult.DiscardWith sb -> GenResult.DiscardWith (UseB (Some sb))
-                | GenResult.Stop -> GenResult.Stop
+            //let state = state |> Option.defaultValue (UseA None)
+            //match state with
+            //| UseA lastSa ->
+            //    match getValue a lastSa with
+            //    | GenResult.Emit (va, sa) -> GenResult.Emit (va, UseA (Some sa))
+            //    | GenResult.Discard -> GenResult.Discard
+            //    | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
+            //    | GenResult.Stop -> GenResult.DiscardWith (UseB None)
+            //| UseB lastSb ->
+            //    match getValue b lastSb with
+            //    | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, UseB (Some sb))
+            //    | GenResult.Discard -> GenResult.Discard
+            //    | GenResult.DiscardWith sb -> GenResult.DiscardWith (UseB (Some sb))
+            //    | GenResult.Stop -> GenResult.Stop
         |> create
 
 
