@@ -14,14 +14,14 @@ module Gen =
         seq {
             while resume do
                 match f state with
-                | GenResult.ValueAndState (resF, stateF) ->
+                | Control.Emit (resF, stateF) ->
                     state <- Some stateF
                     yield (resF, stateF)
-                | GenResult.DiscardWith stateF ->
+                | Control.DiscardWith stateF ->
                     state <- Some stateF
-                | GenResult.Discard ->
+                | Control.Discard ->
                     ()
-                | GenResult.Stop ->
+                | Control.Stop ->
                     resume <- false
         }
     
@@ -38,14 +38,14 @@ module Gen =
                     let value = enumerator.Current
                     let local = fx value |> Gen.unwrap
                     match local state with
-                    | GenResult.ValueAndState (resF, stateF) ->
+                    | Control.Emit (resF, stateF) ->
                         state <- Some stateF
                         yield (resF, stateF)
-                    | GenResult.DiscardWith stateF ->
+                    | Control.DiscardWith stateF ->
                         state <- Some stateF
-                    | GenResult.Discard ->
+                    | Control.Discard ->
                         ()
-                    | GenResult.Stop ->
+                    | Control.Stop ->
                         resume <- false
             }
 

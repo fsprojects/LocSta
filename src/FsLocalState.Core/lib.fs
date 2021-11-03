@@ -10,28 +10,11 @@ module Gen =
     // Control
     // ----------
 
-    let mapValueAndState (proj: 'v -> 's -> 'a) (inputGen: Gen<_,_>) =
-        fun state ->
-            let res = (Gen.unwrap inputGen) state
-            match res with
-            | GenResult.ValueAndState (v,s) -> GenResult.ValueAndState (proj v s, s)
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
-        |> Gen.create
-
-    let mapValue proj (inputGen: Gen<_,_>) =
-        mapValueAndState (fun v _ -> proj v) inputGen
-
-    let includeState (inputGen: Gen<_,_>) =
-        mapValueAndState (fun v s -> v,s) inputGen
-
-
     let private resetFuncForDoWhen (inputGen: Gen<_,_>) =
         fun _ -> (inputGen |> Gen.unwrap) None
 
     let private stopFuncForDoWhen =
-        fun _ -> GenResult.Stop
+        fun _ -> Control.Stop
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
@@ -40,13 +23,13 @@ module Gen =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | GenResult.ValueAndState (o,s) ->
+            | Control.Emit (o,s) ->
                 match pred o with
-                | false -> GenResult.ValueAndState (o,s)
+                | false -> Control.Emit (o,s)
                 | true -> f (o,s)
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
+            | Control.DiscardWith s -> Control.DiscardWith s
+            | Control.Discard -> Control.Discard
+            | Control.Stop -> Control.Stop
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -87,7 +70,7 @@ module Gen =
             let g = (Gen.unwrap inputGen)
             let res = g state
             match res with
-            | GenResult.Stop -> genFunc None
+            | Control.Stop -> genFunc None
             | _ -> res
         Gen.create genFunc
         
@@ -101,7 +84,7 @@ module Gen =
         gen {
             let! c = count inclusiveStart increment
             match c <= inclusiveEnd with
-            | true -> return Res.ValueAndLoop c
+            | true -> return Res.EmitAndLoop c
             | false -> return Res.Stop
         }
 
@@ -162,10 +145,10 @@ module Gen =
         }
 
     let accumulateOnePart count currentValue =
-        gen {
-            let acc = accumulate currentValue
-        }
-        //accumulate currentValue |> stopWhenCount count
+        //gen {
+        //    let acc = accumulate currentValue
+        //}
+        accumulate currentValue |> stopWhenCount count
 
     let accumulateManyParts count currentValue =
         accumulate currentValue |> resetWhenCount count
