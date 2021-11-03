@@ -5,7 +5,19 @@ open FsLocalState
 open NUnit.Framework
 
 
-
+let [<TestCase>] ``Stop after Emit`` () =
+    let expect = 3
+    gen {
+        let! c = count01
+        if c = expect then
+            return Control.Emit c
+            return Control.Stop
+        else
+            return Control.Discard
+    }
+    |> Gen.toList
+    |> List.exactlyOne
+    |> should equal expect
 
 
 //let [<TestCase>] ``Accumulate value and 2 successors`` () =

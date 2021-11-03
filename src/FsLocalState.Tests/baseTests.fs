@@ -13,7 +13,7 @@ let [<TestCase>] ``Pairwise`` () =
     gen {
         let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
         let! v2 = Gen.ofList [  1 ;  2 ;  3 ;  4  ]
-        return Control.EmitAndLoop (v1,v2)
+        return Control.Emit (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
@@ -22,7 +22,7 @@ let [<TestCase>] ``Pairwise using For Loop`` () =
     gen {
         for v1 in [ "a"; "b"; "c"; "d" ] do
         for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            return Control.EmitAndLoop (v1,v2)
+            return Control.Emit (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
@@ -31,7 +31,7 @@ let [<TestCase>] ``Zero (gen)`` () =
     gen {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
-            return Control.EmitAndLoop v
+            return Control.Emit v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
@@ -40,7 +40,7 @@ let [<TestCase>] ``Zero For Loop (gen)`` () =
     gen {
         for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
-                return Control.EmitAndLoop v
+                return Control.Emit v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
@@ -61,7 +61,7 @@ let [<TestCase>] ``Stop (gen)`` () =
     gen {
         let! v = count01
         if v < 5 then
-            return Control.EmitAndLoop v
+            return Control.Emit v
         else
             return Control.Stop
     }
@@ -103,7 +103,7 @@ let [<TestCase>] ``Stop (fdb)`` () =
 
 let [<TestCase>] ``Singleton`` () =
     gen {
-        return Control.EmitAndStop 0
+        return Control.EmitThenStop 0
     }
     |> Gen.toList
     |> should equal [ 0 ]
@@ -111,7 +111,7 @@ let [<TestCase>] ``Singleton`` () =
 
 let [<TestCase>] ``Singleton with Yield`` () =
     gen {
-        return Control.EmitAndStop 0
+        return Control.EmitThenStop 0
     }
     |> Gen.toList
     |> should equal [ 0 ]
@@ -119,26 +119,23 @@ let [<TestCase>] ``Singleton with Yield`` () =
 
 let [<TestCase>] ``Combine`` () =
     gen {
-        return Control.EmitAndStop 0
-        return Control.EmitAndStop 1
-        return! Gen.ofList [ 2; 3; 4 ]
+        return Control.EmitThenStop 0
+        return Control.EmitThenStop 1
+        return Control.EmitThenStop 2
+        return! Gen.ofList [ 3; 4; 5 ]
+        return Control.EmitThenStop 6
+        return! Gen.ofList [ 7; 8; 9 ]
+        return Control.EmitThenStop 10
+        return Control.Stop
+        return Control.EmitThenStop 11
     }
     |> Gen.toList
-    |> should equal [ 0; 1; 2; 3; 4 ]
-
-let [<TestCase>] ``Combine with Yield`` () =
-    gen {
-        return Control.EmitAndStop 0
-        return Control.EmitAndStop 1
-        yield! [ 2; 3; 4 ]
-    }
-    |> Gen.toList
-    |> should equal [ 0; 1; 2; 3; 4 ]
+    |> should equal [0..10]
 
 let [<TestCase>] ``Operator +`` () =
     gen {
         let! res = count01 + count01
-        return Control.EmitAndLoop res
+        return Control.Emit res
     }
     |> Gen.toListn 5
     |> should equal [ 0; 2; 4; 6; 8 ]
@@ -148,7 +145,7 @@ let [<TestCase>] ``Operator =`` () =
         let! prove = count01
         let! res = count01 == 5
         if res then
-            return Control.EmitAndLoop prove
+            return Control.Emit prove
         else if prove > 10 then
             return Control.Stop
         else

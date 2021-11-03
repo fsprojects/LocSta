@@ -6,6 +6,7 @@ type Init<'f> =
 [<RequireQualifiedAccess>]
 type GenResult<'v, 's> =
     | Emit of 'v * 's
+    | Combined of 'v list * 's
     | Discard
     | DiscardWith of 's
     | Stop
@@ -23,8 +24,8 @@ type State<'scurr, 'ssub> =
 
 
 module Control =
-    type EmitAndLoop<'value> = EmitAndLoop of 'value
-    type EmitAndStop<'value> = EmitAndStop of 'value
+    type Emit<'value> = Emit of 'value
+    type EmitThenStop<'value> = EmitThenStop of 'value
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
     type Discard = Discard
     type DiscardWith<'state> = DiscardWith of 'state
@@ -67,6 +68,9 @@ module Gen =
                 match (unwrap fgen) lastFState with
                 | GenResult.Emit (fres, fstate) ->
                     GenResult.Emit (fres, { currState = mstate; subState = Some fstate })
+                | GenResult.Combined (fres, fstate) ->
+                    GenResult.Combined (fres, { currState = mstate; subState = Some fstate })
+                | GenResult.Combined ([], fstate)
                 | GenResult.DiscardWith fstate -> 
                     GenResult.DiscardWith { currState = mstate; subState = Some fstate }
                 | GenResult.Discard ->
@@ -76,6 +80,9 @@ module Gen =
             let rec evalm lastMState lastFState =
                 match (unwrap m) lastMState with
                 | GenResult.Emit (mres, mstate) ->
+                    let fgen = f mres
+                    evalf fgen mstate lastFState
+                | GenResult.Combined (mres, mstate) ->
                     let fgen = f mres
                     evalf fgen mstate lastFState
                 | GenResult.DiscardWith stateM ->
@@ -136,9 +143,9 @@ module Gen =
     let ofRepeatingValue (value: 'a) : Gen<_,_> =
         create (fun _ -> value)
 
-    let returnValueAndLoop value : Gen<_,_> =
+    let returnValue value : Gen<_,_> =
         GenResult.Emit(value, ()) |> ofRepeatingValue
-    let returnValueAndStop value : Gen<_,_> =
+    let returnValueThenStop value : Gen<_,_> =
         ofSingletonValue GenResult.Stop value
     let returnFeedback value feedback =
         GenResult.Emit(value, feedback) |> ofRepeatingValue
@@ -175,46 +182,33 @@ module Gen =
     // combine
     // --------
 
-    type CombineRunState<'s> =
-        | Running of 's option
-        | Done
-    type CombineNext = A | B
-    type CombineState<'sa, 'sb> =
-        { a: CombineRunState<'sa>
-          b: CombineRunState<'sb>
-          next: CombineNext }
-    
+    type Next = A | B | Done
+    type CombineInfo<'sa, 'sb> =
+        { astate: 'sa option
+          bstate: 'sb option
+          next: Next }
+
     let combine (a: Gen<GenResult<'o, 'sa>, 'sa>) (b: unit -> Gen<GenResult<'o, 'sb>, 'sb>) =
-        let b = b ()
-        let eval g state = (unwrap g) state
+        let defaultState () = { astate = None; bstate = None; next = A }
+        let getValue g state = (unwrap g) state
         fun state ->
-            let (g1, s1), (g2, s2) =
-                match state.next with
-                | A -> (eval a, state.a), (b, state.b)
-                | B -> (b, state.b), (a, state.a)
-            match s1, s2 with
-            | Done, Done ->
-                GenResult.Stop
-            | Running s, Done ->
-                match eval this s with
-                | GenResult.Emit (va, sa) -> GenResult.Emit (va, UseA (Some sa))
-                | GenResult.Discard -> GenResult.Discard
-                | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
-                | GenResult.Stop -> GenResult.DiscardWith (UseB None)
-            //let state = state |> Option.defaultValue (UseA None)
-            //match state with
-            //| UseA lastSa ->
-            //    match getValue a lastSa with
-            //    | GenResult.Emit (va, sa) -> GenResult.Emit (va, UseA (Some sa))
-            //    | GenResult.Discard -> GenResult.Discard
-            //    | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
-            //    | GenResult.Stop -> GenResult.DiscardWith (UseB None)
-            //| UseB lastSb ->
-            //    match getValue b lastSb with
-            //    | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, UseB (Some sb))
-            //    | GenResult.Discard -> GenResult.Discard
-            //    | GenResult.DiscardWith sb -> GenResult.DiscardWith (UseB (Some sb))
-            //    | GenResult.Stop -> GenResult.Stop
+            let state =  state |> Option.defaultWith defaultState
+            let rec evala () =
+                match getValue a state.astate with
+                | GenResult.Emit (va, sa) -> GenResult.Emit (va, { state with astate = Some sa; next = A })
+                | GenResult.Discard -> GenResult.DiscardWith { state with next = B }
+                | GenResult.DiscardWith sa -> GenResult.DiscardWith { state with astate = Some sa; next = A }
+                | GenResult.Stop -> evalb ()
+            and evalb () =
+                match getValue (b ()) state.bstate with
+                | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, { state with bstate = Some sb; next = B })
+                | GenResult.Discard -> GenResult.DiscardWith { state with next = A }
+                | GenResult.DiscardWith sb -> GenResult.DiscardWith { state with bstate = Some sb; next = B }
+                | GenResult.Stop -> GenResult.Stop
+            match state.next with
+            | Done -> GenResult.Stop
+            | A -> evala ()
+            | B -> evalb ()
         |> create
 
 
@@ -235,8 +229,8 @@ module Gen =
         member _.Bind(m, f) = bind f m
         member _.YieldFrom(x) = ofList x
         // returns
-        member _.Return(Control.EmitAndLoop value) = returnValueAndLoop value
-        member _.Return(Control.EmitAndStop value) = returnValueAndStop value
+        member _.Return(Control.Emit value) = returnValue value
+        member _.Return(Control.EmitThenStop value) = returnValueThenStop value
         member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
         member _.Return(Control.Stop) = returnStop
@@ -279,7 +273,7 @@ module Gen =
             let! l' = xGen
             let! f' = fGen
             let result = f' l'
-            return Control.EmitAndLoop result
+            return Control.Emit result
         }
 
     /// Transforms a generator function to an effect function.    
@@ -312,21 +306,21 @@ module Gen =
         gen {
             let! l = left
             let! r = right
-            return Control.EmitAndLoop (f l r)
+            return Control.Emit (f l r)
         }
     
     let inline binOpLeft left right f =
         gen {
             let l = left
             let! r = right
-            return Control.EmitAndLoop (f l r)
+            return Control.Emit (f l r)
         }
     
     let inline binOpRight left right f =
         gen {
             let! l = left
             let r = right
-            return Control.EmitAndLoop (f l r)
+            return Control.Emit (f l r)
         }
 
 type Gen<'o,'s> with

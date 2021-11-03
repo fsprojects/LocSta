@@ -11,8 +11,8 @@ open NUnit.Framework
 
 
 let [<TestCase>] ``Reset by current`` () =
-    Gen.count 0 1
-    |> Gen.resetWhenFunc (fun v -> v = 5)
+    count 0 1
+    |> resetWhenFunc (fun v -> v = 5)
     |> Gen.toListn (5 * 3)
     |> should equal
         [ 0; 1; 2; 3; 4
@@ -30,12 +30,12 @@ let [<TestCase>] ``Reset on stop`` () =
           0; 1; 2 ]
 
 let [<TestCase>] ``Count 0 1`` () =
-    Gen.count01
+    count01
     |> Gen.toListn 5
     |> should equal [0..4]
 
 let [<TestCase>] ``Count until repeat`` () =
-    Gen.countCyclic 0 1 3
+    countCyclic 0 1 3
     |> Gen.toListn 12
     |> should equal
         [
@@ -48,7 +48,7 @@ let [<TestCase>] ``Accumulate onc part`` () =
     gen {
         for x in [0..10] do
             let! values = accumulateOnePart 3 x
-            return Control.EmitAndLoop values
+            return Control.Emit values
     }
     |> Gen.toList
     |> should equal
@@ -60,7 +60,7 @@ let [<TestCase>] ``Accumulate many parts`` () =
     gen {
         for x in [0..10] do
             let! values = accumulateManyParts 3 x
-            return Control.EmitAndLoop values
+            return Control.Emit values
     }
     |> Gen.toList
     |> should equal
