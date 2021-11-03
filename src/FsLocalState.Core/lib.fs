@@ -10,25 +10,24 @@ module Gen =
     // Control
     // ----------
 
-    let private emitFuncForDoWhen = fun (v, s) -> GenResult.Emit (v, s)
-    let private resetFuncForDoWhen = fun (v, s) -> GenResult.Reset
-    let private stopFuncForDoWhen = fun (v, s) -> GenResult.Stop
+    let private emitFuncForDoWhen = fun g v s -> GenResult.Emit (v, s)
+    let private resetFuncForDoWhen = fun g v s -> (Gen.unwrap g) None
+    let private stopFuncForDoWhen = fun g v s -> GenResult.Stop
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let doWhenFunc (pred: _ -> bool) onTrue onFalse (inputGen: Gen<_,_>) =
+    let doWhenFunc (pred: _ -> bool) onFalse onTrue (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
             | GenResult.Emit (o,s) ->
                 match pred o with
-                | false -> onFalse (o,s)
-                | true -> onTrue (o,s)
+                | false -> onFalse inputGen o s
+                | true -> onTrue inputGen o s
             | GenResult.DiscardWith s -> GenResult.DiscardWith s
             | GenResult.Discard -> GenResult.Discard
             | GenResult.Stop -> GenResult.Stop
-            | GenResult.Reset -> GenResult.Reset
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -144,10 +143,16 @@ module Gen =
         }
 
     let accumulateOnePart count currentValue =
-        //gen {
-        //    let acc = accumulate currentValue
-        //}
-        accumulate currentValue |> stopWhenCount count
+        gen {
+            let! c = count01
+            let! acc = accumulate currentValue
+            if c = count - 1 then
+                return Control.EmitAndStop acc
+            else if c = count then
+                return Control.Stop
+            else
+                return Control.Discard
+        }
 
     let accumulateManyParts count currentValue =
-        accumulate currentValue |> resetWhenCount count
+        accumulateOnePart count currentValue |> resetOnStop

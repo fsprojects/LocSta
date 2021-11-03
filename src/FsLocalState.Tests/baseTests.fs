@@ -80,25 +80,26 @@ let [<TestCase>] ``Stop (fdb)`` () =
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
 
-let [<TestCase>] ``Reset (gen)`` () =
-    gen {
-        let! prove = count01
-        let! v = gen {
-            let! c = count01
-            if c = 3 then
-                return Control.Reset
-            else
-                return Control.EmitAndLoop c
-        }
-        return Control.EmitAndLoop (prove, v)
-    }
-    |> Gen.toListn 9
-    |> should equal 
-        [
-            0,0; 1,1; 2,2
-            3,0; 4,1; 5,2
-            6,0; 7,1; 8,2
-        ]
+////let [<TestCase>] ``Reset (gen)`` () =
+////    gen {
+////        let! prove = count01
+////        let! v = gen {
+////            let! c1 = count01
+////            let! c2 = count01
+////            if c1 = 3 $& c2 = 3 then
+////                return Control.Reset
+////            else
+////                return Control.EmitAndLoop c
+////        }
+////        return Control.EmitAndLoop (prove, v)
+////    }
+////    |> Gen.toListn 9
+////    |> should equal 
+////        [
+////            0,0; 1,1; 2,2
+////            3,0; 4,1; 5,2
+////            6,0; 7,1; 8,2
+////        ]
 
 let [<TestCase>] ``Singleton`` () =
     gen {

@@ -23,8 +23,6 @@ module Gen =
                     ()
                 | GenResult.Stop ->
                     resume <- false
-                | GenResult.Reset ->
-                    state <- None
         }
     
     let resume state (g: Gen<_,'s>) = resumeOrStart (Some state) g
@@ -49,8 +47,6 @@ module Gen =
                         ()
                     | GenResult.Stop ->
                         resume <- false
-                    | GenResult.Reset ->
-                        state <- None
             }
 
     let toSeqFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_> =

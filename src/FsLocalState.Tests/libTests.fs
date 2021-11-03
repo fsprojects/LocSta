@@ -44,7 +44,7 @@ let [<TestCase>] ``Count until repeat`` () =
             yield! [0..3]
         ]
 
-let [<TestCase>] ``Accumulate once`` () =
+let [<TestCase>] ``Accumulate onc part`` () =
     gen {
         for x in [0..10] do
             let! values = accumulateOnePart 3 x
@@ -56,7 +56,7 @@ let [<TestCase>] ``Accumulate once`` () =
             [ 2 ; 1 ; 0 ]
         ]
 
-let [<TestCase>] ``Accumulate all`` () =
+let [<TestCase>] ``Accumulate many parts`` () =
     gen {
         for x in [0..10] do
             let! values = accumulateManyParts 3 x

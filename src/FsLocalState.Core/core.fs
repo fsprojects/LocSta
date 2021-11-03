@@ -8,7 +8,6 @@ type GenResult<'v, 's> =
     | Emit of 'v * 's
     | Discard
     | DiscardWith of 's
-    | Reset
     | Stop
 
 type Gen<'o, 's> =
@@ -29,7 +28,6 @@ module Control =
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
     type Discard = Discard
     type DiscardWith<'state> = DiscardWith of 'state
-    type Reset = Reset
     type Stop = Stop
 
 
@@ -73,8 +71,6 @@ module Gen =
                     GenResult.DiscardWith { currState = mstate; subState = Some fstate }
                 | GenResult.Discard ->
                     GenResult.DiscardWith { currState = mstate; subState = None }
-                | GenResult.Reset ->
-                    GenResult.Reset
                 | GenResult.Stop -> 
                     GenResult.Stop
             let rec evalm lastMState lastFState =
@@ -88,8 +84,6 @@ module Gen =
                     match lastMState with
                     | Some lastStateM -> GenResult.DiscardWith { currState = lastStateM; subState = lastFState }
                     | None -> GenResult.Discard
-                | GenResult.Reset ->
-                    evalm None None
                 | GenResult.Stop ->
                     GenResult.Stop
             let lastMState, lastFState =
@@ -123,8 +117,6 @@ module Gen =
                 GenResult.DiscardWith { currState = lastFeed; subState = lastFState }
             | GenResult.Stop ->
                 GenResult.Stop
-            | GenResult.Reset ->
-                GenResult.Reset
         |> create
 
 
@@ -134,11 +126,11 @@ module Gen =
 
     type SingletonState = private | SingletonState
 
-    let ofSingletonValue value =
+    let ofSingletonValue term value =
         fun state ->
             match state with
             | None -> GenResult.Emit(value, SingletonState)
-            | Some SingletonState -> GenResult.Stop
+            | Some SingletonState -> term
         |> create
 
     let ofRepeatingValue (value: 'a) : Gen<_,_> =
@@ -146,16 +138,14 @@ module Gen =
 
     let returnValueAndLoop value : Gen<_,_> =
         GenResult.Emit(value, ()) |> ofRepeatingValue
-    let returnValueAndStop value : Gen<_,_> = 
-        ofSingletonValue value
+    let returnValueAndStop value : Gen<_,_> =
+        ofSingletonValue GenResult.Stop value
     let returnFeedback value feedback =
         GenResult.Emit(value, feedback) |> ofRepeatingValue
     let returnDiscard<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
         GenResult.Discard |> ofRepeatingValue
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
         GenResult.DiscardWith state |> ofRepeatingValue
-    let returnReset<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
-        GenResult.Reset |> ofRepeatingValue
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
         GenResult.Stop |> ofRepeatingValue
 
@@ -203,14 +193,12 @@ module Gen =
                 | GenResult.Discard -> GenResult.Discard
                 | GenResult.DiscardWith sa -> GenResult.DiscardWith (UseA (Some sa))
                 | GenResult.Stop -> GenResult.DiscardWith (UseB None)
-                | GenResult.Reset -> GenResult.DiscardWith (UseA None)
             | UseB lastSb ->
                 match getValue b lastSb with
                 | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, UseB (Some sb))
                 | GenResult.Discard -> GenResult.Discard
                 | GenResult.DiscardWith sb -> GenResult.DiscardWith (UseB (Some sb))
                 | GenResult.Stop -> GenResult.Stop
-                | GenResult.Reset -> GenResult.DiscardWith (UseB None)
         |> create
 
 
@@ -235,7 +223,6 @@ module Gen =
         member _.Return(Control.EmitAndStop value) = returnValueAndStop value
         member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
-        member _.Return(Control.Reset) = returnReset
         member _.Return(Control.Stop) = returnStop
         
     type FeedbackBuilder() =
@@ -246,7 +233,6 @@ module Gen =
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
         member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
-        member _.Return(Control.Reset) = returnReset
         member _.Return(Control.Stop) = returnStop
     
     let gen = GenBuilder()
@@ -264,7 +250,6 @@ module Gen =
             | GenResult.DiscardWith s -> GenResult.DiscardWith s
             | GenResult.Discard -> GenResult.Discard
             | GenResult.Stop -> GenResult.Stop
-            | GenResult.Reset -> GenResult.Reset
         |> create
 
     let mapValue proj (inputGen: Gen<_,_>) =
