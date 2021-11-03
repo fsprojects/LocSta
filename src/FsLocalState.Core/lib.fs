@@ -147,7 +147,14 @@ module Gen =
             let! c = count01
             let! acc = accumulate currentValue
             if c = count - 1 then
+                // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
+                // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
                 return Control.EmitAndStop acc
+                
+                // TODO: Das hier geht nicht - man bräuchte eine Möglichkeit, durch "emit" durchzufallen.
+                // Ggf. ist auch die combine Implementierung falsch.
+                //return Control.Stop
+            // wir brauch das hier, damit es aktuell funktioniert
             else if c = count then
                 return Control.Stop
             else
