@@ -213,6 +213,11 @@ module Gen =
                 | GenResult.Reset -> GenResult.DiscardWith (UseB None)
         |> create
 
+
+    // --------
+    // Builder
+    // --------
+
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
         member _.Zero() = returnDiscard

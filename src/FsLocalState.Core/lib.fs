@@ -10,23 +10,21 @@ module Gen =
     // Control
     // ----------
 
-    let private resetFuncForDoWhen (inputGen: Gen<_,_>) =
-        fun _ -> (inputGen |> Gen.unwrap) None
-
-    let private stopFuncForDoWhen =
-        fun _ -> GenResult.Stop
+    let private emitFuncForDoWhen = fun (v, s) -> GenResult.Emit (v, s)
+    let private resetFuncForDoWhen = fun (v, s) -> GenResult.Reset
+    let private stopFuncForDoWhen = fun (v, s) -> GenResult.Stop
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let doWhenFunc (pred: _ -> bool) f (inputGen: Gen<_,_>) =
+    let doWhenFunc (pred: _ -> bool) onTrue onFalse (inputGen: Gen<_,_>) =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
             | GenResult.Emit (o,s) ->
                 match pred o with
-                | false -> GenResult.Emit (o,s)
-                | true -> f (o,s)
+                | false -> onFalse (o,s)
+                | true -> onTrue (o,s)
             | GenResult.DiscardWith s -> GenResult.DiscardWith s
             | GenResult.Discard -> GenResult.Discard
             | GenResult.Stop -> GenResult.Stop
@@ -36,33 +34,33 @@ module Gen =
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     let resetWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
-        doWhenFunc pred (resetFuncForDoWhen inputGen) inputGen
+        doWhenFunc pred emitFuncForDoWhen resetFuncForDoWhen inputGen
 
     let stopWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
-        doWhenFunc pred stopFuncForDoWhen inputGen
+        doWhenFunc pred emitFuncForDoWhen stopFuncForDoWhen inputGen
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
-    let doWhenValue (pred: bool) f (inputGen: Gen<_,_>) =
-        inputGen |> doWhenFunc (fun _ -> pred) f
+    let doWhenValue (pred: bool) onTrue onFalse (inputGen: Gen<_,_>) =
+        doWhenFunc (fun _ -> pred) onTrue onFalse inputGen
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
     let resetWhenValue (pred: bool) (inputGen: Gen<_,_>) =
-        doWhenValue pred (resetFuncForDoWhen inputGen) inputGen
+        doWhenValue pred emitFuncForDoWhen resetFuncForDoWhen inputGen
 
     let stopWhenValue (pred: bool) (inputGen: Gen<_,_>) =
-        doWhenValue pred stopFuncForDoWhen inputGen
+        doWhenValue pred emitFuncForDoWhen stopFuncForDoWhen inputGen
 
-    let doWhenGen (pred: Gen<_,_>) f (inputGen: Gen<_,_>) =
+    let doWhenGen (pred: Gen<_,_>) onTrue onFalse (inputGen: Gen<_,_>) =
         gen {
             let! pred = pred
-            return! doWhenValue pred f inputGen
+            return! doWhenValue pred onTrue onFalse inputGen
         }
 
     let resetWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
-        doWhenGen pred (resetFuncForDoWhen inputGen) inputGen
+        doWhenGen pred emitFuncForDoWhen resetFuncForDoWhen inputGen
 
     let stopWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
-        doWhenGen pred stopFuncForDoWhen inputGen
+        doWhenGen pred emitFuncForDoWhen stopFuncForDoWhen inputGen
 
     // TODO: doOnStop?
 
@@ -94,17 +92,17 @@ module Gen =
 
     let count01<'a> = count 0 1
 
-    let doWhenCount count f (inputGen: Gen<_,_>) =
+    let doWhenCount count onTrue onFalse (inputGen: Gen<_,_>) =
         gen {
             let! c = countCyclic 0 1 (count - 1)
-            return! doWhenValue (c = count) f inputGen
+            return! doWhenValue (c = count) onTrue onFalse inputGen
         }
 
     let resetWhenCount count (inputGen: Gen<_,_>) =
-        doWhenCount count (resetFuncForDoWhen inputGen) inputGen
+        doWhenCount count emitFuncForDoWhen resetFuncForDoWhen inputGen
 
     let stopWhenCount count (inputGen: Gen<_,_>) =
-        doWhenCount count stopFuncForDoWhen inputGen
+        doWhenCount count emitFuncForDoWhen stopFuncForDoWhen inputGen
 
 
     // TODO: Implement a random number generator that exposes it's serializable state.
