@@ -48,7 +48,7 @@ let [<TestCase>] ``Accumulate once`` () =
     gen {
         for x in [0..10] do
             let! values = accumulateOnePart 3 x
-            return Res.EmitAndLoop values
+            return Control.EmitAndLoop values
     }
     |> Gen.toList
     |> should equal
@@ -60,7 +60,7 @@ let [<TestCase>] ``Accumulate all`` () =
     gen {
         for x in [0..10] do
             let! values = accumulateManyParts 3 x
-            return Res.EmitAndLoop values
+            return Control.EmitAndLoop values
     }
     |> Gen.toList
     |> should equal

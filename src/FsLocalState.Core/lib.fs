@@ -14,7 +14,7 @@ module Gen =
         fun _ -> (inputGen |> Gen.unwrap) None
 
     let private stopFuncForDoWhen =
-        fun _ -> Control.Stop
+        fun _ -> GenResult.Stop
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
@@ -23,13 +23,13 @@ module Gen =
         fun state ->
             let res = (Gen.unwrap inputGen) state
             match res with
-            | Control.Emit (o,s) ->
+            | GenResult.Emit (o,s) ->
                 match pred o with
-                | false -> Control.Emit (o,s)
+                | false -> GenResult.Emit (o,s)
                 | true -> f (o,s)
-            | Control.DiscardWith s -> Control.DiscardWith s
-            | Control.Discard -> Control.Discard
-            | Control.Stop -> Control.Stop
+            | GenResult.DiscardWith s -> GenResult.DiscardWith s
+            | GenResult.Discard -> GenResult.Discard
+            | GenResult.Stop -> GenResult.Stop
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -70,22 +70,22 @@ module Gen =
             let g = (Gen.unwrap inputGen)
             let res = g state
             match res with
-            | Control.Stop -> genFunc None
+            | GenResult.Stop -> genFunc None
             | _ -> res
         Gen.create genFunc
         
     let inline count inclusiveStart increment =
         fdb {
             let! curr = Init inclusiveStart
-            return Res.Feedback (curr, curr + increment)
+            return Control.Feedback (curr, curr + increment)
         }
 
     let inline countUntil inclusiveStart increment inclusiveEnd =
         gen {
             let! c = count inclusiveStart increment
             match c <= inclusiveEnd with
-            | true -> return Res.EmitAndLoop c
-            | false -> return Res.Stop
+            | true -> return Control.EmitAndLoop c
+            | false -> return Control.Stop
         }
 
     let inline countCyclic inclusiveStart increment inclusiveEnd =
@@ -111,14 +111,14 @@ module Gen =
     let random () =
         fdb {
             let! random = Init (dotnetRandom())
-            return Res.Feedback (random.NextDouble(), random)
+            return Control.Feedback (random.NextDouble(), random)
         }
 
     /// Delays a given value by 1 cycle.
     let delayBy1 input seed =
         fdb {
             let! state = Init seed
-            return Res.Feedback(state, input)
+            return Control.Feedback(state, input)
         }
 
     /// Positive slope.
@@ -126,7 +126,7 @@ module Gen =
         fdb {
             let! state = Init seed
             let res = state < input
-            return Res.Feedback(res, input)
+            return Control.Feedback(res, input)
         }
 
     /// Negative slope.
@@ -134,14 +134,14 @@ module Gen =
         fdb {
             let! state = Init seed
             let res = state < input
-            return Res.Feedback(res, input)
+            return Control.Feedback(res, input)
         }
 
     let accumulate currentValue =
         fdb {
             let! elements = Init []
             let newElements = currentValue :: elements
-            return Res.Feedback (newElements, newElements)
+            return Control.Feedback (newElements, newElements)
         }
 
     let accumulateOnePart count currentValue =
