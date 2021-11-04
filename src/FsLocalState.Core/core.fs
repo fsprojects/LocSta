@@ -7,21 +7,20 @@ type Init<'f> =
 
 [<RequireQualifiedAccess>]
 type GenResult<'v, 's, 'r> =
-    | Emit of EmitResult<'v, 's, 'r>
+    | Emit of {| result: EmitResult<'v, 's>; remResults: EmitResult<'v, 's> list |}
     | Discard
     | DiscardWith of 's
     | Stop
 
-and EmitResult<'v, 's, 'r> =
+and EmitResult<'v, 's> =
     { value: 'v
-      state: 's
-      remValues: 'r list }
+      state: 's }
 
 [<Struct>]
-type State<'vcurr, 'scurr, 'ssub> =
+type State<'v, 'scurr, 'ssub> =
     { currState: 'scurr
       subState: 'ssub option
-      remCurrRess: 'vcurr list }
+      remCurrRess: EmitResult<'v, 'ssub> list }
     
 type Gen<'o, 's> =
     | Gen of ('s option -> 'o)
@@ -85,20 +84,27 @@ module Gen =
                          lastFState = lastFState |}
 
     let bind
-        (f: 'o1 -> Gen<GenResult<'o2, 'sf, 'a>, 'sf>)
-        (m: Gen<GenResult<'o1, 'sm, 'b>, 'sm>)
-        : Gen<GenResult<'o2, State<'b, 'sm, 'sf>, 'a>, State<GenResult<'o1, 'sm, 'b>, 'sm, 'sf>>
+        f
+        m
+        //(f: 'o1 -> Gen<GenResult<'o2, 'sf, 'a>, 'sf>)
+        //(m: Gen<GenResult<'o1, 'sm, 'b>, 'sm>)
+        //: Gen<GenResult<'o2, State<'b, 'sm, 'sf>, 'a>, State<GenResult<'o1, 'sm, 'b>, 'sm, 'sf>>
         =
         let evalmres mres lastMState lastFState remCurrRess =
             match mres with
             | GenResult.Emit mres ->
-                let fgen = f mres.value
+                let fgen = f mres.result.value
                 match (unwrap fgen) lastFState with
                 | GenResult.Emit fres ->
                     let newState =
-                        { currState = mres.state; subState = Some fres.state; remCurrRess = mres.remValues }
+                        { currState = mres.result.state
+                          subState = Some fres.result.state
+                          remCurrRess = mres.remResults }
                     GenResult.Emit
-                        { value = fres.value; state = newState; remValues = fres.remValues }
+                        {|
+                            result = { value = fres.result.value; state = newState }
+                            remResults = fres.remResults
+                        |}
                 | GenResult.DiscardWith fstate -> 
                     GenResult.DiscardWith 
                         { currState = mres.state; subState = Some fstate; remCurrRess = [] }
