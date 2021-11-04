@@ -3,10 +3,23 @@
 type Init<'f> =
     | Init of 'f
 
+// TODO: remainingEmits and remainingValues are redundant
+
+[<Struct>]
+type State<'vcurr, 'vsub, 'scurr, 'ssub> =
+    { currState: 'scurr
+      subState: 'ssub option
+      remCurrEmits: 'vcurr list
+      remSubEmits: 'vsub list }
+
+type EmitResult<'v, 's> =
+    { value: 'v
+      remainingValues: 'v list
+      state: 's }
+
 [<RequireQualifiedAccess>]
 type GenResult<'v, 's> =
-    | Emit of 'v * 's
-    | Combined of 'v list * 's
+    | Emit of EmitResult<'v, 's>
     | Discard
     | DiscardWith of 's
     | Stop
@@ -17,11 +30,17 @@ type Gen<'o, 's> =
 type Fx<'i, 'o, 's> =
     'i -> Gen<'o, 's>
 
-[<Struct>]
-type State<'scurr, 'ssub> =
-    { currState: 'scurr
-      subState: 'ssub option }
-
+module State =
+    let (|RemainingValues|NoRemainingValues|) (state: State<_,_,_> option) =
+        match state with
+        | None ->
+            NoRemainingValues (None, None)
+        | Some state ->
+            match state with
+            | { currState = currState; subState = subState; remainingCurrEmits = x :: xs } ->
+                RemainingValues (currState, subState, x, xs)
+            | { currState = currState; subState = subState; remainingCurrEmits = [] } ->
+                NoRemainingValues (Some currState, subState)
 
 module Control =
     type Emit<'value> = Emit of 'value
@@ -61,43 +80,47 @@ module Gen =
     let bind
         (f: 'o1 -> Gen<GenResult<'o2, 's2>, 's2>) 
         (m: Gen<GenResult<'o1, 's1>, 's1>)
-        : Gen<GenResult<'o2, State<'s1, 's2>>, State<'s1, 's2>>
+        : Gen<GenResult<'o2, State<_, 's1, 's2>>, State<_, 's1, 's2>>
         =
-        fun (state: State<'s1, 's2> option) ->
-            let evalf fgen mstate lastFState =
-                match (unwrap fgen) lastFState with
-                | GenResult.Emit (fres, fstate) ->
-                    GenResult.Emit (fres, { currState = mstate; subState = Some fstate })
-                | GenResult.Combined (fres, fstate) ->
-                    GenResult.Combined (fres, { currState = mstate; subState = Some fstate })
-                | GenResult.Combined ([], fstate)
-                | GenResult.DiscardWith fstate -> 
-                    GenResult.DiscardWith { currState = mstate; subState = Some fstate }
-                | GenResult.Discard ->
-                    GenResult.DiscardWith { currState = mstate; subState = None }
-                | GenResult.Stop -> 
-                    GenResult.Stop
-            let rec evalm lastMState lastFState =
+        fun state ->
+            match state with
+            | State.RemainingValues (currState, subState, remainingValue, remainingValues) ->
+                let newState = { currState = currState; subState = subState; remainingCurrEmits = remainingValues }
+                GenResult.Emit { value = remainingValue; state = newState; remainingValues = remainingValues }
+            | State.NoRemainingValues (lastMState, lastFState) ->
+                let evalf fgen mstate remainingMValues =
+                    match (unwrap fgen) lastFState with
+                    | GenResult.Emit fres ->
+                        let state = { currState = mstate; subState = Some fres.state; remainingCurrEmits = remainingMValues }
+                        GenResult.Emit
+                            { value = fres.value; state = state ; remainingValues = [] }
+                    | GenResult.DiscardWith fstate -> 
+                        GenResult.DiscardWith 
+                            { currState = mstate; subState = Some fstate; remainingCurrEmits = remainingMValues }
+                    | GenResult.Discard ->
+                        GenResult.DiscardWith 
+                            { currState = mstate; subState = None; remainingCurrEmits = remainingMValues }
+                    | GenResult.Stop -> 
+                        GenResult.Stop
                 match (unwrap m) lastMState with
-                | GenResult.Emit (mres, mstate) ->
-                    let fgen = f mres
-                    evalf fgen mstate lastFState
-                | GenResult.Combined (mres, mstate) ->
-                    let fgen = f mres
-                    evalf fgen mstate lastFState
+                | GenResult.Emit mres ->
+                    match mres.remainingValues with
+                    | x :: remainingValues ->
+                        let fgen = f mres.value
+                        evalf fgen mres.state remainingValues
+                    | _ ->
+                        let fgen = f mres.value
+                        evalf fgen mres.state
                 | GenResult.DiscardWith stateM ->
-                    GenResult.DiscardWith { currState = stateM; subState = lastFState }
+                    GenResult.DiscardWith { currState = stateM; subState = lastFState; remainingCurrEmits = [] }
                 | GenResult.Discard ->
                     match lastMState with
-                    | Some lastStateM -> GenResult.DiscardWith { currState = lastStateM; subState = lastFState }
-                    | None -> GenResult.Discard
+                    | Some lastStateM ->
+                        GenResult.DiscardWith { currState = lastStateM; subState = lastFState; remainingCurrEmits = [] }
+                    | None -> 
+                        GenResult.Discard
                 | GenResult.Stop ->
                     GenResult.Stop
-            let lastMState, lastFState =
-                match state with
-                | None -> None, None
-                | Some v -> Some v.currState, v.subState
-            evalm lastMState lastFState
         |> create
 
     /// 'bindFdb' is invoked only ONCE per fdb { .. }.
