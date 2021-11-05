@@ -87,30 +87,37 @@ module Gen =
         : Gen<GenResult<'o2, State<GenResult<'o1, 's1>, 's1, 's2>>, State<GenResult<'o1, 's1>, 's1, 's2>>
         =
         let evalf fgen mstate lastFState remaining =
-            [ for res in (unwrap fgen) lastFState do
-                match res with
-                | GenResult.Emit (fres, fstate) ->
-                    yield GenResult.Emit (fres, { currState = mstate; subState = Some fstate; remaining = remaining })
-                | GenResult.DiscardWith fstate -> 
-                    yield GenResult.DiscardWith { currState = mstate; subState = Some fstate; remaining = remaining }
-                | GenResult.Stop -> 
-                    yield GenResult.Stop
-            ]
+            let fres = (unwrap fgen) lastFState
+            match fres with
+            | [] -> [ GenResult.DiscardWith { currState = mstate; subState = lastFState; remaining = remaining } ]
+            | results ->
+                [ for res in results do
+                    match res with
+                    | GenResult.Emit (fres, fstate) ->
+                        yield GenResult.Emit (fres, { currState = mstate; subState = Some fstate; remaining = remaining })
+                    | GenResult.DiscardWith fstate -> 
+                        yield GenResult.DiscardWith { currState = mstate; subState = Some fstate; remaining = remaining }
+                    | GenResult.Stop -> 
+                        yield GenResult.Stop
+                ]
         let evalmres mres lastFState remaining =
-            [
-                match mres with
-                | GenResult.Emit (mres, mstate) ->
-                    let fgen = f mres
-                    yield! evalf fgen mstate lastFState remaining
-                | GenResult.DiscardWith stateM ->
-                    yield GenResult.DiscardWith { currState = stateM; subState = lastFState; remaining = remaining }
-                | GenResult.Stop ->
-                    yield GenResult.Stop
-            ]
+            match mres with
+            | GenResult.Emit (mres, mstate) ->
+                let fgen = f mres
+                evalf fgen mstate lastFState remaining
+            | GenResult.DiscardWith stateM ->
+               [ GenResult.DiscardWith { currState = stateM; subState = lastFState; remaining = remaining } ]
+            | GenResult.Stop ->
+                [ GenResult.Stop ]
         let rec evalm lastMState lastFState =
             match (unwrap m) lastMState with
             | res :: remaining -> evalmres res lastFState remaining
-            | [] -> []
+            | [] ->
+                match lastMState with
+                | Some lastStateM ->
+                    [ GenResult.DiscardWith { currState = lastStateM; subState = lastFState; remaining = [] } ]
+                | None ->
+                    []
         fun state ->
             let lastMState, lastFState, remaining =
                 match state with
