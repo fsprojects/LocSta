@@ -6,7 +6,6 @@ type Init<'f> =
 [<RequireQualifiedAccess>]
 type GenResult<'v, 's> =
     | Emit of 'v * 's
-    | Discard
     | DiscardWith of 's
     | Stop
 
@@ -27,7 +26,6 @@ module Control =
     type Emit<'value> = Emit of 'value
     type EmitThenStop<'value> = EmitThenStop of 'value
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
-    type Discard = Discard
     type DiscardWith<'state> = DiscardWith of 'state
     type Stop = Stop
 
@@ -35,6 +33,31 @@ module Control =
 module Gen =
     
     let unwrap gen = let (Gen b) = gen in b
+
+
+    // --------
+    // Helper
+    // --------
+
+    [<RequireQualifiedAccess>]
+    type MapResult<'v, 's> =
+        | Emit of 'v * 's
+        | DiscardWith of 's
+
+    // TODO: seems we don't need that
+    ////let mapUntilStop mapping results =
+    ////    results 
+    ////    |> List.takeWhile (fun res ->
+    ////        match res with
+    ////        | GenResult.Stop -> false
+    ////        | _ -> true
+    ////    )
+    ////    |> List.map (fun res ->
+    ////        match res with
+    ////        | GenResult.Emit (v, s) -> MapResult.Emit (v, s) |> mapping
+    ////        | GenResult.DiscardWith s -> MapResult.DiscardWith s |> mapping
+    ////        | GenResult.Stop -> GenResult.Stop // this can't happen
+    ////    )
 
 
     // --------
@@ -70,8 +93,6 @@ module Gen =
                     yield GenResult.Emit (fres, { currState = mstate; subState = Some fstate; remaining = remaining })
                 | GenResult.DiscardWith fstate -> 
                     yield GenResult.DiscardWith { currState = mstate; subState = Some fstate; remaining = remaining }
-                | GenResult.Discard ->
-                    ()
                 | GenResult.Stop -> 
                     yield GenResult.Stop
             ]
@@ -83,15 +104,13 @@ module Gen =
                     yield! evalf fgen mstate lastFState remaining
                 | GenResult.DiscardWith stateM ->
                     yield GenResult.DiscardWith { currState = stateM; subState = lastFState; remaining = remaining }
-                | GenResult.Discard ->
-                    ()
                 | GenResult.Stop ->
                     yield GenResult.Stop
             ]
         let rec evalm lastMState lastFState =
             match (unwrap m) lastMState with
             | res :: remaining -> evalmres res lastFState remaining
-            | [] -> [ GenResult.Discard ]
+            | [] -> []
         fun state ->
             let lastMState, lastFState, remaining =
                 match state with
@@ -122,8 +141,6 @@ module Gen =
                     GenResult.Emit (fres, { currState = ffeed; subState = None; remaining = [] })
                 | GenResult.DiscardWith ffeed ->
                     GenResult.DiscardWith { currState = ffeed; subState = None; remaining = [] }
-                | GenResult.Discard ->
-                    GenResult.DiscardWith { currState = lastFeed; subState = lastFState; remaining = [] }
                 | GenResult.Stop ->
                     GenResult.Stop
             ]
@@ -151,8 +168,6 @@ module Gen =
         ofSingletonValue value
     let returnFeedback value feedback =
         GenResult.Emit(value, feedback) |> ofRepeatingValue
-    let returnDiscard<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
-        GenResult.Discard |> ofRepeatingValue
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
         GenResult.DiscardWith state |> ofRepeatingValue
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
@@ -173,8 +188,8 @@ module Gen =
             ]
         )
         
-    let ofList (l: list<_>) =
-        l
+    let ofList (list: list<_>) =
+        list
         |> createWithSeed2 (fun l ->
             [
                 match l with
@@ -202,6 +217,7 @@ module Gen =
                 let mutable isRunning = true
 
                 // TODO: that looks quite crappy, buy maybe it's ok?
+                // TODO: For all the "mutable" usages in this lib, implement a "mapUntilStop" and use this
                 // TODO: redundancy
                 for res in getValue a state.astate do
                     if isRunning then
@@ -209,8 +225,6 @@ module Gen =
                         | GenResult.Emit (va, sa) ->
                             astate <- Some sa
                             yield GenResult.Emit (va, { astate = astate; bstate = None })
-                        | GenResult.Discard -> 
-                            ()
                         | GenResult.DiscardWith sa -> 
                             astate <- Some sa
                             yield GenResult.DiscardWith { astate = astate; bstate = None }
@@ -222,8 +236,6 @@ module Gen =
                             match res with
                             | GenResult.Emit (vb, sb) ->
                                 yield GenResult.Emit (vb, { astate = astate; bstate = Some sb })
-                            | GenResult.Discard -> 
-                                ()
                             | GenResult.DiscardWith sb -> 
                                 yield GenResult.DiscardWith { astate = astate; bstate = Some sb }
                             | GenResult.Stop ->
@@ -238,7 +250,7 @@ module Gen =
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
-        member _.Zero() = returnDiscard
+        member _.Zero() = create (fun _ -> [])
         member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         member _.Combine(x, delayed) = combine x delayed
         member _.Delay(delayed) = delayed
@@ -251,7 +263,6 @@ module Gen =
         // returns
         member _.Return(Control.Emit value) = returnValue value
         member _.Return(Control.EmitThenStop value) = returnValueThenStop value
-        member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
         member _.Return(Control.Stop) = returnStop
         
@@ -261,7 +272,6 @@ module Gen =
         member _.Bind(m, f) = bindFdb f m
         // returns
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
-        member _.Return(Control.Discard) = returnDiscard
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
         member _.Return(Control.Stop) = returnStop
     
@@ -280,7 +290,6 @@ module Gen =
                     match res with
                     | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
                     | GenResult.DiscardWith s -> GenResult.DiscardWith s
-                    | GenResult.Discard -> GenResult.Discard
                     | GenResult.Stop -> GenResult.Stop
             ]
         |> create

@@ -10,24 +10,25 @@ module Gen =
     // Control
     // ----------
 
-    let private emitFuncForDoWhen = fun g v s -> GenResult.Emit (v, s)
+    let private emitFuncForDoWhen = fun g v s -> [ GenResult.Emit (v, s) ]
     let private resetFuncForDoWhen = fun g v s -> (Gen.unwrap g) None
-    let private stopFuncForDoWhen = fun g v s -> GenResult.Stop
+    let private stopFuncForDoWhen = fun g v s -> [ GenResult.Stop ]
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
     let doWhenFunc (pred: _ -> bool) onFalse onTrue (inputGen: Gen<_,_>) =
         fun state ->
-            let res = (Gen.unwrap inputGen) state
-            match res with
-            | GenResult.Emit (o,s) ->
-                match pred o with
-                | false -> onFalse inputGen o s
-                | true -> onTrue inputGen o s
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
+            [
+                for res in (Gen.unwrap inputGen) state do
+                    match res with
+                    | GenResult.Emit (o,s) ->
+                        match pred o with
+                        | false -> yield! onFalse inputGen o s
+                        | true -> yield! onTrue inputGen o s
+                    | GenResult.DiscardWith s -> yield GenResult.DiscardWith s
+                    | GenResult.Stop -> yield GenResult.Stop
+            ]
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -66,10 +67,12 @@ module Gen =
     let resetOnStop (inputGen: Gen<_,_>) =
         let rec genFunc state =
             let g = (Gen.unwrap inputGen)
-            let res = g state
-            match res with
-            | GenResult.Stop -> genFunc None
-            | _ -> res
+            [
+                for res in g state do
+                    match res with
+                    | GenResult.Stop -> yield! genFunc None
+                    | _ -> yield res
+            ]
         Gen.create genFunc
         
     let inline count inclusiveStart increment =
@@ -154,8 +157,6 @@ module Gen =
                 // TODO: Das hier geht nicht - man bräuchte eine Möglichkeit, durch "emit" durchzufallen.
                 // Ggf. ist auch die combine Implementierung falsch.
                 return Control.Stop
-            else
-                return Control.Discard
         }
 
     let accumulateManyParts count currentValue =

@@ -12,8 +12,6 @@ let [<TestCase>] ``Stop after Emit`` () =
         if c = expect then
             return Control.Emit c
             return Control.Stop
-        else
-            return Control.Discard
     }
     |> Gen.toList
     |> List.exactlyOne

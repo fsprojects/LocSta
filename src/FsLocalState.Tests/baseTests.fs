@@ -148,8 +148,6 @@ let [<TestCase>] ``Operator =`` () =
             return Control.Emit prove
         else if prove > 10 then
             return Control.Stop
-        else
-            return Control.Discard
     }
     |> Gen.toListn 10
     |> should equal [ 5 ]

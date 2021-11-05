@@ -13,20 +13,23 @@ module Gen =
         let mutable resume = true
         seq {
             while resume do
-                match f state with
-                | GenResult.Emit (resF, stateF) ->
-                    state <- Some stateF
-                    yield (resF, stateF)
-                | GenResult.DiscardWith stateF ->
-                    state <- Some stateF
-                | GenResult.Discard -> 
-                    ()
-                | GenResult.Stop ->
-                    resume <- false
+                for res in f state do
+                    if resume then
+                        match res with
+                        | GenResult.Emit (fres, fstate) ->
+                            state <- Some fstate
+                            yield (fres, fstate)
+                        | GenResult.DiscardWith fstate ->
+                            state <- Some fstate
+                        | GenResult.Stop ->
+                            resume <- false
         }
     
     let resume state (g: Gen<_,'s>) = resumeOrStart (Some state) g
 
+    // TODO: Document this
+    /// Be careful: This uses a state machine, which means:
+    /// A mutable object is used as state!
     let toSeqStateFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_ * 's> =
         let mutable state = None
         let mutable resume = true
@@ -36,17 +39,17 @@ module Gen =
                 let enumerator = inputValues.GetEnumerator()
                 while enumerator.MoveNext() && resume do
                     let value = enumerator.Current
-                    let local = fx value |> Gen.unwrap
-                    match local state with
-                    | GenResult.Emit (resF, stateF) ->
-                        state <- Some stateF
-                        yield (resF, stateF)
-                    | GenResult.DiscardWith stateF ->
-                        state <- Some stateF
-                    | GenResult.Discard ->
-                        ()
-                    | GenResult.Stop ->
-                        resume <- false
+                    let fxres = Gen.unwrap (fx value) state
+                    for res in fxres do
+                        if resume then
+                            match res with
+                            | GenResult.Emit (resF, stateF) ->
+                                state <- Some stateF
+                                yield (resF, stateF)
+                            | GenResult.DiscardWith stateF ->
+                                state <- Some stateF
+                            | GenResult.Stop ->
+                                resume <- false
             }
 
     let toSeqFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_> =
