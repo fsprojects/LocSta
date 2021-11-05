@@ -67,46 +67,38 @@ module Gen =
             [ for res in (unwrap fgen) lastFState do
                 match res with
                 | GenResult.Emit (fres, fstate) ->
-                    GenResult.Emit (fres, { currState = mstate; subState = Some fstate; remaining = remaining })
+                    yield GenResult.Emit (fres, { currState = mstate; subState = Some fstate; remaining = remaining })
                 | GenResult.DiscardWith fstate -> 
-                    GenResult.DiscardWith { currState = mstate; subState = Some fstate; remaining = remaining }
+                    yield GenResult.DiscardWith { currState = mstate; subState = Some fstate; remaining = remaining }
                 | GenResult.Discard ->
-                    GenResult.DiscardWith { currState = mstate; subState = None; remaining = remaining }
+                    ()
                 | GenResult.Stop -> 
-                    GenResult.Stop
+                    yield GenResult.Stop
             ]
-        let evalmres mres lastMState lastFState remaining =
+        let evalmres mres lastFState remaining =
             [
                 match mres with
                 | GenResult.Emit (mres, mstate) ->
                     let fgen = f mres
                     yield! evalf fgen mstate lastFState remaining
                 | GenResult.DiscardWith stateM ->
-                    yield GenResult.DiscardWith 
-                        { currState = stateM; subState = lastFState; remaining = remaining }
+                    yield GenResult.DiscardWith { currState = stateM; subState = lastFState; remaining = remaining }
                 | GenResult.Discard ->
-                    match lastMState with
-                    | Some lastStateM ->
-                        yield GenResult.DiscardWith 
-                            { currState = lastStateM; subState = lastFState; remaining = remaining }
-                    | None -> 
-                        yield GenResult.Discard
+                    ()
                 | GenResult.Stop ->
                     yield GenResult.Stop
             ]
         let rec evalm lastMState lastFState =
             match (unwrap m) lastMState with
-            | res :: remaining ->
-                evalmres res lastMState lastFState remaining
-            | [] ->
-                [ GenResult.Discard ]
-        fun (state: State<_, 's1, 's2> option) ->
+            | res :: remaining -> evalmres res lastFState remaining
+            | [] -> [ GenResult.Discard ]
+        fun state ->
             let lastMState, lastFState, remaining =
                 match state with
                 | None -> None, None, []
                 | Some v -> Some v.currState, v.subState, v.remaining
             match remaining with
-            | x :: xs -> evalmres x lastMState lastFState xs
+            | x :: xs -> evalmres x lastFState xs
             | [] -> evalm lastMState lastFState
         |> create
 
@@ -142,22 +134,21 @@ module Gen =
     // return / yield
     // --------
 
-    type SingletonState = private | SingletonState
-
-    let ofSingletonValue term value =
-        fun state ->
-            match state with
-            | None -> GenResult.Emit(value, SingletonState)
-            | Some SingletonState -> term
+    let ofSingletonValue value =
+        fun state -> 
+            [
+                GenResult.Emit(value, ())
+                GenResult.Stop 
+            ]
         |> create
 
     let ofRepeatingValue (value: 'a) : Gen<_,_> =
-        create (fun _ -> value)
+        create (fun _ -> [ value ])
 
     let returnValue value : Gen<_,_> =
         GenResult.Emit(value, ()) |> ofRepeatingValue
     let returnValueThenStop value : Gen<_,_> =
-        ofSingletonValue GenResult.Stop value
+        ofSingletonValue value
     let returnFeedback value feedback =
         GenResult.Emit(value, feedback) |> ofRepeatingValue
     let returnDiscard<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
@@ -175,17 +166,21 @@ module Gen =
     let ofSeq (s: seq<_>) =
         s.GetEnumerator()
         |> createWithSeed2 (fun enumerator ->
-            match enumerator.MoveNext() with
-            | true -> GenResult.Emit (enumerator.Current, enumerator)
-            | false -> GenResult.Stop
+            [
+                match enumerator.MoveNext() with
+                | true -> GenResult.Emit (enumerator.Current, enumerator)
+                | false -> GenResult.Stop
+            ]
         )
         
     let ofList (l: list<_>) =
         l
         |> createWithSeed2 (fun l ->
-            match l with
-            | x::xs -> GenResult.Emit (x, xs)
-            | [] -> GenResult.Stop
+            [
+                match l with
+                | x::xs -> GenResult.Emit (x, xs)
+                | [] -> GenResult.Stop
+            ]
         )
 
 
@@ -193,33 +188,47 @@ module Gen =
     // combine
     // --------
 
-    type Next = A | B | Done
     type CombineInfo<'sa, 'sb> =
         { astate: 'sa option
-          bstate: 'sb option
-          next: Next }
+          bstate: 'sb option }
 
     let combine (a: Gen<GenResult<'o, 'sa>, 'sa>) (b: unit -> Gen<GenResult<'o, 'sb>, 'sb>) =
-        let defaultState () = { astate = None; bstate = None; next = A }
         let getValue g state = (unwrap g) state
         fun state ->
-            let state =  state |> Option.defaultWith defaultState
-            let rec evala () =
-                match getValue a state.astate with
-                | GenResult.Emit (va, sa) -> GenResult.Emit (va, { state with astate = Some sa; next = A })
-                | GenResult.Discard -> GenResult.DiscardWith { state with next = B }
-                | GenResult.DiscardWith sa -> GenResult.DiscardWith { state with astate = Some sa; next = A }
-                | GenResult.Stop -> evalb ()
-            and evalb () =
-                match getValue (b ()) state.bstate with
-                | GenResult.Emit (vb, sb) -> GenResult.Emit (vb, { state with bstate = Some sb; next = B })
-                | GenResult.Discard -> GenResult.DiscardWith { state with next = A }
-                | GenResult.DiscardWith sb -> GenResult.DiscardWith { state with bstate = Some sb; next = B }
-                | GenResult.Stop -> GenResult.Stop
-            match state.next with
-            | Done -> GenResult.Stop
-            | A -> evala ()
-            | B -> evalb ()
+            [
+                let state =  state |> Option.defaultValue { astate = None; bstate = None }
+                
+                let mutable astate = state.astate
+                let mutable isRunning = true
+
+                // TODO: that looks quite crappy, buy maybe it's ok?
+                // TODO: redundancy
+                for res in getValue a state.astate do
+                    if isRunning then
+                        match res with
+                        | GenResult.Emit (va, sa) ->
+                            astate <- Some sa
+                            yield GenResult.Emit (va, { astate = astate; bstate = None })
+                        | GenResult.Discard -> 
+                            ()
+                        | GenResult.DiscardWith sa -> 
+                            astate <- Some sa
+                            yield GenResult.DiscardWith { astate = astate; bstate = None }
+                        | GenResult.Stop ->
+                            isRunning <- false
+                if isRunning then
+                    for res in getValue (b ()) state.bstate do
+                        if isRunning then
+                            match res with
+                            | GenResult.Emit (vb, sb) ->
+                                yield GenResult.Emit (vb, { astate = astate; bstate = Some sb })
+                            | GenResult.Discard -> 
+                                ()
+                            | GenResult.DiscardWith sb -> 
+                                yield GenResult.DiscardWith { astate = astate; bstate = Some sb }
+                            | GenResult.Stop ->
+                                isRunning <- false
+            ]
         |> create
 
 
@@ -266,11 +275,14 @@ module Gen =
 
     let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: Gen<_,_>) =
         fun state ->
-            match (unwrap inputGen) state with
-            | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
-            | GenResult.DiscardWith s -> GenResult.DiscardWith s
-            | GenResult.Discard -> GenResult.Discard
-            | GenResult.Stop -> GenResult.Stop
+            [
+                for res in (unwrap inputGen) state do
+                    match res with
+                    | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
+                    | GenResult.DiscardWith s -> GenResult.DiscardWith s
+                    | GenResult.Discard -> GenResult.Discard
+                    | GenResult.Stop -> GenResult.Stop
+            ]
         |> create
 
     let mapValue proj (inputGen: Gen<_,_>) =
