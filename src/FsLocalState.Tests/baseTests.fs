@@ -119,18 +119,23 @@ let [<TestCase>] ``Singleton with Yield`` () =
 
 let [<TestCase>] ``Combine`` () =
     gen {
-        return Control.EmitThenStop 0
-        return Control.EmitThenStop 1
-        return Control.EmitThenStop 2
+        return Control.Emit 0
+        return Control.Emit 1
+        return Control.Emit 2
         return! Gen.ofList [ 3; 4; 5 ]
-        return Control.EmitThenStop 6
+        return Control.Emit 6
         return! Gen.ofList [ 7; 8; 9 ]
-        return Control.EmitThenStop 10
-        return Control.Stop
-        return Control.EmitThenStop 11
+        return Control.Emit 10
+        //return Control.Stop
+        return Control.Emit 11
     }
     |> Gen.toList
-    |> should equal [0..10]
+    |> should equal
+        [
+            0; 1; 2; 3; 6; 7; 10; 11
+            0; 1; 2; 4; 6; 8; 10; 11
+            0; 1; 2; 5; 6; 9; 10; 11
+        ]
 
 let [<TestCase>] ``Operator +`` () =
     gen {

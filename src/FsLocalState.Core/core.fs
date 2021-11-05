@@ -224,7 +224,6 @@ module Gen =
                 let mutable isRunning = true
 
                 // TODO: that looks quite crappy, buy maybe it's ok?
-                // TODO: For all the "mutable" usages in this lib, implement a "mapUntilStop" and use this
                 // TODO: redundancy
                 for res in getValue a state.astate do
                     if isRunning then
@@ -237,6 +236,7 @@ module Gen =
                             yield GenResult.DiscardWith { astate = astate; bstate = None }
                         | GenResult.Stop ->
                             isRunning <- false
+                            yield GenResult.Stop
                 if isRunning then
                     for res in getValue (b ()) state.bstate do
                         if isRunning then
@@ -247,6 +247,7 @@ module Gen =
                                 yield GenResult.DiscardWith { astate = astate; bstate = Some sb }
                             | GenResult.Stop ->
                                 isRunning <- false
+                                yield GenResult.Stop
             ]
         |> create
 
