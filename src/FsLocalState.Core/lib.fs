@@ -64,6 +64,7 @@ module Gen =
 
     // TODO: doOnStop?
 
+    // TODO: Docu: Stop means thet inputGen is *immediately* reevaluated (in this cycle; not in the next)
     let resetOnStop (inputGen: Gen<_,_>) =
         let rec genFunc state =
             let g = (Gen.unwrap inputGen)
@@ -141,7 +142,8 @@ module Gen =
     let accumulate currentValue =
         fdb {
             let! elements = Init []
-            let newElements = currentValue :: elements
+            // TODO: Performance
+            let newElements = elements @ [currentValue]
             return Control.Feedback (newElements, newElements)
         }
 
@@ -153,9 +155,7 @@ module Gen =
                 // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
                 // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
                 return Control.Emit acc
-                
-                // TODO: Das hier geht nicht - man bräuchte eine Möglichkeit, durch "emit" durchzufallen.
-                // Ggf. ist auch die combine Implementierung falsch.
+            else if c = count then
                 return Control.Stop
         }
 
