@@ -257,6 +257,7 @@ module Gen =
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
+        member _.YieldFrom(x) = ofList x
         member _.Zero() = create (fun _ -> [])
         member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         member _.Combine(x, delayed) = combine x delayed
@@ -266,7 +267,6 @@ module Gen =
     type GenBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
-        member _.YieldFrom(x) = ofList x
         // returns
         member _.Return(Control.Emit value) = returnValue value
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
