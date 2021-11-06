@@ -103,15 +103,8 @@ let [<TestCase>] ``Stop (fdb)`` () =
 
 let [<TestCase>] ``Singleton`` () =
     gen {
-        return Control.EmitThenStop 0
-    }
-    |> Gen.toList
-    |> should equal [ 0 ]
-
-
-let [<TestCase>] ``Singleton with Yield`` () =
-    gen {
-        return Control.EmitThenStop 0
+        return Control.Emit 0
+        return Control.Stop
     }
     |> Gen.toList
     |> should equal [ 0 ]

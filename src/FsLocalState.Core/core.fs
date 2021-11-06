@@ -24,7 +24,6 @@ type State<'rem, 'scurr, 'ssub> =
 
 module Control =
     type Emit<'value> = Emit of 'value
-    type EmitThenStop<'value> = EmitThenStop of 'value
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
     type DiscardWith<'state> = DiscardWith of 'state
     type Stop = Stop
@@ -270,7 +269,6 @@ module Gen =
         member _.YieldFrom(x) = ofList x
         // returns
         member _.Return(Control.Emit value) = returnValue value
-        member _.Return(Control.EmitThenStop value) = returnValueThenStop value
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
         member _.Return(Control.Stop) = returnStop
         
