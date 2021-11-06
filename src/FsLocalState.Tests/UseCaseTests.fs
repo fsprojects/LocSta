@@ -8,7 +8,7 @@ open NUnit.Framework
 let [<TestCase>] ``Stop after Emit`` () =
     let expect = 3
     gen {
-        let! c = count01
+        let! c = count 0 1
         if c = expect then
             return Control.Emit c
             return Control.Stop

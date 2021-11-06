@@ -93,8 +93,6 @@ module Gen =
     let inline repeatCount inclusiveStart increment inclusiveEnd =
         countUntil inclusiveStart increment inclusiveEnd |> onStopThenReset
 
-    let count01<'a> = count 0 1
-
     let onCountThen count onTrue onFalse (inputGen: Gen<_,_>) =
         gen {
             let! c = repeatCount 0 1 (count - 1)
@@ -147,15 +145,15 @@ module Gen =
             return Control.Feedback (newElements, newElements)
         }
 
-    let accumulateOnePart count currentValue =
+    let accumulateOnePart length currentValue =
         gen {
-            let! c = count01
+            let! c = count 0 1
             let! acc = accumulate currentValue
-            if c = count - 1 then
+            if c = length - 1 then
                 // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
                 // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
                 return Control.Emit acc
-            else if c = count then
+            else if c = length then
                 return Control.Stop
         }
 

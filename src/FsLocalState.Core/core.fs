@@ -157,7 +157,7 @@ module Gen =
     // return / yield
     // --------
 
-    let ofSingletonValue value =
+    let ofValueOnce value =
         fun state -> 
             [
                 GenResult.Emit(value, ())
@@ -165,19 +165,19 @@ module Gen =
             ]
         |> create
 
-    let ofRepeatingValue (value: 'a) : Gen<_,_> =
+    let ofValueRepeating (value: 'a) : Gen<_,_> =
         create (fun _ -> [ value ])
 
     let returnValue value : Gen<_,_> =
-        GenResult.Emit(value, ()) |> ofRepeatingValue
+        GenResult.Emit(value, ()) |> ofValueRepeating
     let returnValueThenStop value : Gen<_,_> =
-        ofSingletonValue value
+        ofValueOnce value
     let returnFeedback value feedback =
-        GenResult.Emit(value, feedback) |> ofRepeatingValue
+        GenResult.Emit(value, feedback) |> ofValueRepeating
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
-        GenResult.DiscardWith state |> ofRepeatingValue
+        GenResult.DiscardWith state |> ofValueRepeating
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
-        GenResult.Stop |> ofRepeatingValue
+        GenResult.Stop |> ofValueRepeating
 
 
     // --------
@@ -361,41 +361,34 @@ module Gen =
             return Control.Emit (f l r)
         }
 
+
 type Gen<'o,'s> with
+    // the 'comparison' constraint is a hack to prevent ambiguities in
+    // F# operator overload resolution.
+
+    // TODO: document operators and especially ==
+    
+    static member inline (+) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (+)
+    static member inline (-) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (-)
+    static member inline (*) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (*)
+    static member inline (/) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (/)
+    static member inline (%) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (%)
+    static member inline (==) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (=)
+
+    static member inline (+) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (+)
+    static member inline (-) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (-)
+    static member inline (*) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (*)
+    static member inline (/) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (/)
+    static member inline (%) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (%)
+    static member inline (==) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (=)
+
     static member inline (+) (left, right) = Gen.binOpBoth left right (+)
     static member inline (-) (left, right) = Gen.binOpBoth left right (-)
     static member inline (*) (left, right) = Gen.binOpBoth left right (*)
     static member inline (/) (left, right) = Gen.binOpBoth left right (/)
     static member inline (%) (left, right) = Gen.binOpBoth left right (%)
     static member inline (==) (left, right) = Gen.binOpBoth left right (=)
-    
-    static member inline (+) (left: float, right) = Gen.binOpLeft left right (+)
-    static member inline (-) (left: float, right) = Gen.binOpLeft left right (-)
-    static member inline (*) (left: float, right) = Gen.binOpLeft left right (*)
-    static member inline (/) (left: float, right) = Gen.binOpLeft left right (/)
-    static member inline (%) (left: float, right) = Gen.binOpLeft left right (%)
-    static member inline (==) (left: float, right) = Gen.binOpLeft left right (=)
 
-    static member inline (+) (left: int, right) = Gen.binOpLeft left right (+)
-    static member inline (-) (left: int, right) = Gen.binOpLeft left right (-)
-    static member inline (*) (left: int, right) = Gen.binOpLeft left right (*)
-    static member inline (/) (left: int, right) = Gen.binOpLeft left right (/)
-    static member inline (%) (left: int, right) = Gen.binOpLeft left right (%)
-    static member inline (==) (left: int, right) = Gen.binOpLeft left right (=)
-
-    static member inline (+) (left, right: float) = Gen.binOpRight left right (+)
-    static member inline (-) (left, right: float) = Gen.binOpRight left right (-)
-    static member inline (*) (left, right: float) = Gen.binOpRight left right (*)
-    static member inline (/) (left, right: float) = Gen.binOpRight left right (/)
-    static member inline (%) (left, right: float) = Gen.binOpRight left right (%)
-    static member inline (==) (left, right: float) = Gen.binOpRight left right (=)
-
-    static member inline (+) (left, right: int) = Gen.binOpRight left right (+)
-    static member inline (-) (left, right: int) = Gen.binOpRight left right (-)
-    static member inline (*) (left, right: int) = Gen.binOpRight left right (*)
-    static member inline (/) (left, right: int) = Gen.binOpRight left right (/)
-    static member inline (%) (left, right: int) = Gen.binOpRight left right (%)
-    static member inline (==) (left, right: int) = Gen.binOpRight left right (=)
 
 [<AutoOpen>]
 module TopLevelOperators =

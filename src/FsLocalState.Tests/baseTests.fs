@@ -59,7 +59,7 @@ let [<TestCase>] ``Discard with (fdb)`` () =
     
 let [<TestCase>] ``Stop (gen)`` () =
     gen {
-        let! v = count01
+        let! v = count 0 1
         if v < 5 then
             return Control.Emit v
         else
@@ -129,24 +129,3 @@ let [<TestCase>] ``Combine`` () =
             0; 1; 2; 4; 6; 8; 10; 11
             0; 1; 2; 5; 6; 9; 10; 11
         ]
-
-let [<TestCase>] ``Operator +`` () =
-    gen {
-        let! res = count01 + count01
-        return Control.Emit res
-    }
-    |> Gen.toListn 5
-    |> should equal [ 0; 2; 4; 6; 8 ]
-
-let [<TestCase>] ``Operator =`` () =
-    gen {
-        let! prove = count01
-        let! res = count01 == 5
-        if res then
-            return Control.Emit prove
-        else if prove > 10 then
-            return Control.Stop
-    }
-    |> Gen.toListn 10
-    |> should equal [ 5 ]
-

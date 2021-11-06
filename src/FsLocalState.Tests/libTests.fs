@@ -30,7 +30,7 @@ let [<TestCase>] ``Reset on stop`` () =
           0; 1; 2 ]
 
 let [<TestCase>] ``Count 0 1`` () =
-    count01
+    count 0 1
     |> Gen.toListn 5
     |> should equal [0..4]
 
