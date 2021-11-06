@@ -174,12 +174,27 @@ module Gen =
                     for res in (Gen.unwrap inputGen) state do
                         if isRunning then
                             match res with
+                            | GenResult.Emit (v, s) ->
+                                yield GenResult.Emit (v, RunInput (Some s))
+                            | GenResult.DiscardWith s ->
+                                yield GenResult.DiscardWith (RunInput (Some s))
                             | GenResult.Stop ->
                                 isRunning <- false
                                 yield GenResult.Emit (defaultValue, Default)
-                            | GenResult.DiscardWith s ->
-                                yield GenResult.DiscardWith (RunInput (Some s))
-                            | GenResult.Emit (v, s) ->
-                                yield GenResult.Emit (v, RunInput (Some s))
                 ]
+        |> Gen.create
+
+    // TODO: Test / Docu
+    let originalResult inputGen =
+        fun state ->
+            [
+                for res in (Gen.unwrap inputGen) state do
+                    match res with
+                    | GenResult.Emit (v, s) as res ->
+                        yield GenResult.Emit (res, s)
+                    | GenResult.DiscardWith s as res ->
+                        yield GenResult.Emit (res, s)
+                    | GenResult.Stop as res ->
+                        yield GenResult.Emit (res, state)
+            ]
         |> Gen.create
