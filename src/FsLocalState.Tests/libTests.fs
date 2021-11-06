@@ -12,7 +12,7 @@ open NUnit.Framework
 
 let [<TestCase>] ``Reset by current`` () =
     count 0 1
-    |> resetWhenFunc (fun v -> v = 5)
+    |> whenFuncThenReset (fun v -> v = 5)
     |> Gen.toListn (5 * 3)
     |> should equal
         [ 0; 1; 2; 3; 4
@@ -22,7 +22,7 @@ let [<TestCase>] ``Reset by current`` () =
 let [<TestCase>] ``Reset on stop`` () =
     [0..2]
     |> Gen.ofList
-    |> resetOnStop
+    |> onStopThenReset
     |> Gen.toListn 9
     |> should equal
         [ 0; 1; 2 
@@ -35,7 +35,7 @@ let [<TestCase>] ``Count 0 1`` () =
     |> should equal [0..4]
 
 let [<TestCase>] ``Count until repeat`` () =
-    countCyclic 0 1 3
+    repeatCount 0 1 3
     |> Gen.toListn 12
     |> should equal
         [
@@ -70,6 +70,22 @@ let [<TestCase>] ``Accumulate many parts`` () =
             [ 6; 7; 8 ]
         ]
 
+
+let [<TestCase>] ``Default on Stop`` () =
+    let defaultValue = 42
+    gen {
+        let g = [0..4] |> Gen.ofList
+        let! v = g |> Gen.defaultOnStop defaultValue
+        return Control.Emit v
+    }
+    |> Gen.toListn 10
+    |> should equal
+        [ 
+            0; 1; 2; 3; 4
+            defaultValue; defaultValue; defaultValue; defaultValue; defaultValue
+        ]
+
+// TODO: gen und fdb vereinheitlichen? Testen, wie das aktuell aus Verwendersicht funktioniert
 
 //let [<TestCase>] ``Filter map`` () =
 //    // Task:

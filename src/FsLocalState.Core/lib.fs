@@ -10,14 +10,14 @@ module Gen =
     // Control
     // ----------
 
-    let private emitFuncForDoWhen = fun g v s -> [ GenResult.Emit (v, s) ]
-    let private resetFuncForDoWhen = fun g v s -> (Gen.unwrap g) None
-    let private stopFuncForDoWhen = fun g v s -> [ GenResult.Stop ]
+    let private emitFuncForMapValue = fun g v s -> [ GenResult.Emit (v, s) ]
+    let private resetFuncForMapValue = fun g v s -> (Gen.unwrap g) None
+    let private stopFuncForMapValue = fun g v s -> [ GenResult.Stop ]
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let doWhenFunc (pred: _ -> bool) onFalse onTrue (inputGen: Gen<_,_>) =
+    let whenFuncThen (pred: _ -> bool) onFalse onTrue (inputGen: Gen<_,_>) =
         fun state ->
             [
                 for res in (Gen.unwrap inputGen) state do
@@ -33,39 +33,39 @@ module Gen =
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
-    let resetWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
-        doWhenFunc pred emitFuncForDoWhen resetFuncForDoWhen inputGen
+    let whenFuncThenReset (pred: _ -> bool) (inputGen: Gen<_,_>) =
+        whenFuncThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let stopWhenFunc (pred: _ -> bool) (inputGen: Gen<_,_>) =
-        doWhenFunc pred emitFuncForDoWhen stopFuncForDoWhen inputGen
-
-    /// When the given predicate is true, the input gen is evaluated with an empty state.
-    let doWhenValue (pred: bool) onTrue onFalse (inputGen: Gen<_,_>) =
-        doWhenFunc (fun _ -> pred) onTrue onFalse inputGen
+    let whenFuncThenStop (pred: _ -> bool) (inputGen: Gen<_,_>) =
+        whenFuncThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
-    let resetWhenValue (pred: bool) (inputGen: Gen<_,_>) =
-        doWhenValue pred emitFuncForDoWhen resetFuncForDoWhen inputGen
+    let whenValueThen (pred: bool) onTrue onFalse (inputGen: Gen<_,_>) =
+        whenFuncThen (fun _ -> pred) onTrue onFalse inputGen
 
-    let stopWhenValue (pred: bool) (inputGen: Gen<_,_>) =
-        doWhenValue pred emitFuncForDoWhen stopFuncForDoWhen inputGen
+    /// When the given predicate is true, the input gen is evaluated with an empty state.
+    let whenValueThenReset (pred: bool) (inputGen: Gen<_,_>) =
+        whenValueThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let doWhenGen (pred: Gen<_,_>) onTrue onFalse (inputGen: Gen<_,_>) =
+    let whenValueThenStop (pred: bool) (inputGen: Gen<_,_>) =
+        whenValueThen pred emitFuncForMapValue stopFuncForMapValue inputGen
+
+    let whenGenThen (pred: Gen<_,_>) onTrue onFalse (inputGen: Gen<_,_>) =
         gen {
             let! pred = pred
-            return! doWhenValue pred onTrue onFalse inputGen
+            return! whenValueThen pred onTrue onFalse inputGen
         }
 
-    let resetWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
-        doWhenGen pred emitFuncForDoWhen resetFuncForDoWhen inputGen
+    let whenGenThenReset (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+        whenGenThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let stopWhenGen (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
-        doWhenGen pred emitFuncForDoWhen stopFuncForDoWhen inputGen
+    let whenGenThenStop (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+        whenGenThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
     // TODO: doOnStop?
 
     // TODO: Docu: Stop means thet inputGen is *immediately* reevaluated (in this cycle; not in the next)
-    let resetOnStop (inputGen: Gen<_,_>) =
+    let onStopThenReset (inputGen: Gen<_,_>) =
         let rec genFunc state =
             let g = (Gen.unwrap inputGen)
             [
@@ -90,22 +90,22 @@ module Gen =
             | false -> return Control.Stop
         }
 
-    let inline countCyclic inclusiveStart increment inclusiveEnd =
-        countUntil inclusiveStart increment inclusiveEnd |> resetOnStop
+    let inline repeatCount inclusiveStart increment inclusiveEnd =
+        countUntil inclusiveStart increment inclusiveEnd |> onStopThenReset
 
     let count01<'a> = count 0 1
 
-    let doWhenCount count onTrue onFalse (inputGen: Gen<_,_>) =
+    let onCountThen count onTrue onFalse (inputGen: Gen<_,_>) =
         gen {
-            let! c = countCyclic 0 1 (count - 1)
-            return! doWhenValue (c = count) onTrue onFalse inputGen
+            let! c = repeatCount 0 1 (count - 1)
+            return! whenValueThen (c = count) onTrue onFalse inputGen
         }
 
-    let resetWhenCount count (inputGen: Gen<_,_>) =
-        doWhenCount count emitFuncForDoWhen resetFuncForDoWhen inputGen
+    let onCountThenReset count (inputGen: Gen<_,_>) =
+        onCountThen count emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let stopWhenCount count (inputGen: Gen<_,_>) =
-        doWhenCount count emitFuncForDoWhen stopFuncForDoWhen inputGen
+    let onCountThenStop count (inputGen: Gen<_,_>) =
+        onCountThen count emitFuncForMapValue stopFuncForMapValue inputGen
 
 
     // TODO: Implement a random number generator that exposes it's serializable state.
@@ -160,4 +160,28 @@ module Gen =
         }
 
     let accumulateManyParts count currentValue =
-        accumulateOnePart count currentValue |> resetOnStop
+        accumulateOnePart count currentValue |> onStopThenReset
+
+    type DefaultOnStopState<'s> = RunInput of 's option | Default
+
+    let inline defaultOnStop defaultValue (inputGen: Gen<_,_>) =
+        fun state ->
+            let state = state |> Option.defaultValue (RunInput None)
+            match state with
+            | Default ->
+                [ GenResult.Emit (defaultValue, Default) ]
+            | RunInput state ->
+                [
+                    let mutable isRunning = true
+                    for res in (Gen.unwrap inputGen) state do
+                        if isRunning then
+                            match res with
+                            | GenResult.Stop ->
+                                isRunning <- false
+                                yield GenResult.Emit (defaultValue, Default)
+                            | GenResult.DiscardWith s ->
+                                yield GenResult.DiscardWith (RunInput (Some s))
+                            | GenResult.Emit (v, s) ->
+                                yield GenResult.Emit (v, RunInput (Some s))
+                ]
+        |> Gen.create
