@@ -162,7 +162,7 @@ module Gen =
     let accumulateManyParts count currentValue =
         accumulateOnePart count currentValue |> onStopThenReset
 
-    type DefaultOnStopState<'s> = RunInput of 's option | Default
+    type DefaultOnStopState<'s> = private RunInput of 's option | Default
 
     let inline defaultOnStop defaultValue (inputGen: Gen<_,_>) =
         fun state ->
