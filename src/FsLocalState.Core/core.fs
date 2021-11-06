@@ -285,40 +285,6 @@ module Gen =
     let fdb = FeedbackBuilder()
 
 
-    // --------
-    // map / apply / transformation
-    // --------
-
-    let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: Gen<_,_>) =
-        fun state ->
-            [
-                for res in (unwrap inputGen) state do
-                    match res with
-                    | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
-                    | GenResult.DiscardWith s -> GenResult.DiscardWith s
-                    | GenResult.Stop -> GenResult.Stop
-            ]
-        |> create
-
-    let mapValue proj (inputGen: Gen<_,_>) =
-        mapValueAndState (fun v _ -> proj v) inputGen
-
-    let includeState (inputGen: Gen<_,_>) =
-        mapValueAndState (fun v s -> v,s) inputGen
-
-    let apply xGen fGen =
-        gen {
-            let! l' = xGen
-            let! f' = fGen
-            let result = f' l'
-            return Control.Emit result
-        }
-
-    /// Transforms a generator function to an effect function.    
-    let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
-        fun () -> gen
-
-
     // -------
     // Kleisli
     // -------
@@ -336,26 +302,24 @@ module Gen =
         }
 
 
-    // ----------
-    // Arithmetik
-    // ----------
-
+[<RequireQualifiedAccess>]
+module Arithmetic =
     let inline binOpBoth left right f =
-        gen {
+        Gen.gen {
             let! l = left
             let! r = right
             return Control.Emit (f l r)
         }
     
     let inline binOpLeft left right f =
-        gen {
+        Gen.gen {
             let l = left
             let! r = right
             return Control.Emit (f l r)
         }
     
     let inline binOpRight left right f =
-        gen {
+        Gen.gen {
             let! l = left
             let r = right
             return Control.Emit (f l r)
@@ -368,26 +332,26 @@ type Gen<'o,'s> with
 
     // TODO: document operators and especially ==
     
-    static member inline (+) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (+)
-    static member inline (-) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (-)
-    static member inline (*) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (*)
-    static member inline (/) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (/)
-    static member inline (%) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (%)
-    static member inline (==) (left: ^a when ^a: comparison, right) = Gen.binOpLeft left right (=)
+    static member inline (+) (left: ^a when ^a: comparison, right) = Arithmetic.binOpLeft left right (+)
+    static member inline (-) (left: ^a when ^a: comparison, right) = Arithmetic.binOpLeft left right (-)
+    static member inline (*) (left: ^a when ^a: comparison, right) = Arithmetic.binOpLeft left right (*)
+    static member inline (/) (left: ^a when ^a: comparison, right) = Arithmetic.binOpLeft left right (/)
+    static member inline (%) (left: ^a when ^a: comparison, right) = Arithmetic.binOpLeft left right (%)
+    static member inline (==) (left: ^a when ^a: comparison, right) = Arithmetic.binOpLeft left right (=)
 
-    static member inline (+) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (+)
-    static member inline (-) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (-)
-    static member inline (*) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (*)
-    static member inline (/) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (/)
-    static member inline (%) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (%)
-    static member inline (==) (left, right: ^a when ^a: comparison) = Gen.binOpRight left right (=)
+    static member inline (+) (left, right: ^a when ^a: comparison) = Arithmetic.binOpRight left right (+)
+    static member inline (-) (left, right: ^a when ^a: comparison) = Arithmetic.binOpRight left right (-)
+    static member inline (*) (left, right: ^a when ^a: comparison) = Arithmetic.binOpRight left right (*)
+    static member inline (/) (left, right: ^a when ^a: comparison) = Arithmetic.binOpRight left right (/)
+    static member inline (%) (left, right: ^a when ^a: comparison) = Arithmetic.binOpRight left right (%)
+    static member inline (==) (left, right: ^a when ^a: comparison) = Arithmetic.binOpRight left right (=)
 
-    static member inline (+) (left, right) = Gen.binOpBoth left right (+)
-    static member inline (-) (left, right) = Gen.binOpBoth left right (-)
-    static member inline (*) (left, right) = Gen.binOpBoth left right (*)
-    static member inline (/) (left, right) = Gen.binOpBoth left right (/)
-    static member inline (%) (left, right) = Gen.binOpBoth left right (%)
-    static member inline (==) (left, right) = Gen.binOpBoth left right (=)
+    static member inline (+) (left, right) = Arithmetic.binOpBoth left right (+)
+    static member inline (-) (left, right) = Arithmetic.binOpBoth left right (-)
+    static member inline (*) (left, right) = Arithmetic.binOpBoth left right (*)
+    static member inline (/) (left, right) = Arithmetic.binOpBoth left right (/)
+    static member inline (%) (left, right) = Arithmetic.binOpBoth left right (%)
+    static member inline (==) (left, right) = Arithmetic.binOpBoth left right (=)
 
 
 [<AutoOpen>]

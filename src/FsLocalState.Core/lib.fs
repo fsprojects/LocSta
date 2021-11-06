@@ -5,9 +5,43 @@ open FsLocalState
 
 [<AutoOpen>]
 module Gen =
+    
+    // --------
+    // map / apply / transformation
+    // --------
+
+    let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: Gen<_,_>) =
+        fun state ->
+            [
+                for res in (Gen.unwrap inputGen) state do
+                    match res with
+                    | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
+                    | GenResult.DiscardWith s -> GenResult.DiscardWith s
+                    | GenResult.Stop -> GenResult.Stop
+            ]
+        |> Gen.create
+
+    let mapValue proj (inputGen: Gen<_,_>) =
+        mapValueAndState (fun v _ -> proj v) inputGen
+
+    let includeState (inputGen: Gen<_,_>) =
+        mapValueAndState (fun v s -> v,s) inputGen
+
+    let apply xGen fGen =
+        gen {
+            let! l' = xGen
+            let! f' = fGen
+            let result = f' l'
+            return Control.Emit result
+        }
+
+    /// Transforms a generator function to an effect function.    
+    let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
+        fun () -> gen
+
 
     // ----------
-    // Control
+    // reset / stop / count / ...
     // ----------
 
     let private emitFuncForMapValue = fun g v s -> [ GenResult.Emit (v, s) ]
@@ -104,62 +138,7 @@ module Gen =
 
     let onCountThenStop count (inputGen: Gen<_,_>) =
         onCountThen count emitFuncForMapValue stopFuncForMapValue inputGen
-
-
-    // TODO: Implement a random number generator that exposes it's serializable state.
-    let private dotnetRandom() = System.Random()
-    let random () =
-        fdb {
-            let! random = Init (dotnetRandom())
-            return Control.Feedback (random.NextDouble(), random)
-        }
-
-    /// Delays a given value by 1 cycle.
-    let delayBy1 input seed =
-        fdb {
-            let! state = Init seed
-            return Control.Feedback(state, input)
-        }
-
-    /// Positive slope.
-    let inline slopePos input seed =
-        fdb {
-            let! state = Init seed
-            let res = state < input
-            return Control.Feedback(res, input)
-        }
-
-    /// Negative slope.
-    let inline slopeNeg input seed =
-        fdb {
-            let! state = Init seed
-            let res = state < input
-            return Control.Feedback(res, input)
-        }
-
-    let accumulate currentValue =
-        fdb {
-            let! elements = Init []
-            // TODO: Performance
-            let newElements = elements @ [currentValue]
-            return Control.Feedback (newElements, newElements)
-        }
-
-    let accumulateOnePart length currentValue =
-        gen {
-            let! c = count 0 1
-            let! acc = accumulate currentValue
-            if c = length - 1 then
-                // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
-                // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
-                return Control.Emit acc
-            else if c = length then
-                return Control.Stop
-        }
-
-    let accumulateManyParts count currentValue =
-        accumulateOnePart count currentValue |> onStopThenReset
-
+    
     type DefaultOnStopState<'s> = RunInput of 's option | Default
 
     let inline defaultOnStop defaultValue (inputGen: Gen<_,_>) =
@@ -198,3 +177,67 @@ module Gen =
                         yield GenResult.Emit (res, state)
             ]
         |> Gen.create
+
+
+    // ----------
+    // random / delay / slope
+    // ----------
+
+    // TODO: Implement a random number generator that exposes it's serializable state.
+    let private dotnetRandom() = System.Random()
+    let random () =
+        fdb {
+            let! random = Init (dotnetRandom())
+            return Control.Feedback (random.NextDouble(), random)
+        }
+
+    /// Delays a given value by 1 cycle.
+    let delayBy1 input seed =
+        fdb {
+            let! state = Init seed
+            return Control.Feedback(state, input)
+        }
+
+    /// Positive slope.
+    let inline slopePos input seed =
+        fdb {
+            let! state = Init seed
+            let res = state < input
+            return Control.Feedback(res, input)
+        }
+
+    /// Negative slope.
+    let inline slopeNeg input seed =
+        fdb {
+            let! state = Init seed
+            let res = state < input
+            return Control.Feedback(res, input)
+        }
+
+
+    // ----------
+    // accumulate
+    // ----------
+
+    let accumulate currentValue =
+        fdb {
+            let! elements = Init []
+            // TODO: Performance
+            let newElements = elements @ [currentValue]
+            return Control.Feedback (newElements, newElements)
+        }
+
+    let accumulateOnePart partLength currentValue =
+        gen {
+            let! c = count 0 1
+            let! acc = accumulate currentValue
+            if c = partLength - 1 then
+                // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
+                // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
+                return Control.Emit acc
+            else if c = partLength then
+                return Control.Stop
+        }
+
+    let accumulateManyParts count currentValue =
+        accumulateOnePart count currentValue |> onStopThenReset
