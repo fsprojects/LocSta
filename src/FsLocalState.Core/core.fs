@@ -319,7 +319,7 @@ module Gen =
         // returns
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
         member _.Return(Control.DiscardWith state) = returnFeedbackDiscardWith state
-        member _.Return(Control.Stop) = returnStop
+        member _.Return(Control.Stop) = returnFeedbackStop
     
     let gen = GenBuilder()
     let fdb = FeedbackBuilder()
