@@ -244,14 +244,14 @@ module Gen =
     let delay1 value =
         fun state ->
             match state with
-            | None -> GenResult.DiscardWith value
-            | Some delayed -> GenResult.Emit (delayed, value)
+            | None -> [ GenResult.DiscardWith value ]
+            | Some delayed -> [ GenResult.Emit (delayed, value) ]
+        |> Gen.create
     
     /// Delays a given value by n cycle.
     let delayn n value =
         fdb {
             let! initialValue = Init value
-            let! c = count 0 1
             return Control.Feedback (initialValue, initialValue)
         }
     
