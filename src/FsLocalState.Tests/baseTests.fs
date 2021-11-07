@@ -45,34 +45,6 @@ let [<TestCase>] ``Zero For Loop (gen)`` () =
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
-let x =
-    Init 0 |> Gen.bindFdb (fun state ->
-        Gen.returnFeedback state 12
-    )
-
-let y =
-    Init 0 |> Gen.bindFdb (fun state ->
-        let res =
-            count 0 1 |> Gen.bind (fun c ->
-                Gen.returnFeedback state (c + 1)
-            )
-        failwith ""
-    )
-
-let k = 
-    delay1 2 |> Gen.bind (fun c ->
-        Gen.returnValue c
-    )
-
-let z =
-    Init 0 |> Gen.bindFdb (fun state ->
-        let res =
-            delay1 2 |> Gen.bind (fun c ->
-                Gen.returnValue c
-            )
-        res
-    )
-    
 let [<TestCase>] ``Discard with (fdb)`` () =
     fdb {
         let! state = Init 0

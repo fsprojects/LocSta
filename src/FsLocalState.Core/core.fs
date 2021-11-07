@@ -152,10 +152,10 @@ module Gen =
                 | Some v  -> v.currState, v.subState
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
-                | GenResult.Emit (fres, ffeed) ->
-                    GenResult.Emit (fres, { currState = ffeed; subState = None; remaining = [] })
-                | GenResult.DiscardWith ffeed ->
-                    GenResult.DiscardWith { currState = ffeed; subState = None; remaining = [] }
+                | GenResult.Emit ((fres, ffeed), fstate) ->
+                    GenResult.Emit (fres, { currState = ffeed; subState = Some fstate; remaining = [] })
+                | GenResult.DiscardWith fstate ->
+                    GenResult.DiscardWith { currState = lastFeed; subState = Some fstate; remaining = [] }
                 | GenResult.Stop ->
                     GenResult.Stop
             ]
@@ -182,7 +182,7 @@ module Gen =
     let returnValueThenStop value : Gen<_,_> =
         ofValueOnce value
     let returnFeedback value feedback =
-        GenResult.Emit(value, feedback) |> ofValueRepeating
+        GenResult.Emit((value, feedback), ()) |> ofValueRepeating
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
         GenResult.DiscardWith state |> ofValueRepeating
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
