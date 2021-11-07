@@ -23,8 +23,8 @@ let x =
     )
 
 let y =
-    Init 0 |> Gen.bindFdb (fun state ->
-        count 0 1 |> Gen.bind (fun c ->
+    Init 0 |> Gen.bindInitFdb (fun state ->
+        count 0 1 |> Gen.bindGenFdb (fun c ->
             Gen.returnFeedback state (c + 1)
         )
     )

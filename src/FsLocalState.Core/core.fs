@@ -182,9 +182,11 @@ module Gen =
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
                 | GenResult.Emit (FdbEmit (fvalue, feedback, fstate)) ->
-                    GenResult.Emit (GenEmit (fvalue, { currState = feedback; subState = Some fstate; remaining = [] }))
+                    let state = { currState = feedback; subState = Some fstate; remaining = [] }
+                    GenResult.Emit (GenEmit (fvalue, state))
                 | GenResult.DiscardWith (FdbDiscard (feedback, fstate)) ->
-                    GenResult.DiscardWith (GenDiscard { currState = feedback; subState = Some fstate; remaining = [] })
+                    let state = { currState = feedback; subState = Some fstate; remaining = [] }
+                    GenResult.DiscardWith (GenDiscard state)
                 | GenResult.Stop ->
                     GenResult.Stop
             ]
