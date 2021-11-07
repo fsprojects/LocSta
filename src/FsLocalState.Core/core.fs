@@ -21,6 +21,8 @@ type State<'rem, 'scurr, 'ssub> =
       subState: 'ssub option
       remaining: 'rem list }
 
+type FdbResult<'o, 'f> =
+    { value: 'o; feedback: 'f }
 
 module GenResult =
     let isStop result = match result with | GenResult.Stop -> true | _ -> false
@@ -152,8 +154,8 @@ module Gen =
                 | Some v  -> v.currState, v.subState
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
-                | GenResult.Emit ((fres, ffeed), fstate) ->
-                    GenResult.Emit (fres, { currState = ffeed; subState = Some fstate; remaining = [] })
+                | GenResult.Emit (fdbRes: FdbResult<_,_>, fstate) ->
+                    GenResult.Emit (fdbRes.value, { currState = fdbRes.feedback; subState = Some fstate; remaining = [] })
                 | GenResult.DiscardWith fstate ->
                     GenResult.DiscardWith { currState = lastFeed; subState = Some fstate; remaining = [] }
                 | GenResult.Stop ->
@@ -181,9 +183,11 @@ module Gen =
         GenResult.Emit(value, ()) |> ofValueRepeating
     let returnValueThenStop value : Gen<_,_> =
         ofValueOnce value
-    let returnFeedback value feedback =
-        GenResult.Emit((value, feedback), ()) |> ofValueRepeating
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
+        GenResult.DiscardWith state |> ofValueRepeating
+    let returnFeedback value feedback =
+        GenResult.Emit({ value = value; feedback = feedback }, ()) |> ofValueRepeating
+    let returnFeedbackDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
         GenResult.DiscardWith state |> ofValueRepeating
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
         GenResult.Stop |> ofValueRepeating
@@ -287,7 +291,7 @@ module Gen =
         member _.Bind(m, f) = bindFdb f m
         // returns
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
-        member _.Return(Control.DiscardWith state) = returnDiscardWith state
+        member _.Return(Control.DiscardWith state) = returnFeedbackDiscardWith state
         member _.Return(Control.Stop) = returnStop
     
     let gen = GenBuilder()

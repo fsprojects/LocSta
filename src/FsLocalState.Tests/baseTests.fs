@@ -45,17 +45,27 @@ let [<TestCase>] ``Zero For Loop (gen)`` () =
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
-let [<TestCase>] ``Discard with (fdb)`` () =
+let [<TestCase>] ``Feedback (general)`` () =
     fdb {
         let! state = Init 0
+        let! c = count 10 10
         let nextValue = state + 1
-        if state % 2 = 0 then
-            return Control.Feedback (state, nextValue)
-        else
-            return Control.DiscardWith nextValue
+        return Control.Feedback (state + c, nextValue)
     }
     |> Gen.toListn 4
-    |> should equal [ 0; 2; 4; 6 ]
+    |> should equal [ 10; 21; 32; 43 ]
+    
+//let [<TestCase>] ``Discard with (fdb)`` () =
+//    fdb {
+//        let! state = Init 0
+//        let nextValue = state + 1
+//        if state % 2 = 0 then
+//            return Control.Feedback (state, nextValue)
+//        else
+//            return Control.DiscardWith nextValue
+//    }
+//    |> Gen.toListn 4
+//    |> should equal [ 0; 2; 4; 6 ]
     
 let [<TestCase>] ``Stop (gen)`` () =
     gen {
