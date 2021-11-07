@@ -161,12 +161,16 @@ module Gen =
             | [] -> evalm lastMState lastFState
         |> create
 
-    /// 'bindFdb' is invoked only ONCE per fdb { .. }.
-    /// It takes a Gen<InitResult>, which is the first "let! state = init .." expression.
-    /// The returned "feedback state" is then passed into f, which itself finally returns a
-    /// Gen<FdbResult>.
-    let bindFdb
-        (f: 'f -> GenForFdb<'o,'f,'s>)  // TODO: was hat 'a hier verloren?
+    let bindGenFdb
+        (f: _ -> GenForFdb<'o,'f,'s>)
+        (m: GenForGen<_,_>)
+        =
+        fun state ->
+            failwith ""
+        |> create
+
+    let bindInitFdb
+        (f: 'f -> GenForFdb<'o,'f,'s>)
         (m: Init<'f>)
         =
         fun state ->
@@ -314,8 +318,9 @@ module Gen =
         
     type FeedbackBuilder() =
         inherit BaseBuilder()
+        member _.Bind(m, f) = bindInitFdb f m
         member _.Bind(m, f) = bind f m
-        member _.Bind(m, f) = bindFdb f m
+        member _.Bind(m, f) = bindGenFdb f m
         // returns
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
         member _.Return(Control.DiscardWith state) = returnFeedbackDiscardWith state
