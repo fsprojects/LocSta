@@ -143,9 +143,7 @@ module Gen =
     /// The returned "feedback state" is then passed into f, which itself finally returns a
     /// Gen<FdbResult>.
     let bindFdb
-        (f: 'f -> Gen<GenResult<'o, 'f>, 's>)
-        (m: Init<'f>)
-        : Gen<GenResult<'o, State<_, 'f, 's>>, State<_, 'f, 's>>
+        f m
         =
         fun state ->
             let lastFeed, lastFState =
