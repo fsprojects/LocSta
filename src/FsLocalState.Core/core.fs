@@ -6,7 +6,7 @@ type Init<'f> =
 [<RequireQualifiedAccess>]
 type GenResult<'v, 's> =
     | Emit of 'v * 's
-    | DiscardWith of 's
+    | DiscardWith of 'v option * 's
     | Stop
 
 type Gen<'o, 's> =
@@ -39,7 +39,7 @@ module GenResult =
                     let newState = 
                         match res with
                         | GenResult.Emit (_, s) -> Some s
-                        | GenResult.DiscardWith s -> Some s
+                        | GenResult.DiscardWith (_, s) -> Some s
                         | GenResult.Stop -> failwith "Stop is not supported."
                     mapping res, newState
                 )
@@ -63,7 +63,7 @@ module GenResult =
 module Control =
     type Emit<'value> = Emit of 'value
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
-    type DiscardWith<'state> = DiscardWith of 'state
+    type DiscardWith<'value, 'state> = DiscardWith of 'state
     type Stop = Stop
 
 
@@ -101,14 +101,19 @@ module Gen =
         let evalf fgen mstate lastFState remaining =
             let fres = (unwrap fgen) lastFState
             match fres with
-            | [] -> [ GenResult.DiscardWith { currState = mstate; subState = lastFState; remaining = remaining } ]
+            | [] -> 
+                [ GenResult.DiscardWith (None, { currState = mstate; subState = lastFState; remaining = remaining }) ]
             | results ->
                 [ for res in results do
                     match res with
                     | GenResult.Emit (fres, fstate) ->
-                        yield GenResult.Emit (fres, { currState = mstate; subState = Some fstate; remaining = remaining })
-                    | GenResult.DiscardWith fstate -> 
-                        yield GenResult.DiscardWith { currState = mstate; subState = Some fstate; remaining = remaining }
+                        yield GenResult.Emit (
+                            fres,
+                            { currState = mstate; subState = Some fstate; remaining = remaining })
+                    | GenResult.DiscardWith (v, fstate) -> 
+                        yield GenResult.DiscardWith (
+                            v,
+                            { currState = mstate; subState = Some fstate; remaining = remaining })
                     | GenResult.Stop -> 
                         yield GenResult.Stop
                 ]
@@ -117,8 +122,8 @@ module Gen =
             | GenResult.Emit (mres, mstate) ->
                 let fgen = f mres
                 evalf fgen mstate lastFState remaining
-            | GenResult.DiscardWith stateM ->
-               [ GenResult.DiscardWith { currState = stateM; subState = lastFState; remaining = remaining } ]
+            | GenResult.DiscardWith (v, stateM) ->
+               [ GenResult.DiscardWith (None, { currState = stateM; subState = lastFState; remaining = remaining }) ]
             | GenResult.Stop ->
                 [ GenResult.Stop ]
         let rec evalm lastMState lastFState =
@@ -127,7 +132,7 @@ module Gen =
             | [] ->
                 match lastMState with
                 | Some lastStateM ->
-                    [ GenResult.DiscardWith { currState = lastStateM; subState = lastFState; remaining = [] } ]
+                    [ GenResult.DiscardWith (None, { currState = lastStateM; subState = lastFState; remaining = [] }) ]
                 | None ->
                     []
         fun state ->
@@ -157,8 +162,10 @@ module Gen =
                 match res with
                 | GenResult.Emit (fdbRes: FdbResult<'o2, 'o1>, fstate) ->
                     GenResult.Emit (fdbRes.value, { currState = fdbRes.feedback; subState = Some fstate; remaining = [] })
-                | GenResult.DiscardWith fstate ->
-                    GenResult.DiscardWith { currState = lastFeed; subState = Some fstate; remaining = [] }
+                | GenResult.DiscardWith (Some v, fstate) ->
+                    GenResult.DiscardWith (None, { currState = v.feedback; subState = Some fstate; remaining = [] })
+                | GenResult.DiscardWith (None, fstate) ->
+                    GenResult.DiscardWith (None, { currState = lastFeed; subState = Some fstate; remaining = [] })
                 | GenResult.Stop ->
                     GenResult.Stop
             ]
@@ -184,12 +191,12 @@ module Gen =
         GenResult.Emit(value, ()) |> ofValueRepeating
     let returnValueThenStop value : Gen<_,_> =
         ofValueOnce value
-    let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
-        GenResult.DiscardWith state |> ofValueRepeating
+    let returnDiscardWith<'o, 's, 'c> (state: 's) : Gen<GenResult<'o, 's>, 'c>  =
+        GenResult.DiscardWith (None, state) |> ofValueRepeating
     let returnFeedback value feedback =
         GenResult.Emit({ value = value; feedback = feedback }, ()) |> ofValueRepeating
-    let returnFeedbackDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
-        GenResult.DiscardWith state |> ofValueRepeating
+    let returnFeedbackDiscardWith<'o, 's, 'c, 'f> (feedback: 'f) : Gen<GenResult<FdbResult<'o, 'f>, unit>, 'c> = // TODO: WTF??
+        GenResult.DiscardWith (Some { value = Unchecked.defaultof<'o>; feedback = feedback }, ()) |> ofValueRepeating
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
         GenResult.Stop |> ofValueRepeating
 
@@ -244,9 +251,9 @@ module Gen =
                         | GenResult.Emit (va, sa) ->
                             astate <- Some sa
                             yield GenResult.Emit (va, { astate = astate; bstate = None })
-                        | GenResult.DiscardWith sa -> 
+                        | GenResult.DiscardWith (va, sa) -> 
                             astate <- Some sa
-                            yield GenResult.DiscardWith { astate = astate; bstate = None }
+                            yield GenResult.DiscardWith (va, { astate = astate; bstate = None })
                         | GenResult.Stop ->
                             isRunning <- false
                             yield GenResult.Stop
@@ -256,8 +263,8 @@ module Gen =
                             match res with
                             | GenResult.Emit (vb, sb) ->
                                 yield GenResult.Emit (vb, { astate = astate; bstate = Some sb })
-                            | GenResult.DiscardWith sb -> 
-                                yield GenResult.DiscardWith { astate = astate; bstate = Some sb }
+                            | GenResult.DiscardWith (vb, sb) -> 
+                                yield GenResult.DiscardWith (vb, { astate = astate; bstate = Some sb })
                             | GenResult.Stop ->
                                 isRunning <- false
                                 yield GenResult.Stop

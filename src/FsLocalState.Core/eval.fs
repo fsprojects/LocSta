@@ -19,7 +19,7 @@ module Gen =
                         | GenResult.Emit (fres, fstate) ->
                             state <- Some fstate
                             yield (fres, fstate)
-                        | GenResult.DiscardWith fstate ->
+                        | GenResult.DiscardWith (_, fstate) ->
                             state <- Some fstate
                         | GenResult.Stop ->
                             resume <- false
@@ -46,7 +46,7 @@ module Gen =
                             | GenResult.Emit (resF, stateF) ->
                                 state <- Some stateF
                                 yield (resF, stateF)
-                            | GenResult.DiscardWith stateF ->
+                            | GenResult.DiscardWith (_, stateF) ->
                                 state <- Some stateF
                             | GenResult.Stop ->
                                 resume <- false

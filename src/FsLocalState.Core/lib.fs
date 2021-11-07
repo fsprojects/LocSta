@@ -16,7 +16,7 @@ module Gen =
                 for res in (Gen.unwrap inputGen) state do
                     match res with
                     | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
-                    | GenResult.DiscardWith s -> GenResult.DiscardWith s
+                    | GenResult.DiscardWith (_,s) -> GenResult.DiscardWith (None, s)
                     | GenResult.Stop -> GenResult.Stop
             ]
         |> Gen.create
@@ -60,7 +60,7 @@ module Gen =
                         match pred o with
                         | false -> yield! onFalse inputGen o s
                         | true -> yield! onTrue inputGen o s
-                    | GenResult.DiscardWith s -> yield GenResult.DiscardWith s
+                    | GenResult.DiscardWith (_,s) -> yield GenResult.DiscardWith (None, s)
                     | GenResult.Stop -> yield GenResult.Stop
             ]
         |> Gen.create
@@ -155,8 +155,8 @@ module Gen =
                             match res with
                             | GenResult.Emit (v, s) ->
                                 yield GenResult.Emit (v, RunInput (Some s))
-                            | GenResult.DiscardWith s ->
-                                yield GenResult.DiscardWith (RunInput (Some s))
+                            | GenResult.DiscardWith (_,s) ->
+                                yield GenResult.DiscardWith (None, RunInput (Some s))
                             | GenResult.Stop ->
                                 isRunning <- false
                                 yield GenResult.Emit (defaultValue, Default)
@@ -169,9 +169,9 @@ module Gen =
             [
                 for res in (Gen.unwrap inputGen) state do
                     match res with
-                    | GenResult.Emit (v, s) as res ->
+                    | GenResult.Emit (v,s) as res ->
                         yield GenResult.Emit (res, s)
-                    | GenResult.DiscardWith s as res ->
+                    | GenResult.DiscardWith (_,s) as res ->
                         yield GenResult.Emit (res, s)
                     | GenResult.Stop as res ->
                         yield GenResult.Emit (res, state)
@@ -244,7 +244,7 @@ module Gen =
     let delay1 value =
         fun state ->
             match state with
-            | None -> [ GenResult.DiscardWith value ]
+            | None -> [ GenResult.DiscardWith (None, value) ]
             | Some delayed -> [ GenResult.Emit (delayed, value) ]
         |> Gen.create
     
