@@ -1,5 +1,14 @@
 ﻿namespace FsLocalState
 
+type Init<'f> =
+    | Init of 'f
+
+[<RequireQualifiedAccess>]
+type GenResult<'v, 's> =
+    | Emit of 'v * 's
+    | DiscardWith of 's
+    | Stop
+
 type Gen<'o, 's> =
     | Gen of ('s option -> 'o list)
 
@@ -11,19 +20,6 @@ type State<'rem, 'scurr, 'ssub> =
     { currState: 'scurr
       subState: 'ssub option
       remaining: 'rem list }
-
-type Init<'f> =
-    | Init of 'f
-
-[<RequireQualifiedAccess>]
-type GenResult<'v, 's> =
-    | Emit of 'v * 's
-    | DiscardWith of 's
-    | Stop
-
-type FdbResult<'f, 's> = 
-    { fdbValue: 'f
-      innerState: 's }
 
 
 module GenResult =
@@ -156,10 +152,10 @@ module Gen =
                 | Some v  -> v.currState, v.subState
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
-                | GenResult.Emit (fres, fdbState: FdbResult<_,_>) ->
-                    GenResult.Emit (fres, { currState = fdbState.fdbValue; subState = Some fdbState.innerState; remaining = [] })
-                | GenResult.DiscardWith (fdbState: FdbResult<_,_>) ->
-                    GenResult.DiscardWith { currState = fdbState.fdbValue; subState = Some fdbState.innerState; remaining = [] }
+                | GenResult.Emit ((fres, ffeed), fstate) ->
+                    GenResult.Emit (fres, { currState = ffeed; subState = Some fstate; remaining = [] })
+                | GenResult.DiscardWith fstate ->
+                    GenResult.DiscardWith { currState = lastFeed; subState = Some fstate; remaining = [] }
                 | GenResult.Stop ->
                     GenResult.Stop
             ]
@@ -185,12 +181,10 @@ module Gen =
         GenResult.Emit(value, ()) |> ofValueRepeating
     let returnValueThenStop value : Gen<_,_> =
         ofValueOnce value
-    let returnFdbValue value feedback =
-        GenResult.Emit(value, { fdbValue = feedback; innerState = () }) |> ofValueRepeating
+    let returnFeedback value feedback =
+        GenResult.Emit((value, feedback), ()) |> ofValueRepeating
     let returnDiscardWith<'a, 's, 'c> (state: 's) : Gen<GenResult<'a, 's>, 'c> =
         GenResult.DiscardWith state |> ofValueRepeating
-    let returnFdbDiscardWith<'a, 's, 'c> feedback : Gen<GenResult<'a, FdbResult<'s, unit>>, 'c> =
-        GenResult.DiscardWith { fdbValue = feedback; innerState = () } |> ofValueRepeating
     let returnStop<'a, 'b, 'c> : Gen<GenResult<'a, 'b>, 'c> =
         GenResult.Stop |> ofValueRepeating
 
@@ -292,8 +286,8 @@ module Gen =
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindFdb f m
         // returns
-        member _.Return(Control.Feedback (value, feedback)) = returnFdbValue value feedback
-        member _.Return(Control.DiscardWith feedback) = returnFdbDiscardWith feedback
+        member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
+        member _.Return(Control.DiscardWith state) = returnDiscardWith state
         member _.Return(Control.Stop) = returnStop
     
     let gen = GenBuilder()
