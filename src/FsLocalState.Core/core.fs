@@ -164,6 +164,7 @@ module Gen =
     let bindGenFdb
         (f: _ -> GenForFdb<'o,'f,'s>)
         (m: GenForGen<_,_>)
+        : GenForFdb<_,_,_>
         =
         fun state ->
             failwith ""
