@@ -10,21 +10,21 @@ module Gen =
     // map / apply / transformation
     // --------
 
-    let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: Gen<_,_>) =
+    let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: GenForGen<_,_>) : GenForGen<_,_> =
         fun state ->
             [
                 for res in (Gen.unwrap inputGen) state do
                     match res with
-                    | GenResult.Emit (v,s) -> GenResult.Emit (proj v s, s)
-                    | GenResult.DiscardWith (_,s) -> GenResult.DiscardWith (None, s)
+                    | GenResult.Emit (GenEmit (v,s)) -> GenResult.Emit (GenEmit (proj v s, s))
+                    | GenResult.DiscardWith (GenDiscard s) -> GenResult.DiscardWith (GenDiscard s)
                     | GenResult.Stop -> GenResult.Stop
             ]
         |> Gen.create
 
-    let mapValue proj (inputGen: Gen<_,_>) =
+    let mapValue proj (inputGen: GenForGen<_,_>) =
         mapValueAndState (fun v _ -> proj v) inputGen
 
-    let includeState (inputGen: Gen<_,_>) =
+    let includeState (inputGen: GenForGen<_,_>) =
         mapValueAndState (fun v s -> v,s) inputGen
 
     let apply xGen fGen =
@@ -44,62 +44,62 @@ module Gen =
     // reset / stop / count / ...
     // ----------
 
-    let private emitFuncForMapValue = fun g v s -> [ GenResult.Emit (v, s) ]
+    let private emitFuncForMapValue = fun g v s -> [ GenResult.Emit (GenEmit (v, s)) ]
     let private resetFuncForMapValue = fun g v s -> (Gen.unwrap g) None
     let private stopFuncForMapValue = fun g v s -> [ GenResult.Stop ]
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
     /// It resurns the value and a bool indicating is a reset did happen.
-    let whenFuncThen (pred: _ -> bool) onFalse onTrue (inputGen: Gen<_,_>) =
+    let whenFuncThen (pred: _ -> bool) onFalse onTrue (inputGen: GenForGen<_,_>) =
         fun state ->
             [
                 for res in (Gen.unwrap inputGen) state do
                     match res with
-                    | GenResult.Emit (o,s) ->
+                    | GenResult.Emit (GenEmit (o,s)) ->
                         match pred o with
                         | false -> yield! onFalse inputGen o s
                         | true -> yield! onTrue inputGen o s
-                    | GenResult.DiscardWith (_,s) -> yield GenResult.DiscardWith (None, s)
+                    | GenResult.DiscardWith (GenDiscard s) -> yield GenResult.DiscardWith (GenDiscard s)
                     | GenResult.Stop -> yield GenResult.Stop
             ]
         |> Gen.create
 
     /// Evluates the input gen and passes it's output to the predicate function:
     /// When that returns true, the input gen is evaluated once again with an empty state.
-    let whenFuncThenReset (pred: _ -> bool) (inputGen: Gen<_,_>) =
+    let whenFuncThenReset (pred: _ -> bool) (inputGen: GenForGen<_,_>) =
         whenFuncThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let whenFuncThenStop (pred: _ -> bool) (inputGen: Gen<_,_>) =
+    let whenFuncThenStop (pred: _ -> bool) (inputGen: GenForGen<_,_>) =
         whenFuncThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
-    let whenValueThen (pred: bool) onTrue onFalse (inputGen: Gen<_,_>) =
+    let whenValueThen (pred: bool) onTrue onFalse (inputGen: GenForGen<_,_>) =
         whenFuncThen (fun _ -> pred) onTrue onFalse inputGen
 
     /// When the given predicate is true, the input gen is evaluated with an empty state.
-    let whenValueThenReset (pred: bool) (inputGen: Gen<_,_>) =
+    let whenValueThenReset (pred: bool) (inputGen: GenForGen<_,_>) =
         whenValueThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let whenValueThenStop (pred: bool) (inputGen: Gen<_,_>) =
+    let whenValueThenStop (pred: bool) (inputGen: GenForGen<_,_>) =
         whenValueThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
-    let whenGenThen (pred: Gen<_,_>) onTrue onFalse (inputGen: Gen<_,_>) =
+    let whenGenThen (pred: GenForGen<_,_>) onTrue onFalse (inputGen: GenForGen<_,_>) =
         gen {
             let! pred = pred
             return! whenValueThen pred onTrue onFalse inputGen
         }
 
-    let whenGenThenReset (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+    let whenGenThenReset (pred: GenForGen<_,_>) (inputGen: GenForGen<_,_>) =
         whenGenThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let whenGenThenStop (pred: Gen<_,_>) (inputGen: Gen<_,_>) =
+    let whenGenThenStop (pred: GenForGen<_,_>) (inputGen: GenForGen<_,_>) =
         whenGenThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
     // TODO: doOnStop?
 
     // TODO: Docu: Stop means thet inputGen is *immediately* reevaluated (in this cycle; not in the next)
-    let onStopThenReset (inputGen: Gen<_,_>) =
+    let onStopThenReset (inputGen: GenForGen<_,_>) =
         let rec genFunc state =
             let g = (Gen.unwrap inputGen)
             [
@@ -127,39 +127,39 @@ module Gen =
     let inline repeatCount inclusiveStart increment inclusiveEnd =
         countUntil inclusiveStart increment inclusiveEnd |> onStopThenReset
 
-    let onCountThen count onTrue onFalse (inputGen: Gen<_,_>) =
+    let onCountThen count onTrue onFalse (inputGen: GenForGen<_,_>) =
         gen {
             let! c = repeatCount 0 1 (count - 1)
             return! whenValueThen (c = count) onTrue onFalse inputGen
         }
 
-    let onCountThenReset count (inputGen: Gen<_,_>) =
+    let onCountThenReset count (inputGen: GenForGen<_,_>) =
         onCountThen count emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let onCountThenStop count (inputGen: Gen<_,_>) =
+    let onCountThenStop count (inputGen: GenForGen<_,_>) =
         onCountThen count emitFuncForMapValue stopFuncForMapValue inputGen
     
     type DefaultOnStopState<'s> = RunInput of 's option | Default
 
-    let inline defaultOnStop defaultValue (inputGen: Gen<_,_>) =
+    let inline defaultOnStop defaultValue (inputGen: GenForGen<_,_>) : GenForGen<_,_> =
         fun state ->
             let state = state |> Option.defaultValue (RunInput None)
             match state with
             | Default ->
-                [ GenResult.Emit (defaultValue, Default) ]
+                [ GenResult.Emit (GenEmit (defaultValue, Default)) ]
             | RunInput state ->
                 [
                     let mutable isRunning = true
                     for res in (Gen.unwrap inputGen) state do
                         if isRunning then
                             match res with
-                            | GenResult.Emit (v, s) ->
-                                yield GenResult.Emit (v, RunInput (Some s))
-                            | GenResult.DiscardWith (_,s) ->
-                                yield GenResult.DiscardWith (None, RunInput (Some s))
+                            | GenResult.Emit (GenEmit (v, s)) ->
+                                yield GenResult.Emit (GenEmit (v, RunInput (Some s)))
+                            | GenResult.DiscardWith (GenDiscard s) ->
+                                yield GenResult.DiscardWith (GenDiscard (RunInput (Some s)))
                             | GenResult.Stop ->
                                 isRunning <- false
-                                yield GenResult.Emit (defaultValue, Default)
+                                yield GenResult.Emit (GenEmit (defaultValue, Default))
                 ]
         |> Gen.create
 
@@ -169,12 +169,12 @@ module Gen =
             [
                 for res in (Gen.unwrap inputGen) state do
                     match res with
-                    | GenResult.Emit (v,s) as res ->
-                        yield GenResult.Emit (res, s)
-                    | GenResult.DiscardWith (_,s) as res ->
-                        yield GenResult.Emit (res, s)
+                    | GenResult.Emit (GenEmit (_,s)) as res ->
+                        yield GenResult.Emit (GenEmit (res, Some s))
+                    | GenResult.DiscardWith (GenDiscard s) as res ->
+                        yield GenResult.Emit (GenEmit (res, Some s))
                     | GenResult.Stop as res ->
-                        yield GenResult.Emit (res, state)
+                        yield GenResult.Emit (GenEmit (res, state))
             ]
         |> Gen.create
 
