@@ -89,18 +89,18 @@ let [<TestCase>] ``Default on Stop`` () =
             defaultValue; defaultValue; defaultValue; defaultValue; defaultValue
         ]
 
-let [<TestCase>] ``Fork`` () =
-    // Task: accumulate value and 2 successors
+//let [<TestCase>] ``Fork`` () =
+//    // Task: accumulate value and 2 successors
 
-    gen {
-        let! v = Gen.ofList [ 0.. 10 ]
-        return! accumulateOnePart 3 v |> fork
-    }
-    |> Gen.toListn 9
-    |> List.last
-    |> should equal
-        [
-            [ 8; 7; 6 ]
-            [ 5; 4; 3 ]
-            [ 2; 1; 0 ]
-        ]
+//    gen {
+//        let! v = Gen.ofList [ 0.. 10 ]
+//        return! accumulateOnePart 3 v |> fork
+//    }
+//    |> Gen.toListn 9
+//    |> List.last
+//    |> should equal
+//        [
+//            [ 8; 7; 6 ]
+//            [ 5; 4; 3 ]
+//            [ 2; 1; 0 ]
+//        ]
