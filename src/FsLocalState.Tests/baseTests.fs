@@ -82,11 +82,11 @@ let [<TestCase>] ``Stop (fdb)`` () =
 
 ////let [<TestCase>] ``Reset (gen)`` () =
 ////    gen {
-////        let! prove = count01
+////        let! prove = count 0 1
 ////        let! v = gen {
-////            let! c1 = count01
-////            let! c2 = count01
-////            if c1 = 3 $& c2 = 3 then
+////            let! c1 = count 0 1
+////            let! c2 = count 0 1
+////            if c1 = 3 && c2 = 3 then
 ////                return Control.Reset
 ////            else
 ////                return Control.EmitAndLoop c
@@ -119,7 +119,6 @@ let [<TestCase>] ``Combine`` () =
         return Control.Emit 6
         return! Gen.ofList [ 7; 8; 9 ]
         return Control.Emit 10
-        //return Control.Stop
         return Control.Emit 11
     }
     |> Gen.toList
@@ -128,4 +127,5 @@ let [<TestCase>] ``Combine`` () =
             0; 1; 2; 3; 6; 7; 10; 11
             0; 1; 2; 4; 6; 8; 10; 11
             0; 1; 2; 5; 6; 9; 10; 11
+            0; 1; 2
         ]
