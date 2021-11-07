@@ -180,42 +180,6 @@ module Gen =
 
 
     // ----------
-    // random / delay / slope
-    // ----------
-
-    // TODO: Implement a random number generator that exposes it's serializable state.
-    let private dotnetRandom() = System.Random()
-    let random () =
-        fdb {
-            let! random = Init (dotnetRandom())
-            return Control.Feedback (random.NextDouble(), random)
-        }
-
-    /// Delays a given value by 1 cycle.
-    let delayBy1 input seed =
-        fdb {
-            let! state = Init seed
-            return Control.Feedback(state, input)
-        }
-
-    /// Positive slope.
-    let inline slopePos input seed =
-        fdb {
-            let! state = Init seed
-            let res = state < input
-            return Control.Feedback(res, input)
-        }
-
-    /// Negative slope.
-    let inline slopeNeg input seed =
-        fdb {
-            let! state = Init seed
-            let res = state < input
-            return Control.Feedback(res, input)
-        }
-
-
-    // ----------
     // accumulate
     // ----------
 
@@ -241,3 +205,69 @@ module Gen =
 
     let accumulateManyParts count currentValue =
         accumulateOnePart count currentValue |> onStopThenReset
+
+    let fork (inputGen: Gen<_,_>) =
+        fdb {
+            let! runningStates = Init []
+            let inputGen = Gen.unwrap inputGen
+            // TODO: Performance
+            let forkResults =
+                runningStates @ [None]
+                |> List.map (fun forkState -> inputGen forkState |> GenResult.takeUntilStop)
+            let emits =
+                forkResults
+                |> List.collect (fun aggRes -> GenResult.emittedValues aggRes.results)
+            let newRunningStates =
+                forkResults
+                |> List.filter (fun res -> not res.isStopped)
+                |> List.map (fun res -> res.finalState)
+            return Control.Feedback (emits, newRunningStates)
+        }
+
+    let windowed windowSize currentValue =
+        accumulateOnePart windowSize currentValue |> fork
+
+
+    // ----------
+    // random / delay / slope
+    // ----------
+    
+    // TODO: Implement a random number generator that exposes it's serializable state.
+    let private dotnetRandom() = System.Random()
+    let random () =
+        fdb {
+            let! random = Init (dotnetRandom())
+            return Control.Feedback (random.NextDouble(), random)
+        }
+    
+    /// Delays a given value by 1 cycle.
+    let delay1 value =
+        fun state ->
+            match state with
+            | None -> GenResult.DiscardWith value
+            | Some delayed -> GenResult.Emit (delayed, value)
+    
+    /// Delays a given value by n cycle.
+    let delayn n value =
+        fdb {
+            let! initialValue = Init value
+            let! c = count 0 1
+            return Control.Feedback (initialValue, initialValue)
+        }
+    
+    /// Positive slope.
+    let inline slopePos input seed =
+        fdb {
+            let! state = Init seed
+            let res = state < input
+            return Control.Feedback(res, input)
+        }
+    
+    /// Negative slope.
+    let inline slopeNeg input seed =
+        fdb {
+            let! state = Init seed
+            let res = state < input
+            return Control.Feedback(res, input)
+        }
+    

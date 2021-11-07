@@ -22,6 +22,42 @@ type State<'rem, 'scurr, 'ssub> =
       remaining: 'rem list }
 
 
+module GenResult =
+    let isStop result = match result with | GenResult.Stop -> true | _ -> false
+
+    type AggregateResult<'o, 's> = { results: GenResult<'o, 's> list; isStopped: bool; finalState: 's option }
+
+    let mapUntilStop mapping (results: GenResult<_,_> list) =
+        // TODO: Implement a "UntilStopResult" that doesn't have 'Stop' as case and get rid of the failwith.
+        let resultsTilStop, finalState =
+            results
+            |> Seq.takeWhile (isStop >> not)
+            |> Seq.mapFold
+                (fun _ res ->
+                    let newState = 
+                        match res with
+                        | GenResult.Emit (_, s) -> Some s
+                        | GenResult.DiscardWith s -> Some s
+                        | GenResult.Stop -> failwith "Stop is not supported."
+                    mapping res, newState
+                )
+                None
+            |> fun (results, state) -> results |> Seq.toList, state
+        { results = resultsTilStop
+          isStopped = results.Length > resultsTilStop.Length
+          finalState = finalState }
+
+    let takeUntilStop results = mapUntilStop id results
+
+    let emittedValues (results: GenResult<_,_> list) =
+        results
+        |> List.choose (fun res ->
+            match res with
+            | GenResult.Emit (v, _) -> Some v
+            | _ -> None
+        )
+
+
 module Control =
     type Emit<'value> = Emit of 'value
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
@@ -31,32 +67,7 @@ module Control =
 
 module Gen =
     
-    let unwrap gen = let (Gen b) = gen in b
-
-
-    // --------
-    // Helper
-    // --------
-
-    [<RequireQualifiedAccess>]
-    type MapResult<'v, 's> =
-        | Emit of 'v * 's
-        | DiscardWith of 's
-
-    // TODO: seems we don't need that
-    ////let mapUntilStop mapping results =
-    ////    results 
-    ////    |> List.takeWhile (fun res ->
-    ////        match res with
-    ////        | GenResult.Stop -> false
-    ////        | _ -> true
-    ////    )
-    ////    |> List.map (fun res ->
-    ////        match res with
-    ////        | GenResult.Emit (v, s) -> MapResult.Emit (v, s) |> mapping
-    ////        | GenResult.DiscardWith s -> MapResult.DiscardWith s |> mapping
-    ////        | GenResult.Stop -> GenResult.Stop // this can't happen
-    ////    )
+    let unwrap (gen: Gen<_,_>) = let (Gen b) = gen in b
 
 
     // --------
