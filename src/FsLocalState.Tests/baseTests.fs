@@ -48,8 +48,9 @@ let [<TestCase>] ``Zero For Loop (gen)`` () =
 let [<TestCase>] ``Feedback: both binds + discard`` () =
     fdb {
         let! state = Init 0
-        let! c = count 10 10
-        let currValue = state + c
+        let! c1 = count 0 10
+        let! c2 = count 0 3
+        let currValue = state + c1 + c2
         let nextValue = state + 1
         if currValue % 2 = 0 then
             return Control.Feedback (currValue, nextValue)
@@ -57,7 +58,7 @@ let [<TestCase>] ``Feedback: both binds + discard`` () =
             return Control.DiscardWith nextValue
     }
     |> Gen.toListn 4
-    |> should equal [ 10; 32; 54; 76 ]
+    |> should equal [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
     
 let [<TestCase>] ``Stop (gen)`` () =
     gen {
