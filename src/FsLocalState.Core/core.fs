@@ -145,7 +145,8 @@ module Gen =
     /// The returned "feedback state" is then passed into f, which itself finally returns a
     /// Gen<FdbResult>.
     let bindFdb
-        f m
+        (f: 'o1 -> Gen<GenResult<FdbResult<'o2, 'o1>, 's2>, 'd>) // TODO: why is 's2 not necessarily 'd ?
+        (m: Init<'o1>)
         =
         fun state ->
             let lastFeed, lastFState =
@@ -154,7 +155,7 @@ module Gen =
                 | Some v  -> v.currState, v.subState
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
-                | GenResult.Emit (fdbRes: FdbResult<_,_>, fstate) ->
+                | GenResult.Emit (fdbRes: FdbResult<'o2, 'o1>, fstate) ->
                     GenResult.Emit (fdbRes.value, { currState = fdbRes.feedback; subState = Some fstate; remaining = [] })
                 | GenResult.DiscardWith fstate ->
                     GenResult.DiscardWith { currState = lastFeed; subState = Some fstate; remaining = [] }
