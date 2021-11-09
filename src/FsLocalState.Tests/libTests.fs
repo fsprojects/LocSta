@@ -78,15 +78,15 @@ let [<TestCase>] ``Accumulate many parts`` () =
 let [<TestCase>] ``Default on Stop`` () =
     let defaultValue = 42
     gen {
-        let g = [0..4] |> Gen.ofList
+        let g = [0..3] |> Gen.ofList
         let! v = g |> Gen.defaultOnStop defaultValue
         return Control.Emit v
     }
     |> Gen.toListn 10
     |> should equal
         [ 
-            0; 1; 2; 3; 4
-            defaultValue; defaultValue; defaultValue; defaultValue; defaultValue
+            0; 1; 2; 3
+            defaultValue; defaultValue; defaultValue; defaultValue; defaultValue; defaultValue
         ]
 
 let [<TestCase>] ``Fork`` () =

@@ -6,8 +6,7 @@
         * 'o: This stands for "output"
 *)
 
-type Gen<'o,'s> =
-    | Gen of ('s option -> 'o list)
+type Gen<'o,'s> = Gen of ('s option -> 'o list)
 
 // TODO: rename DiscardWith to Discard
 // TODO: 'f and f (as function name in bind) can be distracting
@@ -29,18 +28,16 @@ type GenResultGen<'o,'s> = GenResult<GenEmit<'o,'s>, GenDiscard<'s>>
 type GenForFdb<'o,'s,'f> = Gen<GenResult<FdbEmit<'o,'s,'f>, FdbDiscard<'s,'f>>, 's> 
 type GenResultFdb<'o,'s,'f> = GenResult<FdbEmit<'o,'s,'f>, FdbDiscard<'s,'f>>
 
-type Fx<'i,'o,'s> =
-    'i -> Gen<'o,'s>
+type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
 
-type Init<'f> =
-    | Init of 'f
+type Init<'f> = Init of 'f
 
 // TODO: rename currState -> mstate, subState: fstate
 [<Struct>]
-type GenState<'sm, 'sf, 'l> =
+type GenState<'sm, 'sf, 'm> =
     { mstate: 'sm
       fstate: 'sf option
-      leftovers: 'l list }
+      mleftovers: 'm list }
 
 
 module Control =
@@ -127,12 +124,12 @@ module Gen =
                 let fres = (unwrap fgen) lastFState
                 match fres with
                 | [] -> 
-                    let state = { mstate = mstate; fstate = lastFState; leftovers = leftovers }
+                    let state = { mstate = mstate; fstate = lastFState; mleftovers = leftovers }
                     [ discard state ]
                 | results ->
                     [ for res in results do yield processResult res mstate leftovers ]
             | GenResult.DiscardWith (GenDiscard stateM) ->
-                let state = { mstate = stateM; fstate = lastFState; leftovers = leftovers }
+                let state = { mstate = stateM; fstate = lastFState; mleftovers = leftovers }
                 [ discard state ]
             | GenResult.Stop ->
                 [ GenResult.Stop ]
@@ -143,7 +140,7 @@ module Gen =
             | [] ->
                 match lastMState with
                 | Some lastStateM ->
-                    let state = { mstate = lastStateM; fstate = lastFState; leftovers = [] }
+                    let state = { mstate = lastStateM; fstate = lastFState; mleftovers = [] }
                     [ discard state ]
                 | None ->
                     []
@@ -151,7 +148,7 @@ module Gen =
             let lastMState, lastFState, lastLeftovers =
                 match state with
                 | None -> None, None, []
-                | Some v -> Some v.mstate, v.fstate, v.leftovers
+                | Some v -> Some v.mstate, v.fstate, v.mleftovers
             match lastLeftovers with
             | x :: xs -> evalmres x lastFState xs
             | [] -> evalm lastMState lastFState
@@ -166,10 +163,10 @@ module Gen =
         let processResult res mstate leftovers =
             match res with
             | GenResult.Emit (GenEmit (fres, fstate)) ->
-                let state = { mstate = mstate; fstate = Some fstate; leftovers = leftovers }
+                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
                 GenResult.Emit (GenEmit (fres, state))
             | GenResult.DiscardWith (GenDiscard fstate) -> 
-                let state = { mstate = mstate; fstate = Some fstate; leftovers = leftovers }
+                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
                 GenResult.DiscardWith (GenDiscard state)
             | GenResult.Stop ->
                 GenResult.Stop
@@ -184,10 +181,10 @@ module Gen =
         let processResult res mstate leftovers =
             match res with
             | GenResult.Emit (FdbEmit (fres, fstate, ffeedback)) ->
-                let state = { mstate = mstate; fstate = Some fstate; leftovers = leftovers }
+                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
                 GenResult.Emit (FdbEmit (fres, state, ffeedback))
             | GenResult.DiscardWith (FdbDiscard (fstate, ffeedback)) -> 
-                let state = { mstate = mstate; fstate = Some fstate; leftovers = leftovers }
+                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
                 GenResult.DiscardWith (FdbDiscard (state, ffeedback))
             | GenResult.Stop -> 
                 GenResult.Stop
@@ -206,14 +203,14 @@ module Gen =
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
                 | GenResult.Emit (FdbEmit (fvalue, fstate, feedback)) ->
-                    let state = { mstate = feedback; fstate = Some fstate; leftovers = [] }
+                    let state = { mstate = feedback; fstate = Some fstate; mleftovers = [] }
                     GenResult.Emit (GenEmit (fvalue, state))
                 | GenResult.DiscardWith (FdbDiscard (fstate, feedback)) ->
                     let feedback =
                         match feedback with
                         | Some feedback -> feedback
                         | None -> lastFeed
-                    let state = { mstate = feedback; fstate = Some fstate; leftovers = [] }
+                    let state = { mstate = feedback; fstate = Some fstate; mleftovers = [] }
                     GenResult.DiscardWith (GenDiscard state)
                 | GenResult.Stop ->
                     GenResult.Stop
