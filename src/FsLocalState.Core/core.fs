@@ -118,117 +118,82 @@ module Gen =
     // bind
     // --------
 
+    let internal bindGenXxxGen discard processResult createX f m
+        =
+        let evalmres mres lastFState remaining =
+            match mres with
+            | GenResult.Emit (GenEmit (mres, mstate)) ->
+                let fgen = f mres
+                let fres = (unwrap fgen) lastFState
+                match fres with
+                | [] -> 
+                    let state = { currState = mstate; subState = lastFState; remaining = remaining }
+                    [ discard state ]
+                | results ->
+                    [ for res in results do yield processResult res mstate remaining ]
+            | GenResult.DiscardWith (GenDiscard stateM) ->
+                let state = { currState = stateM; subState = lastFState; remaining = remaining }
+                [ discard state ]
+            | GenResult.Stop ->
+                [ GenResult.Stop ]
+        let rec evalm lastMState lastFState =
+            match (unwrap m) lastMState with
+            | res :: remaining ->
+                evalmres res lastFState remaining
+            | [] ->
+                match lastMState with
+                | Some lastStateM ->
+                    let state = { currState = lastStateM; subState = lastFState; remaining = [] }
+                    [ discard state ]
+                | None ->
+                    []
+        fun state ->
+            let lastMState, lastFState, remaining =
+                match state with
+                | None -> None, None, []
+                | Some v -> Some v.currState, v.subState, v.remaining
+            match remaining with
+            | x :: xs -> evalmres x lastFState xs
+            | [] -> evalm lastMState lastFState
+        |> createX
+
     let bind
         (f: 'o1 -> GenForGen<'o2, 's2>)
         (m: GenForGen<'o1, 's1>)
         : GenForGen<'o2, GenState<'s1, 's2, GenResultGen<'o1, 's1>>>
         =
-        let evalmres mres lastFState remaining =
-            match mres with
-            | GenResult.Emit (GenEmit (mres, mstate)) ->
-                let fgen = f mres
-                let fres = (unwrap fgen) lastFState
-                match fres with
-                | [] -> 
-                    let state = { currState = mstate; subState = lastFState; remaining = remaining }
-                    [ GenResult.DiscardWith (GenDiscard state) ]
-                | results ->
-                    [ for res in results do
-                        match res with
-                        | GenResult.Emit (GenEmit (fres, fstate)) ->
-                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-                            yield GenResult.Emit (GenEmit (fres, state))
-                        | GenResult.DiscardWith (GenDiscard fstate) -> 
-                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-                            yield GenResult.DiscardWith (GenDiscard state)
-                        | GenResult.Stop -> 
-                            yield GenResult.Stop
-                    ]
-            | GenResult.DiscardWith (GenDiscard stateM) ->
-                let state = { currState = stateM; subState = lastFState; remaining = remaining }
-                [ GenResult.DiscardWith (GenDiscard state) ]
+        let discard state = GenResult.DiscardWith (GenDiscard state)
+        let processResult res mstate remaining =
+            match res with
+            | GenResult.Emit (GenEmit (fres, fstate)) ->
+                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                GenResult.Emit (GenEmit (fres, state))
+            | GenResult.DiscardWith (GenDiscard fstate) -> 
+                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                GenResult.DiscardWith (GenDiscard state)
             | GenResult.Stop ->
-                [ GenResult.Stop ]
-        let rec evalm lastMState lastFState =
-            match (unwrap m) lastMState with
-            | res :: remaining ->
-                evalmres res lastFState remaining
-            | [] ->
-                match lastMState with
-                | Some lastStateM ->
-                    let state = { currState = lastStateM; subState = lastFState; remaining = [] }
-                    [ GenResult.DiscardWith (GenDiscard state) ]
-                | None ->
-                    []
-        fun state ->
-            let lastMState, lastFState, remaining =
-                match state with
-                | None -> None, None, []
-                | Some v -> Some v.currState, v.subState, v.remaining
-            match remaining with
-            | x :: xs -> evalmres x lastFState xs
-            | [] -> evalm lastMState lastFState
-        |> createGen
+                GenResult.Stop
+        bindGenXxxGen discard processResult createGen f m
 
-    // TODO: This seems to be partially redundant with bind
-    let bindGenFdbFdb
-        (f: 'o1 -> GenForFdb<'o2, 'f, 's2>)
-        (m: GenForGen<'o1, 's1>)
-        : GenForFdb<_,_,_> // TODO
+    let internal bindGenFdbFdb
+        (f: 'o1 -> GenForFdb<'o2,'f,'s2>)
+        (m: GenForGen<'o1,'s1>)
+        : GenForFdb<'o2,'f,_> // TODO: _
         =
-        let evalmres mres lastFState remaining =
-            match mres with
-            | GenResult.Emit (GenEmit (mres, mstate)) ->
-                let fgen = f mres
-                let fres = (unwrap fgen) lastFState
-                match fres with
-                | [] -> 
-                    let state = { currState = mstate; subState = lastFState; remaining = remaining }
-                    [ GenResult.DiscardWith (FdbDiscard (None, state)) ]
-                | results ->
-                    [ for res in results do
-                        match res with
-                        | GenResult.Emit (FdbEmit (fres, ffeedback, fstate)) ->
-                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-                            yield GenResult.Emit (FdbEmit (fres, ffeedback, state))
-                        | GenResult.DiscardWith (FdbDiscard (ffeedback, fstate)) -> 
-                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-                            yield GenResult.DiscardWith (FdbDiscard (ffeedback, state))
-                        | GenResult.Stop -> 
-                            yield GenResult.Stop
-                    ]
-            | GenResult.DiscardWith (GenDiscard stateM) ->
-                let state = { currState = stateM; subState = lastFState; remaining = remaining }
-                [ GenResult.DiscardWith (FdbDiscard (None, state)) ]
-            | GenResult.Stop ->
-                [ GenResult.Stop ]
-        let rec evalm lastMState lastFState =
-            match (unwrap m) lastMState with
-            | res :: remaining ->
-                evalmres res lastFState remaining
-            | [] ->
-                match lastMState with
-                | Some lastStateM ->
-                    let state = { currState = lastStateM; subState = lastFState; remaining = [] }
-                    [ GenResult.DiscardWith (FdbDiscard (None, state)) ]
-                | None ->
-                    []
-        fun state ->
-            let lastMState, lastFState, remaining =
-                match state with
-                | None -> None, None, []
-                | Some v -> Some v.currState, v.subState, v.remaining
-            match remaining with
-            | x :: xs -> evalmres x lastFState xs
-            | [] -> evalm lastMState lastFState
-        |> createFdb
-        //fun state ->
-        //    [
-        //        //GenResult.Emit (FdbEmit (0, "Feedback", 23.8))
-        //    ] : list<GenResultFdb<'o2, 'f, _>>
-        //|> createFdb
+        let discard state = GenResult.DiscardWith (FdbDiscard (None, state))
+        let processResult res mstate remaining =
+            match res with
+            | GenResult.Emit (FdbEmit (fres, ffeedback, fstate)) ->
+                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                GenResult.Emit (FdbEmit (fres, ffeedback, state))
+            | GenResult.DiscardWith (FdbDiscard (ffeedback, fstate)) -> 
+                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                GenResult.DiscardWith (FdbDiscard (ffeedback, state))
+            | GenResult.Stop -> 
+                GenResult.Stop
+        bindGenXxxGen discard processResult createFdb f m
 
-    let bindInitFdbGen
+    let internal bindInitFdbGen
         (f: 'f -> GenForFdb<'o,'f,'s>)
         (m: Init<'f>)
         : GenForGen<_,_>
