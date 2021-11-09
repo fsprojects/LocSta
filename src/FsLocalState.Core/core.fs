@@ -20,14 +20,14 @@ type GenResult<'e, 'd> =
 // 'f bei Fdb sollte immer hinten stehen - als Erweiterung von Gen
 type GenEmit<'v,'s> = GenEmit of 'v * 's
 type GenDiscard<'s> = GenDiscard of 's
-type FdbEmit<'v,'f,'s> = FdbEmit of 'v * 'f * 's
-type FdbDiscard<'f,'s> = FdbDiscard of 'f option * 's
+type FdbEmit<'v,'s,'f> = FdbEmit of 'v * 's * 'f
+type FdbDiscard<'s,'f> = FdbDiscard of 's * 'f option
 
 type GenForGen<'o,'s> = Gen<GenResult<GenEmit<'o,'s>, GenDiscard<'s>>, 's> 
 type GenResultGen<'o,'s> = GenResult<GenEmit<'o,'s>, GenDiscard<'s>>
 
-type GenForFdb<'o,'f,'s> = Gen<GenResult<FdbEmit<'o,'f,'s>, FdbDiscard<'f,'s>>, 's> 
-type GenResultFdb<'o,'f,'s> = GenResult<FdbEmit<'o,'f,'s>, FdbDiscard<'f,'s>>
+type GenForFdb<'o,'s,'f> = Gen<GenResult<FdbEmit<'o,'s,'f>, FdbDiscard<'s,'f>>, 's> 
+type GenResultFdb<'o,'s,'f> = GenResult<FdbEmit<'o,'s,'f>, FdbDiscard<'s,'f>>
 
 type Fx<'i,'o,'s> =
     'i -> Gen<'o,'s>
@@ -37,10 +37,10 @@ type Init<'f> =
 
 // TODO: rename currState -> mstate, subState: fstate
 [<Struct>]
-type GenState<'scurr, 'ssub, 'rem> =
-    { mstate: 'scurr
-      fstate: 'ssub option
-      leftovers: 'rem list }
+type GenState<'sm, 'sf, 'l> =
+    { mstate: 'sm
+      fstate: 'sf option
+      leftovers: 'l list }
 
 
 module Control =
@@ -176,25 +176,25 @@ module Gen =
         bindGenXxxGen discard processResult createGen f m
 
     let internal bindGenFdbFdb
-        (f: 'o1 -> GenForFdb<'o2,'f,'s2>)
+        (f: 'o1 -> GenForFdb<'o2,'s2,'f>)
         (m: GenForGen<'o1,'s1>)
-        : GenForFdb<'o2,'f,_> // TODO: _
+        : GenForFdb<'o2,_,'f> // TODO: _
         =
-        let discard state = GenResult.DiscardWith (FdbDiscard (None, state))
+        let discard state = GenResult.DiscardWith (FdbDiscard (state, None))
         let processResult res mstate leftovers =
             match res with
-            | GenResult.Emit (FdbEmit (fres, ffeedback, fstate)) ->
+            | GenResult.Emit (FdbEmit (fres, fstate, ffeedback)) ->
                 let state = { mstate = mstate; fstate = Some fstate; leftovers = leftovers }
-                GenResult.Emit (FdbEmit (fres, ffeedback, state))
-            | GenResult.DiscardWith (FdbDiscard (ffeedback, fstate)) -> 
+                GenResult.Emit (FdbEmit (fres, state, ffeedback))
+            | GenResult.DiscardWith (FdbDiscard (fstate, ffeedback)) -> 
                 let state = { mstate = mstate; fstate = Some fstate; leftovers = leftovers }
-                GenResult.DiscardWith (FdbDiscard (ffeedback, state))
+                GenResult.DiscardWith (FdbDiscard (state, ffeedback))
             | GenResult.Stop -> 
                 GenResult.Stop
         bindGenXxxGen discard processResult createFdb f m
 
     let internal bindInitFdbGen
-        (f: 'f -> GenForFdb<'o,'f,'s>)
+        (f: 'f -> GenForFdb<'o,'s,'f>)
         (m: Init<'f>)
         : GenForGen<_,_>
         =
@@ -205,10 +205,10 @@ module Gen =
                 | Some v  -> v.mstate, v.fstate
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
-                | GenResult.Emit (FdbEmit (fvalue, feedback, fstate)) ->
+                | GenResult.Emit (FdbEmit (fvalue, fstate, feedback)) ->
                     let state = { mstate = feedback; fstate = Some fstate; leftovers = [] }
                     GenResult.Emit (GenEmit (fvalue, state))
-                | GenResult.DiscardWith (FdbDiscard (feedback, fstate)) ->
+                | GenResult.DiscardWith (FdbDiscard (fstate, feedback)) ->
                     let feedback =
                         match feedback with
                         | Some feedback -> feedback
@@ -244,12 +244,12 @@ module Gen =
         GenResult.DiscardWith (GenDiscard state) |> ofValueRepeating
     let returnStop<'v,'s> : GenForGen<'v,'s> =
         GenResult.Stop |> ofValueRepeating
-    let returnFeedbackStop<'v,'f,'s> : GenForFdb<'v,'f,'s> =
+    let returnFeedbackStop<'v,'s,'f> : GenForFdb<'v,'s,'f> =
         GenResult.Stop |> ofValueRepeating
-    let returnFeedback<'discard, 'v, 'f, 'si> (value: 'v) (feedback: 'f) : GenForFdb<'v, 'f, unit> =
-        GenResult.Emit (FdbEmit (value, feedback, ())) |> ofValueRepeating
-    let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : GenForFdb<'v, 'f, unit>  =
-        GenResult.DiscardWith (FdbDiscard (Some feedback, ())) |> ofValueRepeating
+    let returnFeedback<'discard, 'v, 's, 'f> (value: 'v) (feedback: 'f) : GenForFdb<'v, unit, 'f> =
+        GenResult.Emit (FdbEmit (value, (), feedback)) |> ofValueRepeating
+    let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : GenForFdb<'v, unit, 'f>  =
+        GenResult.DiscardWith (FdbDiscard ((), Some feedback)) |> ofValueRepeating
 
 
     // --------
