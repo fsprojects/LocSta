@@ -16,6 +16,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scratches", "scratches", "{
 		scratches\fiddle.fsx = scratches\fiddle.fsx
 		scratches\fiddle2.fsx = scratches\fiddle2.fsx
 		scratches\mostInnerState.fsx = scratches\mostInnerState.fsx
+		typeTestsGenFdb.fsx = typeTestsGenFdb.fsx
+		scratches\typeTestsGenFdb.fsx = scratches\typeTestsGenFdb.fsx
 		scratches\withMut2.fsx = scratches\withMut2.fsx
 		scratches\withMutableWhile.fsx = scratches\withMutableWhile.fsx
 	EndProjectSection

@@ -25,7 +25,7 @@ let [<TestCase>] ``Operator == gen int`` () =
     |> should equal [ 5 ]
 
 let [<TestCase>] ``Operator + gen gen`` () =
-    Gen.ofValueOnce 1 + Gen.ofValueOnce 2
+    Gen.returnValueOnce 1 + Gen.returnValueOnce 2
     |> take1
     |> should equal 3
 

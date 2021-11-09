@@ -222,31 +222,32 @@ module Gen =
     // return / yield
     // --------
 
-    let ofValueOnce value =
-        fun state -> 
-            [
-                GenResult.Emit (GenEmit (value, ()))
-                GenResult.Stop 
-            ]
-        |> createGen
-
-    let ofValueRepeating value : Gen<_,_> =
+    let internal ofGenResultRepeating value : Gen<_,_> =
         create (fun _ -> [ value ])
 
-    let returnValue<'v> (value: 'v) : GenForGen<'v, unit> =
-        GenResult.Emit (GenEmit (value, ())) |> ofValueRepeating
-    let returnValueThenStop (value: 'v) : GenForGen<'v, unit> =
-        ofValueOnce value
+    let internal ofGenResultOnce value : Gen<_,_> =
+        create (fun _ -> [ value; GenResult.Stop ])
+
+    let returnValueRepeating<'v> (value: 'v) : GenForGen<'v, unit> =
+        GenResult.Emit (GenEmit (value, ())) |> ofGenResultRepeating
+    
+    let returnValueOnce (value: 'v) : GenForGen<'v, unit> =
+        GenResult.Emit (GenEmit (value, ())) |> ofGenResultOnce
+    
     let returnDiscardWith<'v, 's> (state: 's) : GenForGen<'v,'s> =
-        GenResult.DiscardWith (GenDiscard state) |> ofValueRepeating
+        GenResult.DiscardWith (GenDiscard state) |> ofGenResultRepeating
+    
     let returnStop<'v,'s> : GenForGen<'v,'s> =
-        GenResult.Stop |> ofValueRepeating
+        GenResult.Stop |> ofGenResultRepeating
+    
     let returnFeedbackStop<'v,'s,'f> : GenForFdb<'v,'s,'f> =
-        GenResult.Stop |> ofValueRepeating
+        GenResult.Stop |> ofGenResultRepeating
+    
     let returnFeedback<'discard, 'v, 's, 'f> (value: 'v) (feedback: 'f) : GenForFdb<'v, unit, 'f> =
-        GenResult.Emit (FdbEmit (value, (), feedback)) |> ofValueRepeating
+        GenResult.Emit (FdbEmit (value, (), feedback)) |> ofGenResultRepeating
+    
     let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : GenForFdb<'v, unit, 'f>  =
-        GenResult.DiscardWith (FdbDiscard ((), Some feedback)) |> ofValueRepeating
+        GenResult.DiscardWith (FdbDiscard ((), Some feedback)) |> ofGenResultRepeating
 
 
     // --------
@@ -340,7 +341,7 @@ module Gen =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
         // returns
-        member _.Return(Control.Emit value) = returnValue value
+        member _.Return(Control.Emit value) = returnValueRepeating value
         member _.Return(Control.DiscardWith state) = returnDiscardWith state
         member _.Return(Control.Stop) = returnStop
         
