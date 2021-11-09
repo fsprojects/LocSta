@@ -1,34 +1,43 @@
 ﻿namespace FsLocalState
 
-type Gen<'o, 's> =
+// TODO
+(*
+    A hint for the type argument names:
+        * 'o: This stands for "output"
+*)
+
+type Gen<'o,'s> =
     | Gen of ('s option -> 'o list)
 
 // TODO: rename DiscardWith to Discard
+// TODO: 'f and f (as function name in bind) can be distracting
 [<RequireQualifiedAccess>]
 type GenResult<'e, 'd> =
     | Emit of 'e
     | DiscardWith of 'd
     | Stop
 
-type GenEmit<'v, 's> = GenEmit of 'v * 's
+// 'f bei Fdb sollte immer hinten stehen - als Erweiterung von Gen
+type GenEmit<'v,'s> = GenEmit of 'v * 's
 type GenDiscard<'s> = GenDiscard of 's
-type FdbEmit<'v, 'f, 's> = FdbEmit of 'v * 'f * 's
-type FdbDiscard<'f, 's> = FdbDiscard of 'f * 's
+type FdbEmit<'v,'f,'s> = FdbEmit of 'v * 'f * 's
+type FdbDiscard<'f,'s> = FdbDiscard of 'f option * 's
 
-type GenResultGen<'o, 's> = GenResult<GenEmit<'o, 's>, GenDiscard<'s>>
-type GenResultFdb<'o, 'f, 's> = GenResult<FdbEmit<'o, 'f, 's>, FdbDiscard<'f, 's>>
+type GenForGen<'o,'s> = Gen<GenResult<GenEmit<'o,'s>, GenDiscard<'s>>, 's> 
+type GenResultGen<'o,'s> = GenResult<GenEmit<'o,'s>, GenDiscard<'s>>
 
-type GenForGen<'o, 's> = Gen<GenResult<GenEmit<'o,'s>, GenDiscard<'s>>, 's> 
-type GenForFdb<'o, 'f, 's> = Gen<GenResult<FdbEmit<'o,'f,'s>, FdbDiscard<'f,'s>>, 's> 
+type GenForFdb<'o,'f,'s> = Gen<GenResult<FdbEmit<'o,'f,'s>, FdbDiscard<'f,'s>>, 's> 
+type GenResultFdb<'o,'f,'s> = GenResult<FdbEmit<'o,'f,'s>, FdbDiscard<'f,'s>>
 
-type Fx<'i, 'o, 's> =
-    'i -> Gen<'o, 's>
+type Fx<'i,'o,'s> =
+    'i -> Gen<'o,'s>
 
 type Init<'f> =
     | Init of 'f
 
+// TODO: rename currState -> mstate, subState: fstate
 [<Struct>]
-type State<'scurr, 'ssub, 'rem> =
+type GenState<'scurr, 'ssub, 'rem> =
     { currState: 'scurr
       subState: 'ssub option
       remaining: 'rem list }
@@ -92,7 +101,7 @@ module Gen =
     /// Single case DU constructor.
     let create f = Gen f
     let createGen f : GenForGen<_,_> = Gen f
-    let private createFdb f : GenForFdb<_,_,_> = Gen f
+    let createFdb f : GenForFdb<_,_,_> = Gen f
 
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
     let createWithSeed f seed =
@@ -112,31 +121,29 @@ module Gen =
     let bind
         (f: 'o1 -> GenForGen<'o2, 's2>)
         (m: GenForGen<'o1, 's1>)
-        : GenForGen<'o2, State<'s1, 's2, GenResultGen<'o1, 's1>>>
+        : GenForGen<'o2, GenState<'s1, 's2, GenResultGen<'o1, 's1>>>
         =
-        let evalf fgen mstate lastFState remaining =
-            let fres = (unwrap fgen) lastFState
-            match fres with
-            | [] -> 
-                let state = { currState = mstate; subState = lastFState; remaining = remaining }
-                [ GenResult.DiscardWith (GenDiscard state) ]
-            | results ->
-                [ for res in results do
-                    match res with
-                    | GenResult.Emit (GenEmit (fres, fstate)) ->
-                        let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-                        yield GenResult.Emit (GenEmit (fres, state))
-                    | GenResult.DiscardWith (GenDiscard fstate) -> 
-                        let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-                        yield GenResult.DiscardWith (GenDiscard state)
-                    | GenResult.Stop -> 
-                        yield GenResult.Stop
-                ]
         let evalmres mres lastFState remaining =
             match mres with
             | GenResult.Emit (GenEmit (mres, mstate)) ->
                 let fgen = f mres
-                evalf fgen mstate lastFState remaining
+                let fres = (unwrap fgen) lastFState
+                match fres with
+                | [] -> 
+                    let state = { currState = mstate; subState = lastFState; remaining = remaining }
+                    [ GenResult.DiscardWith (GenDiscard state) ]
+                | results ->
+                    [ for res in results do
+                        match res with
+                        | GenResult.Emit (GenEmit (fres, fstate)) ->
+                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                            yield GenResult.Emit (GenEmit (fres, state))
+                        | GenResult.DiscardWith (GenDiscard fstate) -> 
+                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                            yield GenResult.DiscardWith (GenDiscard state)
+                        | GenResult.Stop -> 
+                            yield GenResult.Stop
+                    ]
             | GenResult.DiscardWith (GenDiscard stateM) ->
                 let state = { currState = stateM; subState = lastFState; remaining = remaining }
                 [ GenResult.DiscardWith (GenDiscard state) ]
@@ -144,7 +151,8 @@ module Gen =
                 [ GenResult.Stop ]
         let rec evalm lastMState lastFState =
             match (unwrap m) lastMState with
-            | res :: remaining -> evalmres res lastFState remaining
+            | res :: remaining ->
+                evalmres res lastFState remaining
             | [] ->
                 match lastMState with
                 | Some lastStateM ->
@@ -162,63 +170,63 @@ module Gen =
             | [] -> evalm lastMState lastFState
         |> createGen
 
+    // TODO: This seems to be partially redundant with bind
     let bindGenFdbFdb
         (f: 'o1 -> GenForFdb<'o2, 'f, 's2>)
         (m: GenForGen<'o1, 's1>)
         : GenForFdb<_,_,_> // TODO
         =
-        //let evalf fgen mstate lastFState remaining =
-        //    let fres = (unwrap fgen) lastFState
-        //    match fres with
-        //    | [] -> 
-        //        let state = { currState = mstate; subState = lastFState; remaining = remaining }
-        //        [ GenResult.DiscardWith (FdbDiscard state) ]
-        //    | results ->
-        //        [ for res in results do
-        //            match res with
-        //            | GenResult.Emit (GenEmit (fres, fstate)) ->
-        //                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-        //                yield GenResult.Emit (GenEmit (fres, state))
-        //            | GenResult.DiscardWith (GenDiscard fstate) -> 
-        //                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
-        //                yield GenResult.DiscardWith (GenDiscard state)
-        //            | GenResult.Stop -> 
-        //                yield GenResult.Stop
-        //        ]
-        //let evalmres mres lastFState remaining =
-        //    match mres with
-        //    | GenResult.Emit (GenEmit (mres, mstate)) ->
-        //        let fgen = f mres
-        //        evalf fgen mstate lastFState remaining
-        //    | GenResult.DiscardWith (GenDiscard stateM) ->
-        //        let state = { currState = stateM; subState = lastFState; remaining = remaining }
-        //        [ GenResult.DiscardWith (GenDiscard state) ]
-        //    | GenResult.Stop ->
-        //        [ GenResult.Stop ]
-        //let rec evalm lastMState lastFState =
-        //    match (unwrap m) lastMState with
-        //    | res :: remaining -> evalmres res lastFState remaining
-        //    | [] ->
-        //        match lastMState with
-        //        | Some lastStateM ->
-        //            let state = { currState = lastStateM; subState = lastFState; remaining = [] }
-        //            [ GenResult.DiscardWith (GenDiscard state) ]
-        //        | None ->
-        //            []
-        //fun state ->
-        //    let lastMState, lastFState, remaining =
-        //        match state with
-        //        | None -> None, None, []
-        //        | Some v -> Some v.currState, v.subState, v.remaining
-        //    match remaining with
-        //    | x :: xs -> evalmres x lastFState xs
-        //    | [] -> evalm lastMState lastFState
-        //|> createFdb
+        let evalmres mres lastFState remaining =
+            match mres with
+            | GenResult.Emit (GenEmit (mres, mstate)) ->
+                let fgen = f mres
+                let fres = (unwrap fgen) lastFState
+                match fres with
+                | [] -> 
+                    let state = { currState = mstate; subState = lastFState; remaining = remaining }
+                    [ GenResult.DiscardWith (FdbDiscard (None, state)) ]
+                | results ->
+                    [ for res in results do
+                        match res with
+                        | GenResult.Emit (FdbEmit (fres, ffeedback, fstate)) ->
+                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                            yield GenResult.Emit (FdbEmit (fres, ffeedback, state))
+                        | GenResult.DiscardWith (FdbDiscard (ffeedback, fstate)) -> 
+                            let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+                            yield GenResult.DiscardWith (FdbDiscard (ffeedback, state))
+                        | GenResult.Stop -> 
+                            yield GenResult.Stop
+                    ]
+            | GenResult.DiscardWith (GenDiscard stateM) ->
+                let state = { currState = stateM; subState = lastFState; remaining = remaining }
+                [ GenResult.DiscardWith (FdbDiscard (None, state)) ]
+            | GenResult.Stop ->
+                [ GenResult.Stop ]
+        let rec evalm lastMState lastFState =
+            match (unwrap m) lastMState with
+            | res :: remaining ->
+                evalmres res lastFState remaining
+            | [] ->
+                match lastMState with
+                | Some lastStateM ->
+                    let state = { currState = lastStateM; subState = lastFState; remaining = [] }
+                    [ GenResult.DiscardWith (FdbDiscard (None, state)) ]
+                | None ->
+                    []
         fun state ->
-            [
-                GenResult.Emit (FdbEmit (0, "Feedback", 23.8))
-            ]
+            let lastMState, lastFState, remaining =
+                match state with
+                | None -> None, None, []
+                | Some v -> Some v.currState, v.subState, v.remaining
+            match remaining with
+            | x :: xs -> evalmres x lastFState xs
+            | [] -> evalm lastMState lastFState
         |> createFdb
+        //fun state ->
+        //    [
+        //        //GenResult.Emit (FdbEmit (0, "Feedback", 23.8))
+        //    ] : list<GenResultFdb<'o2, 'f, _>>
+        //|> createFdb
 
     let bindInitFdbGen
         (f: 'f -> GenForFdb<'o,'f,'s>)
@@ -236,6 +244,10 @@ module Gen =
                     let state = { currState = feedback; subState = Some fstate; remaining = [] }
                     GenResult.Emit (GenEmit (fvalue, state))
                 | GenResult.DiscardWith (FdbDiscard (feedback, fstate)) ->
+                    let feedback =
+                        match feedback with
+                        | Some feedback -> feedback
+                        | None -> lastFeed
                     let state = { currState = feedback; subState = Some fstate; remaining = [] }
                     GenResult.DiscardWith (GenDiscard state)
                 | GenResult.Stop ->
@@ -272,7 +284,7 @@ module Gen =
     let returnFeedback<'discard, 'v, 'f, 'si> (value: 'v) (feedback: 'f) : GenForFdb<'v, 'f, unit> =
         GenResult.Emit (FdbEmit (value, feedback, ())) |> ofValueRepeating
     let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : GenForFdb<'v, 'f, unit>  =
-        GenResult.DiscardWith (FdbDiscard (feedback, ())) |> ofValueRepeating
+        GenResult.DiscardWith (FdbDiscard (Some feedback, ())) |> ofValueRepeating
 
 
     // --------

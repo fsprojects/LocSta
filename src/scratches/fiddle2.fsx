@@ -20,16 +20,7 @@ open FsLocalState
 let bind
     (f: 'o1 -> GenForGen<'o2, 's2>)
     (m: GenForGen<'o1, 's1>)
-    : GenForGen<'o2, State<'s1, 's2, GenResultGen<'o1, 's1>>>
-    =
-    fun state ->
-        failwith ""
-    |> Gen.createGen
-
-let bindInitFdbGen
-    (f: 'f -> GenForFdb<'o,'f,'s>)
-    (m: Init<'f>)
-    : GenForGen<_,_>
+    : GenForGen<'o2, GenState<'s1, 's2, GenResultGen<'o1, 's1>>>
     =
     fun state ->
         failwith ""
@@ -47,13 +38,13 @@ let bindInitFdbGen
 let bindGenFdbFdb
     (f: 'o1 -> GenForFdb<'o2, 'f, 's2>)
     (m: GenForGen<'o1, 's1>)
-    //: GenForFdb<'o1, 'f, 's2> // TODO
+    : GenForFdb<'o1, 'f, 's2> // TODO
     =
     fun state ->
         failwith ""
     |> Gen.createFdb
 
-let a =
+let a () =
     Init 0 |> bindInitFdbGen (fun state ->
     count 0 1 |> bindGenFdbFdb (fun c1 ->
     count 0 1 |> bindGenFdbFdb (fun c2 ->

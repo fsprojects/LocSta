@@ -10,34 +10,6 @@ open FsLocalState
 open NUnit.Framework
 
 
-let a = 
-    fdb {
-        let! state = Init "Hello"
-        let! c1 = count 0 1
-        let! c2 = count 5 1
-        return Control.Feedback ($"{state} {c1}-{c2}", "")
-    }
-    |> Gen.toListn 10
-
-
-let x =
-    Init 0 |> Gen.bindInitFdbGen (fun state ->
-        Gen.returnFeedback state 12
-    )
-
-// TODO: In-Depth docu
-// TODO: can re now replace gen with fdb?
-let y =
-    Init 0 |> Gen.bindInitFdbGen (fun state ->
-    count 0 1 |> Gen.bindGenFdbFdb (fun c1 ->
-    count 0 1 |> Gen.bindGenFdbFdb (fun c2 ->
-    Gen.returnFeedback state (c1 + c2)
-    )))
-
-
-
-
-
 let [<TestCase>] ``Reset by current`` () =
     count 0 1
     |> whenFuncThenReset (fun v -> v = 5)
