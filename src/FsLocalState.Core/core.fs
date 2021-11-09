@@ -92,7 +92,7 @@ module Gen =
     /// Single case DU constructor.
     let create f = Gen f
     let createGen f : GenForGen<_,_> = Gen f
-    let createFdb f : GenForFdb<_,_,_> = Gen f
+    let private createFdb f : GenForFdb<_,_,_> = Gen f
 
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
     let createWithSeed f seed =
@@ -112,6 +112,7 @@ module Gen =
     let bind
         (f: 'o1 -> GenForGen<'o2, 's2>)
         (m: GenForGen<'o1, 's1>)
+        : GenForGen<'o2, State<'s1, 's2, GenResultGen<'o1, 's1>>>
         =
         let evalf fgen mstate lastFState remaining =
             let fres = (unwrap fgen) lastFState
@@ -159,20 +160,70 @@ module Gen =
             match remaining with
             | x :: xs -> evalmres x lastFState xs
             | [] -> evalm lastMState lastFState
-        |> create
+        |> createGen
 
-    let bindGenFdb
-        (f: _ -> GenForFdb<'o,'f,'s>)
-        (m: GenForGen<_,_>)
-        : GenForFdb<_,_,_>
+    let bindGenFdbFdb
+        (f: 'o1 -> GenForFdb<'o2, 'f, 's2>)
+        (m: GenForGen<'o1, 's1>)
+        : GenForFdb<_,_,_> // TODO
         =
+        //let evalf fgen mstate lastFState remaining =
+        //    let fres = (unwrap fgen) lastFState
+        //    match fres with
+        //    | [] -> 
+        //        let state = { currState = mstate; subState = lastFState; remaining = remaining }
+        //        [ GenResult.DiscardWith (FdbDiscard state) ]
+        //    | results ->
+        //        [ for res in results do
+        //            match res with
+        //            | GenResult.Emit (GenEmit (fres, fstate)) ->
+        //                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+        //                yield GenResult.Emit (GenEmit (fres, state))
+        //            | GenResult.DiscardWith (GenDiscard fstate) -> 
+        //                let state = { currState = mstate; subState = Some fstate; remaining = remaining }
+        //                yield GenResult.DiscardWith (GenDiscard state)
+        //            | GenResult.Stop -> 
+        //                yield GenResult.Stop
+        //        ]
+        //let evalmres mres lastFState remaining =
+        //    match mres with
+        //    | GenResult.Emit (GenEmit (mres, mstate)) ->
+        //        let fgen = f mres
+        //        evalf fgen mstate lastFState remaining
+        //    | GenResult.DiscardWith (GenDiscard stateM) ->
+        //        let state = { currState = stateM; subState = lastFState; remaining = remaining }
+        //        [ GenResult.DiscardWith (GenDiscard state) ]
+        //    | GenResult.Stop ->
+        //        [ GenResult.Stop ]
+        //let rec evalm lastMState lastFState =
+        //    match (unwrap m) lastMState with
+        //    | res :: remaining -> evalmres res lastFState remaining
+        //    | [] ->
+        //        match lastMState with
+        //        | Some lastStateM ->
+        //            let state = { currState = lastStateM; subState = lastFState; remaining = [] }
+        //            [ GenResult.DiscardWith (GenDiscard state) ]
+        //        | None ->
+        //            []
+        //fun state ->
+        //    let lastMState, lastFState, remaining =
+        //        match state with
+        //        | None -> None, None, []
+        //        | Some v -> Some v.currState, v.subState, v.remaining
+        //    match remaining with
+        //    | x :: xs -> evalmres x lastFState xs
+        //    | [] -> evalm lastMState lastFState
+        //|> createFdb
         fun state ->
-            failwith ""
-        |> create
+            [
+                GenResult.Emit (FdbEmit (0, "Feedback", 23.8))
+            ]
+        |> createFdb
 
-    let bindInitFdb
+    let bindInitFdbGen
         (f: 'f -> GenForFdb<'o,'f,'s>)
         (m: Init<'f>)
+        : GenForGen<_,_>
         =
         fun state ->
             let lastFeed, lastFState =
@@ -190,7 +241,7 @@ module Gen =
                 | GenResult.Stop ->
                     GenResult.Stop
             ]
-        |> create
+        |> createGen
 
 
     // --------
@@ -321,9 +372,9 @@ module Gen =
         
     type FeedbackBuilder() =
         inherit BaseBuilder()
-        member _.Bind(m, f) = bindInitFdb f m
+        member _.Bind(m, f) = bindInitFdbGen f m
         member _.Bind(m, f) = bind f m
-        member _.Bind(m, f) = bindGenFdb f m
+        member _.Bind(m, f) = bindGenFdbFdb f m
         // returns
         member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
         member _.Return(Control.DiscardWith state) = returnFeedbackDiscardWith state
