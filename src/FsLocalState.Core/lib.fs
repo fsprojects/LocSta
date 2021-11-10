@@ -254,10 +254,14 @@ module Gen =
     
     /// Delays a given value by n cycle.
     let delayn n value =
-        feed {
-            let! initialValue = Init value
-            return Feed.Feedback (initialValue, initialValue)
-        }
+        failwith "TODO"
+        //feed {
+        //    let! initialValue = Init value
+        //    return Feed.Feedback (initialValue, initialValue)
+        //}
+
+    // TODO: first (find)
+    // TODO: Zip starting + current
     
     /// Positive slope.
     let inline slopePos input seed =
