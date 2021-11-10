@@ -22,6 +22,7 @@ type Res<'e, 'd> =
 
 type LoopEmit<'v,'s> = LoopEmit of 'v * 's
 type LoopDiscard<'s> = LoopDiscard of 's
+
 type FeedEmit<'v,'s,'f> = FeedEmit of 'v * 's * 'f
 type FeedDiscard<'s,'f> = FeedDiscard of 's * 'f option
 
@@ -38,7 +39,7 @@ type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
 [<Struct>]
 type GenState<'sm, 'sk, 'm> =
     { mstate: 'sm
-      fstate: 'sk option
+      kstate: 'sk option
       mleftovers: 'm list }
 
 
@@ -122,102 +123,102 @@ module Gen =
     // bind
     // --------
 
-    let internal bindLoopWhateverGen discard processResult createWhatever f m
+    let internal bindLoopWhateverGen discard processResult createWhatever k m
         =
-        let evalmres mres lastFState leftovers =
+        let evalmres mres lastKState leftovers =
             match mres with
             | Res.Emit (LoopEmit (mres, mstate)) ->
-                let fgen = f mres
-                let fres = (unwrap fgen) lastFState
-                match fres with
+                let kgen = k mres
+                let kres = (unwrap kgen) lastKState
+                match kres with
                 | [] -> 
-                    let state = { mstate = mstate; fstate = lastFState; mleftovers = leftovers }
+                    let state = { mstate = mstate; kstate = lastKState; mleftovers = leftovers }
                     [ discard state ]
                 | results ->
                     [ for res in results do yield processResult res mstate leftovers ]
             | Res.DiscardWith (LoopDiscard stateM) ->
-                let state = { mstate = stateM; fstate = lastFState; mleftovers = leftovers }
+                let state = { mstate = stateM; kstate = lastKState; mleftovers = leftovers }
                 [ discard state ]
             | Res.Stop ->
                 [ Res.Stop ]
-        let rec evalm lastMState lastFState =
+        let rec evalm lastMState lastKState =
             match (unwrap m) lastMState with
             | res :: leftovers ->
-                evalmres res lastFState leftovers
+                evalmres res lastKState leftovers
             | [] ->
                 match lastMState with
                 | Some lastStateM ->
-                    let state = { mstate = lastStateM; fstate = lastFState; mleftovers = [] }
+                    let state = { mstate = lastStateM; kstate = lastKState; mleftovers = [] }
                     [ discard state ]
                 | None ->
                     []
         fun state ->
-            let lastMState, lastFState, lastLeftovers =
+            let lastMState, lastKState, lastLeftovers =
                 match state with
                 | None -> None, None, []
-                | Some v -> Some v.mstate, v.fstate, v.mleftovers
+                | Some state -> Some state.mstate, state.kstate, state.mleftovers
             match lastLeftovers with
-            | x :: xs -> evalmres x lastFState xs
-            | [] -> evalm lastMState lastFState
+            | x :: xs -> evalmres x lastKState xs
+            | [] -> evalm lastMState lastKState
         |> createWhatever
 
     let bind
-        (f: 'o1 -> LoopGen<'o2, 's2>)
+        (k: 'o1 -> LoopGen<'o2, 's2>)
         (m: LoopGen<'o1, 's1>)
         : LoopGen<'o2, GenState<'s1, 's2, LoopRes<'o1, 's1>>>
         =
         let discard state = Res.DiscardWith (LoopDiscard state)
         let processResult res mstate leftovers =
             match res with
-            | Res.Emit (LoopEmit (fres, fstate)) ->
-                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                Res.Emit (LoopEmit (fres, state))
-            | Res.DiscardWith (LoopDiscard fstate) -> 
-                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
+            | Res.Emit (LoopEmit (kres, kstate)) ->
+                let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
+                Res.Emit (LoopEmit (kres, state))
+            | Res.DiscardWith (LoopDiscard kstate) -> 
+                let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
                 Res.DiscardWith (LoopDiscard state)
             | Res.Stop ->
                 Res.Stop
-        bindLoopWhateverGen discard processResult createGen f m
+        bindLoopWhateverGen discard processResult createGen k m
 
     let internal bindLoopFeedFeed
-        (f: 'o1 -> FeedGen<'o2,'s2,'f>)
+        (k: 'o1 -> FeedGen<'o2,'s2,'f>)
         (m: LoopGen<'o1,'s1>)
         : FeedGen<'o2,_,'f> // TODO: _
         =
         let discard state = Res.DiscardWith (FeedDiscard (state, None))
         let processResult res mstate leftovers =
             match res with
-            | Res.Emit (FeedEmit (fres, fstate, ffeedback)) ->
-                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                Res.Emit (FeedEmit (fres, state, ffeedback))
-            | Res.DiscardWith (FeedDiscard (fstate, ffeedback)) -> 
-                let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                Res.DiscardWith (FeedDiscard (state, ffeedback))
+            | Res.Emit (FeedEmit (kres, kstate, kfeedback)) ->
+                let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
+                Res.Emit (FeedEmit (kres, state, kfeedback))
+            | Res.DiscardWith (FeedDiscard (kstate, kfeedback)) -> 
+                let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
+                Res.DiscardWith (FeedDiscard (state, kfeedback))
             | Res.Stop -> 
                 Res.Stop
-        bindLoopWhateverGen discard processResult createFdb f m
+        bindLoopWhateverGen discard processResult createFdb k m
 
     let internal bindInitFdbGen
-        (f: 'f -> FeedGen<'o,'s,'f>)
+        (k: 'f -> FeedGen<'o,'s,'f>)
         (m: Init<'f>)
         : LoopGen<_,_>
         =
         fun state ->
-            let lastFeed, lastFState =
+            let lastFeed, lastKState =
                 match state with
                 | None -> let (Init m) = m in m, None
-                | Some v  -> v.mstate, v.fstate
-            [ for res in (unwrap (f lastFeed)) lastFState do
+                | Some state  -> state.mstate, state.kstate
+            [ for res in (unwrap (k lastFeed)) lastKState do
                 match res with
-                | Res.Emit (FeedEmit (fvalue, fstate, feedback)) ->
-                    let state = { mstate = feedback; fstate = Some fstate; mleftovers = [] }
-                    Res.Emit (LoopEmit (fvalue, state))
-                | Res.DiscardWith (FeedDiscard (fstate, feedback)) ->
+                | Res.Emit (FeedEmit (kvalue, kstate, feedback)) ->
+                    let state = { mstate = feedback; kstate = Some kstate; mleftovers = [] }
+                    Res.Emit (LoopEmit (kvalue, state))
+                | Res.DiscardWith (FeedDiscard (kstate, feedback)) ->
                     let feedback =
                         match feedback with
                         | Some feedback -> feedback
                         | None -> lastFeed
-                    let state = { mstate = feedback; fstate = Some fstate; mleftovers = [] }
+                    let state = { mstate = feedback; kstate = Some kstate; mleftovers = [] }
                     Res.DiscardWith (LoopDiscard state)
                 | Res.Stop ->
                     Res.Stop
@@ -229,11 +230,11 @@ module Gen =
     // return / yield
     // --------
 
-    let internal ofGenResultRepeating value : Gen<_,_> =
-        create (fun _ -> [ value ])
+    let internal ofGenResultRepeating (res: Res<_,_>) : Gen<_,_> =
+        create (fun _ -> [ res ])
 
-    let internal ofGenResultOnce value : Gen<_,_> =
-        create (fun _ -> [ value; Res.Stop ])
+    let internal ofGenResultOnce (res: Res<_,_>) : Gen<_,_> =
+        create (fun _ -> [ res; Res.Stop ])
 
     let returnValueRepeating<'v> (value: 'v) : LoopGen<'v, unit> =
         Res.Emit (LoopEmit (value, ())) |> ofGenResultRepeating
@@ -264,21 +265,21 @@ module Gen =
     let ofSeq (s: seq<_>) =
         fun enumerator ->
             let enumerator = enumerator |> Option.defaultWith (fun () -> s.GetEnumerator())
-            [
+            let nextValue =
                 match enumerator.MoveNext() with
                 | true -> Res.Emit (LoopEmit (enumerator.Current, enumerator))
                 | false -> Res.Stop
-            ]
+            [ nextValue ]
         |> createGen
         
     let ofList (list: list<_>) =
         fun l ->
             let l = l |> Option.defaultValue list
-            [
+            let res =
                 match l with
                 | x::xs -> Res.Emit (LoopEmit (x, xs))
                 | [] -> Res.Stop
-            ]
+            [ res ]
         |> createGen
 
 
