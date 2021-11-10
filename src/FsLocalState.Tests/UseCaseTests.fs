@@ -2,20 +2,8 @@ module UseCaseTests
 
 open FsUnit
 open FsLocalState
+open FsLocalState.Lib.Gen
 open NUnit.Framework
-
-
-let [<TestCase>] ``Stop after Emit`` () =
-    let expect = 3
-    loop {
-        let! c = count 0 1
-        if c = expect then
-            return Loop.Emit c
-            return Loop.Stop
-    }
-    |> Gen.toList
-    |> List.exactlyOne
-    |> should equal expect
 
 
 //let [<TestCase>] ``Filter map`` () =

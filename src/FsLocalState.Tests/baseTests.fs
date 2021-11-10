@@ -7,6 +7,7 @@ module BaseTests
 
 open FsUnit
 open FsLocalState
+open FsLocalState.Lib.Gen
 open NUnit.Framework
 
 let [<TestCase>] ``Pairwise`` () =
@@ -44,6 +45,19 @@ let [<TestCase>] ``Zero For Loop (gen)`` () =
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
+
+
+let [<TestCase>] ``Stop after Emit`` () =
+    let expect = 3
+    loop {
+        let! c = count 0 1
+        if c = expect then
+            return Loop.Emit c
+            return Loop.Stop
+    }
+    |> Gen.toList
+    |> List.exactlyOne
+    |> should equal expect
 
 let [<TestCase>] ``Feedback: both binds + discard`` () =
     feed {

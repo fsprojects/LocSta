@@ -7,6 +7,7 @@ module ArithmeticTests
 
 open FsUnit
 open FsLocalState
+open FsLocalState.Lib.Gen
 open NUnit.Framework
 
 let take1 g = g |> Gen.toListn 1 |> List.exactlyOne

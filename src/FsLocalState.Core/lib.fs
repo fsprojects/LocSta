@@ -3,9 +3,11 @@ module FsLocalState.Lib
 
 open FsLocalState
 
-[<AutoOpen>]
+// TODO: document each one of those
+
 module Gen =
-    
+
+
     // --------
     // map / apply / transformation
     // --------
@@ -23,9 +25,6 @@ module Gen =
 
     let mapValue proj (inputGen: LoopGen<_,_>) =
         mapValueAndState (fun v _ -> proj v) inputGen
-
-    let includeState (inputGen: LoopGen<_,_>) =
-        mapValueAndState (fun v s -> v,s) inputGen
 
     let apply xGen fGen =
         loop {
@@ -84,17 +83,17 @@ module Gen =
     let whenValueThenStop (pred: bool) (inputGen: LoopGen<_,_>) =
         whenValueThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
-    let whenGenThen (pred: LoopGen<_,_>) onTrue onFalse (inputGen: LoopGen<_,_>) =
+    let whenThen (pred: LoopGen<_,_>) onTrue onFalse (inputGen: LoopGen<_,_>) =
         loop {
             let! pred = pred
             return! whenValueThen pred onTrue onFalse inputGen
         }
 
-    let whenGenThenReset (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
-        whenGenThen pred emitFuncForMapValue resetFuncForMapValue inputGen
+    let whenThenReset (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
+        whenThen pred emitFuncForMapValue resetFuncForMapValue inputGen
 
-    let whenGenThenStop (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
-        whenGenThen pred emitFuncForMapValue stopFuncForMapValue inputGen
+    let whenThenStop (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
+        whenThen pred emitFuncForMapValue stopFuncForMapValue inputGen
 
     // TODO: doOnStop?
 
@@ -164,6 +163,10 @@ module Gen =
         |> Gen.create
 
     // TODO: Test / Docu
+    let includeState (inputGen: LoopGen<_,_>) =
+        mapValueAndState (fun v s -> v,s) inputGen
+
+    // TODO: Test / Docu
     let originalResult inputGen =
         fun state ->
             [
@@ -180,7 +183,7 @@ module Gen =
 
 
     // ----------
-    // accumulate
+    // accumulate, etc.
     // ----------
 
     let accumulate currentValue =
@@ -224,6 +227,7 @@ module Gen =
             return Feed.Feedback (emits, newRunningStates)
         }
 
+    // TODO: Test / Docu
     let windowed windowSize currentValue =
         accumulateOnePart windowSize currentValue |> fork
 

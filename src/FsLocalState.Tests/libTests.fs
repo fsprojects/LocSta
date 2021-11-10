@@ -7,6 +7,7 @@ module LibTests
 
 open FsUnit
 open FsLocalState
+open FsLocalState.Lib.Gen
 open NUnit.Framework
 
 
