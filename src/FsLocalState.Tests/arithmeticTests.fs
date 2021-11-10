@@ -13,13 +13,13 @@ let take1 g = g |> Gen.toListn 1 |> List.exactlyOne
 
 
 let [<TestCase>] ``Operator == gen int`` () =
-    gen {
+    loop {
         let! prove = count 0 1
         let! res = count 0 1 == 5
         if res then
-            return Control.Emit prove
+            return Loop.Emit prove
         else if prove > 10 then
-            return Control.Stop
+            return Loop.Stop
     }
     |> Gen.toListn 10
     |> should equal [ 5 ]

@@ -7,7 +7,7 @@ module Gen =
 
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
-    let resumeOrStart (state: 's option) (g: GenForGen<_,'s>) =
+    let resumeOrStart (state: 's option) (g: LoopGen<_,'s>) =
         let f = Gen.unwrap g
         let mutable state = state
         let mutable resume = true
@@ -16,16 +16,16 @@ module Gen =
                 for res in f state do
                     if resume then
                         match res with
-                        | GenResult.Emit (GenEmit (fres, fstate)) ->
+                        | Res.Emit (LoopEmit (fres, fstate)) ->
                             state <- Some fstate
                             yield (fres, fstate)
-                        | GenResult.DiscardWith (GenDiscard fstate) ->
+                        | Res.DiscardWith (LoopDiscard fstate) ->
                             state <- Some fstate
-                        | GenResult.Stop ->
+                        | Res.Stop ->
                             resume <- false
         }
     
-    let resume state (g: GenForGen<_,'s>) = resumeOrStart (Some state) g
+    let resume state (g: LoopGen<_,'s>) = resumeOrStart (Some state) g
 
     // TODO: Document this
     /// Be careful: This uses a state machine, which means:
@@ -43,12 +43,12 @@ module Gen =
                     for res in fxres do
                         if resume then
                             match res with
-                            | GenResult.Emit (GenEmit (resF, stateF)) ->
+                            | Res.Emit (LoopEmit (resF, stateF)) ->
                                 state <- Some stateF
                                 yield (resF, stateF)
-                            | GenResult.DiscardWith (GenDiscard stateF) ->
+                            | Res.DiscardWith (LoopDiscard stateF) ->
                                 state <- Some stateF
-                            | GenResult.Stop ->
+                            | Res.Stop ->
                                 resume <- false
             }
 
@@ -56,9 +56,9 @@ module Gen =
         let evaluable = toSeqStateFx fx
         fun inputValues -> evaluable inputValues |> Seq.map fst
     
-    let toSeqState (g: GenForGen<_,_>) = resumeOrStart None g
+    let toSeqState (g: LoopGen<_,_>) = resumeOrStart None g
     
-    let toSeq (g: GenForGen<_,_>) = toSeqState g |> Seq.map fst
+    let toSeq (g: LoopGen<_,_>) = toSeqState g |> Seq.map fst
 
     let toListFx fx inputSeq =
         inputSeq |> toSeqFx fx |> Seq.toList

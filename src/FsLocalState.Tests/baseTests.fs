@@ -10,91 +10,91 @@ open FsLocalState
 open NUnit.Framework
 
 let [<TestCase>] ``Pairwise`` () =
-    gen {
+    loop {
         let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
         let! v2 = Gen.ofList [  1 ;  2 ;  3 ;  4  ]
-        return Control.Emit (v1,v2)
+        return Loop.Emit (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 let [<TestCase>] ``Pairwise using For Loop`` () =
-    gen {
+    loop {
         for v1 in [ "a"; "b"; "c"; "d" ] do
         for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            return Control.Emit (v1,v2)
+            return Loop.Emit (v1,v2)
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 let [<TestCase>] ``Zero (gen)`` () =
-    gen {
+    loop {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
-            return Control.Emit v
+            return Loop.Emit v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
 let [<TestCase>] ``Zero For Loop (gen)`` () =
-    gen {
+    loop {
         for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
-                return Control.Emit v
+                return Loop.Emit v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
 let [<TestCase>] ``Feedback: both binds + discard`` () =
-    fdb {
+    feed {
         let! state = Init 0
         let! c1 = count 0 10
         let! c2 = count 0 3
         let currValue = state + c1 + c2
         let nextValue = state + 1
         if currValue % 2 = 0 then
-            return Control.Feedback (currValue, nextValue)
+            return Feed.Feedback (currValue, nextValue)
         else
-            return Control.DiscardWith nextValue
+            return Feed.DiscardWith nextValue
     }
     |> Gen.toListn 4
     |> should equal [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
     
 let [<TestCase>] ``Stop (gen)`` () =
-    gen {
+    loop {
         let! v = count 0 1
         if v < 5 then
-            return Control.Emit v
+            return Loop.Emit v
         else
-            return Control.Stop
+            return Loop.Stop
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
 
 let [<TestCase>] ``Stop (fdb)`` () =
-    fdb {
+    feed {
         let! v = Init 0
         let nextValue = v + 1
         if v < 5 then
-            return Control.Feedback(v, nextValue)
+            return Feed.Feedback(v, nextValue)
         else
-            return Control.Stop
+            return Feed.Stop
     }
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
 
 ////let [<TestCase>] ``Reset (gen)`` () =
-////    gen {
+////    loop {
 ////        let! prove = count 0 1
-////        let! v = gen {
+////        let! v = loop {
 ////            let! c1 = count 0 1
 ////            let! c2 = count 0 1
 ////            if c1 = 3 && c2 = 3 then
 ////                return Control.Reset
 ////            else
-////                return Control.EmitAndLoop c
+////                return Loop.EmitAndLoop c
 ////        }
-////        return Control.EmitAndLoop (prove, v)
+////        return Loop.EmitAndLoop (prove, v)
 ////    }
 ////    |> Gen.toListn 9
 ////    |> should equal 
@@ -105,24 +105,24 @@ let [<TestCase>] ``Stop (fdb)`` () =
 ////        ]
 
 let [<TestCase>] ``Singleton`` () =
-    gen {
-        return Control.Emit 0
-        return Control.Stop
+    loop {
+        return Loop.Emit 0
+        return Loop.Stop
     }
     |> Gen.toList
     |> should equal [ 0 ]
 
 
 let [<TestCase>] ``Combine`` () =
-    gen {
-        return Control.Emit 0
-        return Control.Emit 1
-        return Control.Emit 2
+    loop {
+        return Loop.Emit 0
+        return Loop.Emit 1
+        return Loop.Emit 2
         return! Gen.ofList [ 3; 4; 5 ]
-        return Control.Emit 6
+        return Loop.Emit 6
         return! Gen.ofList [ 7; 8; 9 ]
-        return Control.Emit 10
-        return Control.Emit 11
+        return Loop.Emit 10
+        return Loop.Emit 11
     }
     |> Gen.toList
     |> should equal

@@ -7,11 +7,11 @@ open NUnit.Framework
 
 let [<TestCase>] ``Stop after Emit`` () =
     let expect = 3
-    gen {
+    loop {
         let! c = count 0 1
         if c = expect then
-            return Control.Emit c
-            return Control.Stop
+            return Loop.Emit c
+            return Loop.Stop
     }
     |> Gen.toList
     |> List.exactlyOne

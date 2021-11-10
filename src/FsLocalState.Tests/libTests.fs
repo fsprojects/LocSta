@@ -49,10 +49,10 @@ let [<TestCase>] ``Count until repeat`` () =
         ]
 
 let [<TestCase>] ``Accumulate onc part`` () =
-    gen {
+    loop {
         for x in [0..10] do
             let! values = accumulateOnePart 3 x
-            return Control.Emit values
+            return Loop.Emit values
     }
     |> Gen.toList
     |> should equal
@@ -61,10 +61,10 @@ let [<TestCase>] ``Accumulate onc part`` () =
         ]
 
 let [<TestCase>] ``Accumulate many parts`` () =
-    gen {
+    loop {
         for x in [0..10] do
             let! values = accumulateManyParts 3 x
-            return Control.Emit values
+            return Loop.Emit values
     }
     |> Gen.toList
     |> should equal
@@ -77,10 +77,10 @@ let [<TestCase>] ``Accumulate many parts`` () =
 
 let [<TestCase>] ``Default on Stop`` () =
     let defaultValue = 42
-    gen {
+    loop {
         let g = [0..3] |> Gen.ofList
         let! v = g |> Gen.defaultOnStop defaultValue
-        return Control.Emit v
+        return Loop.Emit v
     }
     |> Gen.toListn 10
     |> should equal
@@ -92,7 +92,7 @@ let [<TestCase>] ``Default on Stop`` () =
 let [<TestCase>] ``Fork`` () =
     // Task: accumulate value and 2 successors
 
-    gen {
+    loop {
         let! v = Gen.ofList [ 0.. 10 ]
         return! accumulateOnePart 3 v |> fork
     }

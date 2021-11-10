@@ -1,61 +1,68 @@
-﻿namespace FsLocalState
-
-// TODO
+﻿
 (*
-    A hint for the type argument names:
-        * 'o: This stands for "output"
+A hint for the type argument names:
+    * 'o: output of a Gen.
+    * 'v: value; the actual value emitted by a Gen - usually corresponds to the output of a Gen.
+    * 'f: feedback
+    * 's: state
+For the API surface, names like 'value or 'state are used instead of chars.
 *)
+
+namespace FsLocalState
 
 type Gen<'o,'s> = Gen of ('s option -> 'o list)
 
 // TODO: rename DiscardWith to Discard
 // TODO: 'f and f (as function name in bind) can be distracting
 [<RequireQualifiedAccess>]
-type GenResult<'e, 'd> =
+type Res<'e, 'd> =
     | Emit of 'e
     | DiscardWith of 'd
     | Stop
 
-// 'f bei Fdb sollte immer hinten stehen - als Erweiterung von Gen
-type GenEmit<'v,'s> = GenEmit of 'v * 's
-type GenDiscard<'s> = GenDiscard of 's
-type FdbEmit<'v,'s,'f> = FdbEmit of 'v * 's * 'f
-type FdbDiscard<'s,'f> = FdbDiscard of 's * 'f option
+type LoopEmit<'v,'s> = LoopEmit of 'v * 's
+type LoopDiscard<'s> = LoopDiscard of 's
+type FeedEmit<'v,'s,'f> = FeedEmit of 'v * 's * 'f
+type FeedDiscard<'s,'f> = FeedDiscard of 's * 'f option
 
-type GenForGen<'o,'s> = Gen<GenResult<GenEmit<'o,'s>, GenDiscard<'s>>, 's> 
-type GenResultGen<'o,'s> = GenResult<GenEmit<'o,'s>, GenDiscard<'s>>
+type LoopGen<'o,'s> = Gen<Res<LoopEmit<'o,'s>, LoopDiscard<'s>>, 's> 
+type LoopRes<'o,'s> = Res<LoopEmit<'o,'s>, LoopDiscard<'s>>
 
-type GenForFdb<'o,'s,'f> = Gen<GenResult<FdbEmit<'o,'s,'f>, FdbDiscard<'s,'f>>, 's> 
-type GenResultFdb<'o,'s,'f> = GenResult<FdbEmit<'o,'s,'f>, FdbDiscard<'s,'f>>
-
-type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
+type FeedGen<'o,'s,'f> = Gen<Res<FeedEmit<'o,'s,'f>, FeedDiscard<'s,'f>>, 's> 
+type FeedRes<'o,'s,'f> = Res<FeedEmit<'o,'s,'f>, FeedDiscard<'s,'f>>
 
 type Init<'f> = Init of 'f
 
-// TODO: rename currState -> mstate, subState: fstate
+type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
+
 [<Struct>]
-type GenState<'sm, 'sf, 'm> =
+type GenState<'sm, 'sk, 'm> =
     { mstate: 'sm
-      fstate: 'sf option
+      fstate: 'sk option
       mleftovers: 'm list }
 
 
-module Control =
+module Loop =
     type Emit<'value> = Emit of 'value
+    type DiscardWith<'state> = DiscardWith of 'state
+    type Stop = Stop
+
+
+module Feed =
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
     type DiscardWith<'state> = DiscardWith of 'state
     type Stop = Stop
 
 
-module GenResult =
-    let isStop result = match result with | GenResult.Stop -> true | _ -> false
+module Res =
+    let isStop result = match result with | Res.Stop -> true | _ -> false
 
     type AggregateResult<'o, 's> =
-        { results: GenResultGen<'o, 's> list
+        { results: LoopRes<'o, 's> list
           isStopped: bool
           finalState: 's option }
 
-    let mapUntilStop mapping (results: GenResultGen<_,_> list) =
+    let mapUntilStop mapping (results: LoopRes<_,_> list) =
         // TODO: Implement a "UntilStopResult" that doesn't have 'Stop' as case and get rid of the failwith.
         let resultsTilStop, finalState =
             results
@@ -64,9 +71,9 @@ module GenResult =
                 (fun _ res ->
                     let newState = 
                         match res with
-                        | GenResult.Emit (GenEmit (_, s)) -> Some s
-                        | GenResult.DiscardWith (GenDiscard s) -> Some s
-                        | GenResult.Stop -> failwith "Stop is not supported."
+                        | Res.Emit (LoopEmit (_, s)) -> Some s
+                        | Res.DiscardWith (LoopDiscard s) -> Some s
+                        | Res.Stop -> failwith "Stop is not supported."
                     mapping res, newState
                 )
                 None
@@ -77,11 +84,11 @@ module GenResult =
 
     let takeUntilStop results = mapUntilStop id results
 
-    let emittedValues (results: GenResultGen<_,_> list) =
+    let emittedValues (results: LoopRes<_,_> list) =
         results
         |> List.choose (fun res ->
             match res with
-            | GenResult.Emit (GenEmit (v, _)) -> Some v
+            | Res.Emit (LoopEmit (v, _)) -> Some v
             | _ -> None
         )
 
@@ -97,8 +104,8 @@ module Gen =
 
     /// Single case DU constructor.
     let create f = Gen f
-    let createGen f : GenForGen<_,_> = Gen f
-    let createFdb f : GenForFdb<_,_,_> = Gen f
+    let createGen f : LoopGen<_,_> = Gen f
+    let createFdb f : FeedGen<_,_,_> = Gen f
 
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
     let createWithSeed f seed =
@@ -115,11 +122,11 @@ module Gen =
     // bind
     // --------
 
-    let internal bindGenXxxGen discard processResult createX f m
+    let internal bindLoopWhateverGen discard processResult createWhatever f m
         =
         let evalmres mres lastFState leftovers =
             match mres with
-            | GenResult.Emit (GenEmit (mres, mstate)) ->
+            | Res.Emit (LoopEmit (mres, mstate)) ->
                 let fgen = f mres
                 let fres = (unwrap fgen) lastFState
                 match fres with
@@ -128,11 +135,11 @@ module Gen =
                     [ discard state ]
                 | results ->
                     [ for res in results do yield processResult res mstate leftovers ]
-            | GenResult.DiscardWith (GenDiscard stateM) ->
+            | Res.DiscardWith (LoopDiscard stateM) ->
                 let state = { mstate = stateM; fstate = lastFState; mleftovers = leftovers }
                 [ discard state ]
-            | GenResult.Stop ->
-                [ GenResult.Stop ]
+            | Res.Stop ->
+                [ Res.Stop ]
         let rec evalm lastMState lastFState =
             match (unwrap m) lastMState with
             | res :: leftovers ->
@@ -152,48 +159,48 @@ module Gen =
             match lastLeftovers with
             | x :: xs -> evalmres x lastFState xs
             | [] -> evalm lastMState lastFState
-        |> createX
+        |> createWhatever
 
     let bind
-        (f: 'o1 -> GenForGen<'o2, 's2>)
-        (m: GenForGen<'o1, 's1>)
-        : GenForGen<'o2, GenState<'s1, 's2, GenResultGen<'o1, 's1>>>
+        (f: 'o1 -> LoopGen<'o2, 's2>)
+        (m: LoopGen<'o1, 's1>)
+        : LoopGen<'o2, GenState<'s1, 's2, LoopRes<'o1, 's1>>>
         =
-        let discard state = GenResult.DiscardWith (GenDiscard state)
+        let discard state = Res.DiscardWith (LoopDiscard state)
         let processResult res mstate leftovers =
             match res with
-            | GenResult.Emit (GenEmit (fres, fstate)) ->
+            | Res.Emit (LoopEmit (fres, fstate)) ->
                 let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                GenResult.Emit (GenEmit (fres, state))
-            | GenResult.DiscardWith (GenDiscard fstate) -> 
+                Res.Emit (LoopEmit (fres, state))
+            | Res.DiscardWith (LoopDiscard fstate) -> 
                 let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                GenResult.DiscardWith (GenDiscard state)
-            | GenResult.Stop ->
-                GenResult.Stop
-        bindGenXxxGen discard processResult createGen f m
+                Res.DiscardWith (LoopDiscard state)
+            | Res.Stop ->
+                Res.Stop
+        bindLoopWhateverGen discard processResult createGen f m
 
-    let internal bindGenFdbFdb
-        (f: 'o1 -> GenForFdb<'o2,'s2,'f>)
-        (m: GenForGen<'o1,'s1>)
-        : GenForFdb<'o2,_,'f> // TODO: _
+    let internal bindLoopFeedFeed
+        (f: 'o1 -> FeedGen<'o2,'s2,'f>)
+        (m: LoopGen<'o1,'s1>)
+        : FeedGen<'o2,_,'f> // TODO: _
         =
-        let discard state = GenResult.DiscardWith (FdbDiscard (state, None))
+        let discard state = Res.DiscardWith (FeedDiscard (state, None))
         let processResult res mstate leftovers =
             match res with
-            | GenResult.Emit (FdbEmit (fres, fstate, ffeedback)) ->
+            | Res.Emit (FeedEmit (fres, fstate, ffeedback)) ->
                 let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                GenResult.Emit (FdbEmit (fres, state, ffeedback))
-            | GenResult.DiscardWith (FdbDiscard (fstate, ffeedback)) -> 
+                Res.Emit (FeedEmit (fres, state, ffeedback))
+            | Res.DiscardWith (FeedDiscard (fstate, ffeedback)) -> 
                 let state = { mstate = mstate; fstate = Some fstate; mleftovers = leftovers }
-                GenResult.DiscardWith (FdbDiscard (state, ffeedback))
-            | GenResult.Stop -> 
-                GenResult.Stop
-        bindGenXxxGen discard processResult createFdb f m
+                Res.DiscardWith (FeedDiscard (state, ffeedback))
+            | Res.Stop -> 
+                Res.Stop
+        bindLoopWhateverGen discard processResult createFdb f m
 
     let internal bindInitFdbGen
-        (f: 'f -> GenForFdb<'o,'s,'f>)
+        (f: 'f -> FeedGen<'o,'s,'f>)
         (m: Init<'f>)
-        : GenForGen<_,_>
+        : LoopGen<_,_>
         =
         fun state ->
             let lastFeed, lastFState =
@@ -202,18 +209,18 @@ module Gen =
                 | Some v  -> v.mstate, v.fstate
             [ for res in (unwrap (f lastFeed)) lastFState do
                 match res with
-                | GenResult.Emit (FdbEmit (fvalue, fstate, feedback)) ->
+                | Res.Emit (FeedEmit (fvalue, fstate, feedback)) ->
                     let state = { mstate = feedback; fstate = Some fstate; mleftovers = [] }
-                    GenResult.Emit (GenEmit (fvalue, state))
-                | GenResult.DiscardWith (FdbDiscard (fstate, feedback)) ->
+                    Res.Emit (LoopEmit (fvalue, state))
+                | Res.DiscardWith (FeedDiscard (fstate, feedback)) ->
                     let feedback =
                         match feedback with
                         | Some feedback -> feedback
                         | None -> lastFeed
                     let state = { mstate = feedback; fstate = Some fstate; mleftovers = [] }
-                    GenResult.DiscardWith (GenDiscard state)
-                | GenResult.Stop ->
-                    GenResult.Stop
+                    Res.DiscardWith (LoopDiscard state)
+                | Res.Stop ->
+                    Res.Stop
             ]
         |> createGen
 
@@ -226,28 +233,28 @@ module Gen =
         create (fun _ -> [ value ])
 
     let internal ofGenResultOnce value : Gen<_,_> =
-        create (fun _ -> [ value; GenResult.Stop ])
+        create (fun _ -> [ value; Res.Stop ])
 
-    let returnValueRepeating<'v> (value: 'v) : GenForGen<'v, unit> =
-        GenResult.Emit (GenEmit (value, ())) |> ofGenResultRepeating
+    let returnValueRepeating<'v> (value: 'v) : LoopGen<'v, unit> =
+        Res.Emit (LoopEmit (value, ())) |> ofGenResultRepeating
     
-    let returnValueOnce (value: 'v) : GenForGen<'v, unit> =
-        GenResult.Emit (GenEmit (value, ())) |> ofGenResultOnce
+    let returnValueOnce (value: 'v) : LoopGen<'v, unit> =
+        Res.Emit (LoopEmit (value, ())) |> ofGenResultOnce
     
-    let returnDiscardWith<'v, 's> (state: 's) : GenForGen<'v,'s> =
-        GenResult.DiscardWith (GenDiscard state) |> ofGenResultRepeating
+    let returnDiscardWith<'v, 's> (state: 's) : LoopGen<'v,'s> =
+        Res.DiscardWith (LoopDiscard state) |> ofGenResultRepeating
     
-    let returnStop<'v,'s> : GenForGen<'v,'s> =
-        GenResult.Stop |> ofGenResultRepeating
+    let returnStop<'v,'s> : LoopGen<'v,'s> =
+        Res.Stop |> ofGenResultRepeating
     
-    let returnFeedbackStop<'v,'s,'f> : GenForFdb<'v,'s,'f> =
-        GenResult.Stop |> ofGenResultRepeating
+    let returnFeedbackStop<'v,'s,'f> : FeedGen<'v,'s,'f> =
+        Res.Stop |> ofGenResultRepeating
     
-    let returnFeedback<'discard, 'v, 's, 'f> (value: 'v) (feedback: 'f) : GenForFdb<'v, unit, 'f> =
-        GenResult.Emit (FdbEmit (value, (), feedback)) |> ofGenResultRepeating
+    let returnFeedback<'discard, 'v, 's, 'f> (value: 'v) (feedback: 'f) : FeedGen<'v, unit, 'f> =
+        Res.Emit (FeedEmit (value, (), feedback)) |> ofGenResultRepeating
     
-    let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : GenForFdb<'v, unit, 'f>  =
-        GenResult.DiscardWith (FdbDiscard ((), Some feedback)) |> ofGenResultRepeating
+    let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : FeedGen<'v, unit, 'f>  =
+        Res.DiscardWith (FeedDiscard ((), Some feedback)) |> ofGenResultRepeating
 
 
     // --------
@@ -259,8 +266,8 @@ module Gen =
             let enumerator = enumerator |> Option.defaultWith (fun () -> s.GetEnumerator())
             [
                 match enumerator.MoveNext() with
-                | true -> GenResult.Emit (GenEmit (enumerator.Current, enumerator))
-                | false -> GenResult.Stop
+                | true -> Res.Emit (LoopEmit (enumerator.Current, enumerator))
+                | false -> Res.Stop
             ]
         |> createGen
         
@@ -269,8 +276,8 @@ module Gen =
             let l = l |> Option.defaultValue list
             [
                 match l with
-                | x::xs -> GenResult.Emit (GenEmit (x, xs))
-                | [] -> GenResult.Stop
+                | x::xs -> Res.Emit (LoopEmit (x, xs))
+                | [] -> Res.Stop
             ]
         |> createGen
 
@@ -284,8 +291,8 @@ module Gen =
           bstate: 'sb option }
 
     let combine 
-        (a: GenForGen<'o, 'sa>)
-        (b: unit -> GenForGen<'o, 'sb>)
+        (a: LoopGen<'o, 'sa>)
+        (b: unit -> LoopGen<'o, 'sb>)
         =
         let getValue g state = (unwrap g) state
         fun state ->
@@ -300,26 +307,26 @@ module Gen =
                 for res in getValue a state.astate do
                     if isRunning then
                         match res with
-                        | GenResult.Emit (GenEmit (va, sa)) ->
+                        | Res.Emit (LoopEmit (va, sa)) ->
                             astate <- Some sa
-                            yield GenResult.Emit (GenEmit (va, { astate = astate; bstate = None }))
-                        | GenResult.DiscardWith (GenDiscard sa) -> 
+                            yield Res.Emit (LoopEmit (va, { astate = astate; bstate = None }))
+                        | Res.DiscardWith (LoopDiscard sa) -> 
                             astate <- Some sa
-                            yield GenResult.DiscardWith (GenDiscard { astate = astate; bstate = None })
-                        | GenResult.Stop ->
+                            yield Res.DiscardWith (LoopDiscard { astate = astate; bstate = None })
+                        | Res.Stop ->
                             isRunning <- false
-                            yield GenResult.Stop
+                            yield Res.Stop
                 if isRunning then
                     for res in getValue (b ()) state.bstate do
                         if isRunning then
                             match res with
-                            | GenResult.Emit (GenEmit (vb, sb)) ->
-                                yield GenResult.Emit (GenEmit (vb, { astate = astate; bstate = Some sb }))
-                            | GenResult.DiscardWith (GenDiscard sb) -> 
-                                yield GenResult.DiscardWith (GenDiscard { astate = astate; bstate = Some sb })
-                            | GenResult.Stop ->
+                            | Res.Emit (LoopEmit (vb, sb)) ->
+                                yield Res.Emit (LoopEmit (vb, { astate = astate; bstate = Some sb }))
+                            | Res.DiscardWith (LoopDiscard sb) -> 
+                                yield Res.DiscardWith (LoopDiscard { astate = astate; bstate = Some sb })
+                            | Res.Stop ->
                                 isRunning <- false
-                                yield GenResult.Stop
+                                yield Res.Stop
             ]
         |> createGen
 
@@ -337,26 +344,26 @@ module Gen =
         member _.Delay(delayed) = delayed
         member _.Run(delayed) = delayed ()
 
-    type GenBuilder() =
+    type LoopBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
         // returns
-        member _.Return(Control.Emit value) = returnValueRepeating value
-        member _.Return(Control.DiscardWith state) = returnDiscardWith state
-        member _.Return(Control.Stop) = returnStop
+        member _.Return(Loop.Emit value) = returnValueRepeating value
+        member _.Return(Loop.DiscardWith state) = returnDiscardWith state
+        member _.Return(Loop.Stop) = returnStop
         
-    type FeedbackBuilder() =
+    type FeedBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bindInitFdbGen f m
         member _.Bind(m, f) = bind f m
-        member _.Bind(m, f) = bindGenFdbFdb f m
+        member _.Bind(m, f) = bindLoopFeedFeed f m
         // returns
-        member _.Return(Control.Feedback (value, feedback)) = returnFeedback value feedback
-        member _.Return(Control.DiscardWith state) = returnFeedbackDiscardWith state
-        member _.Return(Control.Stop) = returnFeedbackStop
+        member _.Return(Feed.Feedback (value, feedback)) = returnFeedback value feedback
+        member _.Return(Feed.DiscardWith state) = returnFeedbackDiscardWith state
+        member _.Return(Feed.Stop) = returnFeedbackStop
     
-    let gen = GenBuilder()
-    let fdb = FeedbackBuilder()
+    let loop = LoopBuilder()
+    let feed = FeedBuilder()
 
 
     // -------
@@ -364,13 +371,13 @@ module Gen =
     // -------
 
     let pipe (g: Fx<_,_,_>) (f: Gen<_,_>) : Gen<_,_> =
-        gen {
+        loop {
             let! f' = f
             return! g f' 
         }
 
     let pipeFx (g: Fx<_,_,_>) (f: Fx<_,_,_>): Fx<_,_,_> =
-        fun x -> gen {
+        fun x -> loop {
             let! f' = f x
             return! g f' 
         }
@@ -379,24 +386,24 @@ module Gen =
 [<RequireQualifiedAccess>]
 module Arithmetic =
     let inline binOpBoth left right f =
-        Gen.gen {
+        Gen.loop {
             let! l = left
             let! r = right
-            return Control.Emit (f l r)
+            return Loop.Emit (f l r)
         }
     
     let inline binOpLeft left right f =
-        Gen.gen {
+        Gen.loop {
             let l = left
             let! r = right
-            return Control.Emit (f l r)
+            return Loop.Emit (f l r)
         }
     
     let inline binOpRight left right f =
-        Gen.gen {
+        Gen.loop {
             let! l = left
             let r = right
-            return Control.Emit (f l r)
+            return Loop.Emit (f l r)
         }
 
 
@@ -440,5 +447,5 @@ module TopLevelOperators =
     /// Bind operator
     let (>>=) m f = Gen.bind f m
 
-    let gen = Gen.gen
-    let fdb = Gen.fdb
+    let loop = Gen.loop
+    let feed = Gen.feed
