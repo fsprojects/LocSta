@@ -10,9 +10,6 @@ open FsLocalState
 open FsLocalState.Lib.Gen
 open NUnit.Framework
 
-let take1 g = g |> Gen.toListn 1 |> List.exactlyOne
-
-
 let [<TestCase>] ``Operator == gen int`` () =
     loop {
         let! prove = count 0 1
@@ -27,7 +24,7 @@ let [<TestCase>] ``Operator == gen int`` () =
 
 let [<TestCase>] ``Operator + gen gen`` () =
     Gen.returnValueOnce 1 + Gen.returnValueOnce 2
-    |> take1
+    |> Gen.head
     |> should equal 3
 
 // TODO: some more

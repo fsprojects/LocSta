@@ -15,7 +15,7 @@ module Gen =
     let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
         fun state ->
             [
-                for res in (Gen.unwrap inputGen) state do
+                for res in Gen.run inputGen state do
                     match res with
                     | Res.Emit (LoopEmit (v,s)) -> Res.Emit (LoopEmit (proj v s, s))
                     | Res.DiscardWith (LoopDiscard s) -> Res.DiscardWith (LoopDiscard s)
@@ -44,7 +44,7 @@ module Gen =
     // ----------
 
     let private emitFuncForMapValue = fun g v s -> [ Res.Emit (LoopEmit (v, s)) ]
-    let private resetFuncForMapValue = fun g v s -> (Gen.unwrap g) None
+    let private resetFuncForMapValue = fun g v s -> Gen.run g None
     let private stopFuncForMapValue = fun g v s -> [ Res.Stop ]
 
     /// Evluates the input gen and passes it's output to the predicate function:
@@ -53,7 +53,7 @@ module Gen =
     let whenFuncThen (pred: _ -> bool) onFalse onTrue (inputGen: LoopGen<_,_>) =
         fun state ->
             [
-                for res in (Gen.unwrap inputGen) state do
+                for res in Gen.run inputGen state do
                     match res with
                     | Res.Emit (LoopEmit (o,s)) ->
                         match pred o with
@@ -100,7 +100,7 @@ module Gen =
     // TODO: Docu: Stop means thet inputGen is *immediately* reevaluated (in this cycle; not in the next)
     let onStopThenReset (inputGen: LoopGen<_,_>) =
         let rec genFunc state =
-            let g = (Gen.unwrap inputGen)
+            let g = Gen.run inputGen
             [
                 for res in g state do
                     match res with
@@ -149,7 +149,7 @@ module Gen =
             | RunInput state ->
                 [
                     let mutable isRunning = true
-                    for res in (Gen.unwrap inputGen) state do
+                    for res in Gen.run inputGen state do
                         if isRunning then
                             match res with
                             | Res.Emit (LoopEmit (v, s)) ->
@@ -170,7 +170,7 @@ module Gen =
     let originalResult inputGen =
         fun state ->
             [
-                for res in (Gen.unwrap inputGen) state do
+                for res in Gen.run inputGen state do
                     match res with
                     | Res.Emit (LoopEmit (_,s)) as res ->
                         yield Res.Emit (LoopEmit (res, Some s))
@@ -212,7 +212,7 @@ module Gen =
     let fork (inputGen: Gen<_,_>) =
         feed {
             let! runningStates = Init []
-            let inputGen = Gen.unwrap inputGen
+            let inputGen = Gen.run inputGen
             // TODO: Performance
             let forkResults =
                 runningStates @ [None]
@@ -279,3 +279,9 @@ module Gen =
             return Feed.Feedback(res, input)
         }
     
+
+    // ----------
+    // other seq-like functions
+    // ----------
+
+    let head g = g |> Gen.toListn 1 |> List.exactlyOne

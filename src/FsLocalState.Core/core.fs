@@ -96,7 +96,7 @@ module Res =
 
 module Gen =
     
-    let unwrap (gen: Gen<_,_>) = let (Gen b) = gen in b
+    let run (gen: Gen<_,_>) = let (Gen b) = gen in b
 
 
     // --------
@@ -129,7 +129,7 @@ module Gen =
             match mres with
             | Res.Emit (LoopEmit (mres, mstate)) ->
                 let kgen = k mres
-                let kres = (unwrap kgen) lastKState
+                let kres = run kgen lastKState
                 match kres with
                 | [] -> 
                     let state = { mstate = mstate; kstate = lastKState; mleftovers = leftovers }
@@ -142,7 +142,7 @@ module Gen =
             | Res.Stop ->
                 [ Res.Stop ]
         let rec evalm lastMState lastKState =
-            match (unwrap m) lastMState with
+            match run m lastMState with
             | res :: leftovers ->
                 evalmres res lastKState leftovers
             | [] ->
@@ -208,7 +208,7 @@ module Gen =
                 match state with
                 | None -> let (Init m) = m in m, None
                 | Some state  -> state.mstate, state.kstate
-            [ for res in (unwrap (k lastFeed)) lastKState do
+            [ for res in run (k lastFeed) lastKState do
                 match res with
                 | Res.Emit (FeedEmit (kvalue, kstate, feedback)) ->
                     let state = { mstate = feedback; kstate = Some kstate; mleftovers = [] }
@@ -295,7 +295,7 @@ module Gen =
         (a: LoopGen<'o, 'sa>)
         (b: unit -> LoopGen<'o, 'sb>)
         =
-        let getValue g state = (unwrap g) state
+        let getValue g state = run g state
         fun state ->
             [
                 let state =  state |> Option.defaultValue { astate = None; bstate = None }
@@ -383,6 +383,75 @@ module Gen =
             return! g f' 
         }
 
+    
+    // -------
+    // Evaluation
+    // -------
+    
+    // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
+
+    let resumeOrStart (state: 's option) (g: LoopGen<_,'s>) =
+        let f = run g
+        let mutable state = state
+        let mutable resume = true
+        seq {
+            while resume do
+                for res in f state do
+                    if resume then
+                        match res with
+                        | Res.Emit (LoopEmit (fres, fstate)) ->
+                            state <- Some fstate
+                            yield (fres, fstate)
+                        | Res.DiscardWith (LoopDiscard fstate) ->
+                            state <- Some fstate
+                        | Res.Stop ->
+                            resume <- false
+        }
+    
+    let resume state (g: LoopGen<_,'s>) = resumeOrStart (Some state) g
+
+    // TODO: Document this
+    /// Be careful: This uses a state machine, which means:
+    /// A mutable object is used as state!
+    let toSeqStateFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_ * 's> =
+        let mutable state = None
+        let mutable resume = true
+
+        fun inputValues ->
+            seq {
+                let enumerator = inputValues.GetEnumerator()
+                while enumerator.MoveNext() && resume do
+                    let value = enumerator.Current
+                    let fxres = run (fx value) state
+                    for res in fxres do
+                        if resume then
+                            match res with
+                            | Res.Emit (LoopEmit (resF, stateF)) ->
+                                state <- Some stateF
+                                yield (resF, stateF)
+                            | Res.DiscardWith (LoopDiscard stateF) ->
+                                state <- Some stateF
+                            | Res.Stop ->
+                                resume <- false
+            }
+
+    let toSeqFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_> =
+        let evaluable = toSeqStateFx fx
+        fun inputValues -> evaluable inputValues |> Seq.map fst
+    
+    let toSeqState (g: LoopGen<_,_>) = resumeOrStart None g
+    
+    let toSeq (g: LoopGen<_,_>) = toSeqState g |> Seq.map fst
+
+    let toListFx fx inputSeq =
+        inputSeq |> toSeqFx fx |> Seq.toList
+    
+    let toList gen =
+        toSeq gen |> Seq.toList
+    
+    let toListn count gen =
+        toSeq gen |> Seq.truncate count |> Seq.toList
+
 
 [<RequireQualifiedAccess>]
 module Arithmetic =
@@ -434,6 +503,18 @@ type Gen<'o,'s> with
     static member inline (/) (left, right) = Arithmetic.binOpBoth left right (/)
     static member inline (%) (left, right) = Arithmetic.binOpBoth left right (%)
     static member inline (==) (left, right) = Arithmetic.binOpBoth left right (=)
+
+
+open System.Runtime.CompilerServices
+
+[<Extension>]
+type Extensions() =
+    [<Extension>]
+    static member GetSlice(inputGen: LoopGen<'o, 's>, inclStartIdx, inclEndIdx) =
+        let s = max 0 (defaultArg inclStartIdx 0)
+        let e = max 0 (defaultArg inclEndIdx 0)
+        let l = min 0 (e - s)
+        inputGen |> Gen.toSeq |> Seq.skip s |> Seq.truncate l |> Gen.ofSeq
 
 
 [<AutoOpen>]

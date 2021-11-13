@@ -124,7 +124,15 @@ let [<TestCase>] ``Singleton`` () =
         return Loop.Stop
     }
     |> Gen.toList
-    |> should equal [ 0 ]
+    |> should equal [0]
+
+
+let [<TestCase>] ``GetSlice`` () =
+    [0..9]
+    |> Gen.ofList
+    |> fun g -> g[3..5]
+    |> Gen.toList
+    |> should equal [3;4;5]
 
 
 let [<TestCase>] ``Combine`` () =
