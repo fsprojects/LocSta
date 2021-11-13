@@ -20,7 +20,7 @@ open NUnit.Framework
 //                if v * 2 >= start then
 //                    return Res.feedback (start, v) (start, distance + 1)
 //                else
-//                    return Res.discardWith (start, distance + 1)
+//                    return Res.skip (start, distance + 1)
 //        }
 
 //        return Res.value 0

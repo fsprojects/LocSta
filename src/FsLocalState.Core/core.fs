@@ -12,25 +12,24 @@ namespace FsLocalState
 
 type Gen<'o,'s> = Gen of ('s option -> 'o list)
 
-// TODO: rename DiscardWith to Discard
 // TODO: 'f and f (as function name in bind) can be distracting
 [<RequireQualifiedAccess>]
 type Res<'e, 'd> =
     | Emit of 'e
-    | DiscardWith of 'd
+    | SkipWith of 'd
     | Stop
 
 type LoopEmit<'v,'s> = LoopEmit of 'v * 's
-type LoopDiscard<'s> = LoopDiscard of 's
+type LoopSkip<'s> = LoopSkip of 's
 
 type FeedEmit<'v,'s,'f> = FeedEmit of 'v * 's * 'f
-type FeedDiscard<'s,'f> = FeedDiscard of 's * 'f option
+type FeedSkip<'s,'f> = FeedSkip of 's * 'f option
 
-type LoopGen<'o,'s> = Gen<Res<LoopEmit<'o,'s>, LoopDiscard<'s>>, 's> 
-type LoopRes<'o,'s> = Res<LoopEmit<'o,'s>, LoopDiscard<'s>>
+type LoopGen<'o,'s> = Gen<Res<LoopEmit<'o,'s>, LoopSkip<'s>>, 's> 
+type LoopRes<'o,'s> = Res<LoopEmit<'o,'s>, LoopSkip<'s>>
 
-type FeedGen<'o,'s,'f> = Gen<Res<FeedEmit<'o,'s,'f>, FeedDiscard<'s,'f>>, 's> 
-type FeedRes<'o,'s,'f> = Res<FeedEmit<'o,'s,'f>, FeedDiscard<'s,'f>>
+type FeedGen<'o,'s,'f> = Gen<Res<FeedEmit<'o,'s,'f>, FeedSkip<'s,'f>>, 's> 
+type FeedRes<'o,'s,'f> = Res<FeedEmit<'o,'s,'f>, FeedSkip<'s,'f>>
 
 type Init<'f> = Init of 'f
 
@@ -45,13 +44,15 @@ type GenState<'sm, 'sk, 'm> =
 
 module Loop =
     type Emit<'value> = Emit of 'value
-    type DiscardWith<'state> = DiscardWith of 'state
+    type SkipWith<'state> = SkipWith of 'state
+    type Skip = Skip
     type Stop = Stop
 
 
 module Feed =
     type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
-    type DiscardWith<'state> = DiscardWith of 'state
+    type SkipWith<'state> = SkipWith of 'state
+    type Skip = Skip
     type Stop = Stop
 
 
@@ -65,20 +66,28 @@ module Res =
 
     let mapUntilStop mapping (results: LoopRes<_,_> list) =
         // TODO: Implement a "UntilStopResult" that doesn't have 'Stop' as case and get rid of the failwith.
-        let resultsTilStop, finalState =
+        let mappedResults =
             results
-            |> Seq.takeWhile (isStop >> not)
-            |> Seq.mapFold
-                (fun _ res ->
-                    let newState = 
-                        match res with
-                        | Res.Emit (LoopEmit (_, s)) -> Some s
-                        | Res.DiscardWith (LoopDiscard s) -> Some s
-                        | Res.Stop -> failwith "Stop is not supported."
-                    mapping res, newState
-                )
-                None
-            |> fun (results, state) -> results |> Seq.toList, state
+            |> Seq.map (fun res ->
+                let state =
+                    match res with
+                    | Res.Emit (LoopEmit (_, s)) -> Some s
+                    | Res.SkipWith (LoopSkip s) -> Some s
+                    | Res.Stop -> None
+                res, state
+            )
+            |> Seq.takeWhile (fun (_,state) -> Option.isSome state)
+            |> Seq.map (fun (res,state) -> mapping res ,state)
+        let resultsTilStop,finalState =
+            let mutable finalState = None
+            let resultsTilStop =
+                seq {
+                    for (res, state) in mappedResults do
+                        finalState <- state
+                        yield res
+                }
+                |> Seq.toList
+            resultsTilStop,finalState
         { results = resultsTilStop
           isStopped = results.Length > resultsTilStop.Length
           finalState = finalState }
@@ -103,17 +112,16 @@ module Gen =
     // Gen creation
     // --------
 
-    /// Single case DU constructor.
-    let create f = Gen f
-    let createGen f : LoopGen<_,_> = Gen f
-    let createFdb f : FeedGen<_,_,_> = Gen f
+    let createGen f = Gen f
+    let create f : LoopGen<_,_> = Gen f
+    let createFeed f : FeedGen<_,_,_> = Gen f
 
     // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
     let createWithSeed f seed =
         fun s ->
             let state = Option.defaultValue seed s
             f state
-        |> createGen
+        |> create
 
     let createWithSeed2 seed f =
         createWithSeed seed f
@@ -123,7 +131,7 @@ module Gen =
     // bind
     // --------
 
-    let internal bindLoopWhateverGen discard processResult createWhatever k m
+    let internal bindLoopWhateverGen skip processResult createWhatever k m
         =
         let evalmres mres lastKState leftovers =
             match mres with
@@ -133,12 +141,12 @@ module Gen =
                 match kres with
                 | [] -> 
                     let state = { mstate = mstate; kstate = lastKState; mleftovers = leftovers }
-                    [ discard state ]
+                    [ skip state ]
                 | results ->
                     [ for res in results do yield processResult res mstate leftovers ]
-            | Res.DiscardWith (LoopDiscard stateM) ->
+            | Res.SkipWith (LoopSkip stateM) ->
                 let state = { mstate = stateM; kstate = lastKState; mleftovers = leftovers }
-                [ discard state ]
+                [ skip state ]
             | Res.Stop ->
                 [ Res.Stop ]
         let rec evalm lastMState lastKState =
@@ -149,7 +157,7 @@ module Gen =
                 match lastMState with
                 | Some lastStateM ->
                     let state = { mstate = lastStateM; kstate = lastKState; mleftovers = [] }
-                    [ discard state ]
+                    [ skip state ]
                 | None ->
                     []
         fun state ->
@@ -167,38 +175,38 @@ module Gen =
         (m: LoopGen<'o1, 's1>)
         : LoopGen<'o2, GenState<'s1, 's2, LoopRes<'o1, 's1>>>
         =
-        let discard state = Res.DiscardWith (LoopDiscard state)
+        let skip state = Res.SkipWith (LoopSkip state)
         let processResult res mstate leftovers =
             match res with
             | Res.Emit (LoopEmit (kres, kstate)) ->
                 let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
                 Res.Emit (LoopEmit (kres, state))
-            | Res.DiscardWith (LoopDiscard kstate) -> 
+            | Res.SkipWith (LoopSkip kstate) -> 
                 let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
-                Res.DiscardWith (LoopDiscard state)
+                Res.SkipWith (LoopSkip state)
             | Res.Stop ->
                 Res.Stop
-        bindLoopWhateverGen discard processResult createGen k m
+        bindLoopWhateverGen skip processResult create k m
 
     let internal bindLoopFeedFeed
         (k: 'o1 -> FeedGen<'o2,'s2,'f>)
         (m: LoopGen<'o1,'s1>)
         : FeedGen<'o2,_,'f> // TODO: _
         =
-        let discard state = Res.DiscardWith (FeedDiscard (state, None))
+        let skip state = Res.SkipWith (FeedSkip (state, None))
         let processResult res mstate leftovers =
             match res with
             | Res.Emit (FeedEmit (kres, kstate, kfeedback)) ->
                 let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
                 Res.Emit (FeedEmit (kres, state, kfeedback))
-            | Res.DiscardWith (FeedDiscard (kstate, kfeedback)) -> 
+            | Res.SkipWith (FeedSkip (kstate, kfeedback)) -> 
                 let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
-                Res.DiscardWith (FeedDiscard (state, kfeedback))
+                Res.SkipWith (FeedSkip (state, kfeedback))
             | Res.Stop -> 
                 Res.Stop
-        bindLoopWhateverGen discard processResult createFdb k m
+        bindLoopWhateverGen skip processResult createFeed k m
 
-    let internal bindInitFdbGen
+    let internal bindInitFeedLoop
         (k: 'f -> FeedGen<'o,'s,'f>)
         (m: Init<'f>)
         : LoopGen<_,_>
@@ -213,28 +221,31 @@ module Gen =
                 | Res.Emit (FeedEmit (kvalue, kstate, feedback)) ->
                     let state = { mstate = feedback; kstate = Some kstate; mleftovers = [] }
                     Res.Emit (LoopEmit (kvalue, state))
-                | Res.DiscardWith (FeedDiscard (kstate, feedback)) ->
+                | Res.SkipWith (FeedSkip (kstate, feedback)) ->
                     let feedback =
                         match feedback with
                         | Some feedback -> feedback
                         | None -> lastFeed
                     let state = { mstate = feedback; kstate = Some kstate; mleftovers = [] }
-                    Res.DiscardWith (LoopDiscard state)
+                    Res.SkipWith (LoopSkip state)
                 | Res.Stop ->
                     Res.Stop
             ]
-        |> createGen
+        |> create
 
 
     // --------
-    // return / yield
+    // returns
     // --------
 
     let internal ofGenResultRepeating (res: Res<_,_>) : Gen<_,_> =
-        create (fun _ -> [ res ])
+        createGen (fun _ -> [ res ])
 
     let internal ofGenResultOnce (res: Res<_,_>) : Gen<_,_> =
-        create (fun _ -> [ res; Res.Stop ])
+        createGen (fun _ -> [ res; Res.Stop ])
+
+    let returnSkip<'o,'s> : Gen<'o,'s> =
+        createGen (fun _ -> [])
 
     let returnValueRepeating<'v> (value: 'v) : LoopGen<'v, unit> =
         Res.Emit (LoopEmit (value, ())) |> ofGenResultRepeating
@@ -242,20 +253,20 @@ module Gen =
     let returnValueOnce (value: 'v) : LoopGen<'v, unit> =
         Res.Emit (LoopEmit (value, ())) |> ofGenResultOnce
     
-    let returnDiscardWith<'v, 's> (state: 's) : LoopGen<'v,'s> =
-        Res.DiscardWith (LoopDiscard state) |> ofGenResultRepeating
+    let returnSkipWith<'v, 's> (state: 's) : LoopGen<'v,'s> =
+        Res.SkipWith (LoopSkip state) |> ofGenResultRepeating
     
     let returnStop<'v,'s> : LoopGen<'v,'s> =
         Res.Stop |> ofGenResultRepeating
     
-    let returnFeedbackStop<'v,'s,'f> : FeedGen<'v,'s,'f> =
+    let internal returnFeedbackStop<'v,'s,'f> : FeedGen<'v,'s,'f> =
         Res.Stop |> ofGenResultRepeating
     
-    let returnFeedback<'discard, 'v, 's, 'f> (value: 'v) (feedback: 'f) : FeedGen<'v, unit, 'f> =
+    let internal returnFeedback<'skip, 'v, 's, 'f> (value: 'v) (feedback: 'f) : FeedGen<'v, unit, 'f> =
         Res.Emit (FeedEmit (value, (), feedback)) |> ofGenResultRepeating
     
-    let returnFeedbackDiscardWith<'v, 'f> (feedback: 'f) : FeedGen<'v, unit, 'f>  =
-        Res.DiscardWith (FeedDiscard ((), Some feedback)) |> ofGenResultRepeating
+    let internal returnFeedbackSkipWith<'v, 'f> (feedback: 'f) : FeedGen<'v, unit, 'f>  =
+        Res.SkipWith (FeedSkip ((), Some feedback)) |> ofGenResultRepeating
 
 
     // --------
@@ -270,7 +281,7 @@ module Gen =
                 | true -> Res.Emit (LoopEmit (enumerator.Current, enumerator))
                 | false -> Res.Stop
             [ nextValue ]
-        |> createGen
+        |> create
         
     let ofList (list: list<_>) =
         fun l ->
@@ -280,7 +291,7 @@ module Gen =
                 | x::xs -> Res.Emit (LoopEmit (x, xs))
                 | [] -> Res.Stop
             [ res ]
-        |> createGen
+        |> create
 
 
     // --------
@@ -311,9 +322,9 @@ module Gen =
                         | Res.Emit (LoopEmit (va, sa)) ->
                             astate <- Some sa
                             yield Res.Emit (LoopEmit (va, { astate = astate; bstate = None }))
-                        | Res.DiscardWith (LoopDiscard sa) -> 
+                        | Res.SkipWith (LoopSkip sa) -> 
                             astate <- Some sa
-                            yield Res.DiscardWith (LoopDiscard { astate = astate; bstate = None })
+                            yield Res.SkipWith (LoopSkip { astate = astate; bstate = None })
                         | Res.Stop ->
                             isRunning <- false
                             yield Res.Stop
@@ -323,13 +334,13 @@ module Gen =
                             match res with
                             | Res.Emit (LoopEmit (vb, sb)) ->
                                 yield Res.Emit (LoopEmit (vb, { astate = astate; bstate = Some sb }))
-                            | Res.DiscardWith (LoopDiscard sb) -> 
-                                yield Res.DiscardWith (LoopDiscard { astate = astate; bstate = Some sb })
+                            | Res.SkipWith (LoopSkip sb) -> 
+                                yield Res.SkipWith (LoopSkip { astate = astate; bstate = Some sb })
                             | Res.Stop ->
                                 isRunning <- false
                                 yield Res.Stop
             ]
-        |> createGen
+        |> create
 
 
     // --------
@@ -339,7 +350,7 @@ module Gen =
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = ofList x
-        member _.Zero() = Gen (fun _ -> [])
+        member _.Zero() = returnSkip
         member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         member _.Combine(x, delayed) = combine x delayed
         member _.Delay(delayed) = delayed
@@ -350,17 +361,19 @@ module Gen =
         member _.Bind(m, f) = bind f m
         // returns
         member _.Return(Loop.Emit value) = returnValueRepeating value
-        member _.Return(Loop.DiscardWith state) = returnDiscardWith state
+        member _.Return(Loop.SkipWith state) = returnSkipWith state
+        member _.Return(Loop.Skip) = returnSkip
         member _.Return(Loop.Stop) = returnStop
         
     type FeedBuilder() =
         inherit BaseBuilder()
-        member _.Bind(m, f) = bindInitFdbGen f m
+        member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
         // returns
         member _.Return(Feed.Feedback (value, feedback)) = returnFeedback value feedback
-        member _.Return(Feed.DiscardWith state) = returnFeedbackDiscardWith state
+        member _.Return(Feed.SkipWith state) = returnFeedbackSkipWith state
+        member _.Return(Feed.Skip) = returnSkip
         member _.Return(Feed.Stop) = returnFeedbackStop
     
     let loop = LoopBuilder()
@@ -402,7 +415,7 @@ module Gen =
                         | Res.Emit (LoopEmit (fres, fstate)) ->
                             state <- Some fstate
                             yield (fres, fstate)
-                        | Res.DiscardWith (LoopDiscard fstate) ->
+                        | Res.SkipWith (LoopSkip fstate) ->
                             state <- Some fstate
                         | Res.Stop ->
                             resume <- false
@@ -429,7 +442,7 @@ module Gen =
                             | Res.Emit (LoopEmit (resF, stateF)) ->
                                 state <- Some stateF
                                 yield (resF, stateF)
-                            | Res.DiscardWith (LoopDiscard stateF) ->
+                            | Res.SkipWith (LoopSkip stateF) ->
                                 state <- Some stateF
                             | Res.Stop ->
                                 resume <- false
@@ -503,18 +516,6 @@ type Gen<'o,'s> with
     static member inline (/) (left, right) = Arithmetic.binOpBoth left right (/)
     static member inline (%) (left, right) = Arithmetic.binOpBoth left right (%)
     static member inline (==) (left, right) = Arithmetic.binOpBoth left right (=)
-
-
-open System.Runtime.CompilerServices
-
-[<Extension>]
-type Extensions() =
-    [<Extension>]
-    static member GetSlice(inputGen: LoopGen<'o, 's>, inclStartIdx, inclEndIdx) =
-        let s = max 0 (defaultArg inclStartIdx 0)
-        let e = max 0 (defaultArg inclEndIdx 0)
-        let l = min 0 (e - s)
-        inputGen |> Gen.toSeq |> Seq.skip s |> Seq.truncate l |> Gen.ofSeq
 
 
 [<AutoOpen>]

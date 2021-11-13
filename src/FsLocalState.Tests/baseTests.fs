@@ -69,7 +69,7 @@ let [<TestCase>] ``Feedback: both binds + discard`` () =
         if currValue % 2 = 0 then
             return Feed.Feedback (currValue, nextValue)
         else
-            return Feed.DiscardWith nextValue
+            return Feed.SkipWith nextValue
     }
     |> Gen.toListn 4
     |> should equal [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
@@ -85,7 +85,7 @@ let [<TestCase>] ``Stop (gen)`` () =
     |> Gen.toList
     |> should equal [ 0 .. 4 ]
 
-let [<TestCase>] ``Stop (fdb)`` () =
+let [<TestCase>] ``Stop (feed)`` () =
     feed {
         let! v = Init 0
         let nextValue = v + 1
