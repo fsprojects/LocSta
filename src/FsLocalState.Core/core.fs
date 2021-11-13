@@ -10,10 +10,9 @@ For the API surface, names like 'value or 'state are used instead of chars.
 
 namespace FsLocalState
 
-[<Struct>]
 type Gen<'o,'s> = Gen of ('s option -> 'o list)
 
-[<RequireQualifiedAccess; Struct>]
+[<RequireQualifiedAccess>]
 type Res<'e, 'd> =
     | Emit of emit: 'e
     | SkipWith of skip: 'd
@@ -22,7 +21,6 @@ type Res<'e, 'd> =
 type LoopEmit<'v,'s> = LoopEmit of 'v * 's
 type LoopSkip<'s> = LoopSkip of 's
 
-[<Struct>]
 type Feedback<'f> =
     | UseThis of 'f
     | UseLast
@@ -38,7 +36,6 @@ type LoopRes<'o,'s> = Res<LoopEmit<'o,'s>, LoopSkip<'s>>
 type FeedGen<'o,'s,'f> = Gen<Res<FeedEmit<'o,'s,'f>, FeedSkip<'s,'f>>, 's> 
 type FeedRes<'o,'s,'f> = Res<FeedEmit<'o,'s,'f>, FeedSkip<'s,'f>>
 
-[<Struct>]
 type Init<'f> = Init of 'f
 
 type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
@@ -51,19 +48,19 @@ type GenState<'sm, 'sk, 'm> =
 
 
 module Loop =
-    type [<Struct>] Emit<'value> = Emit of 'value
-    type [<Struct>] SkipWith<'state> = SkipWith of 'state
-    type [<Struct>] Skip = Skip
-    type [<Struct>] Stop = Stop
+    type Emit<'value> = Emit of 'value
+    type SkipWith<'state> = SkipWith of 'state
+    type Skip = Skip
+    type Stop = Stop
 
 
 module Feed =
-    type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
-    type [<Struct>] SkipWith<'state> = SkipWith of 'state
-    type [<Struct>] Skip = Skip
-    type [<Struct>] Stop = Stop
-    type [<Struct>] ResetThis = ResetThis
-    type [<Struct>] ResetTree = ResetTree
+    type Emit<'value, 'feedback> = Emit of 'value * 'feedback
+    type SkipWith<'state> = SkipWith of 'state
+    type Skip = Skip
+    type Stop = Stop
+    type ResetThis = ResetThis
+    type ResetTree = ResetTree
 
 
 module Res =
@@ -351,52 +348,20 @@ module Gen =
         : LoopGen<'o, CombineInfo<'sa,'sb>>
         =
         fun state ->
-            [
-                let state =  state |> Option.defaultValue { astate = None; bstate = None }
-                
-                let mutable astate = state.astate
-                let mutable isRunning = true
-
-                // TODO: that looks quite crappy, buy maybe it's ok?
-                // TODO: redundancy
-                for res in run a state.astate do
-                    if isRunning then
-                        match res with
-                        | Res.Emit (LoopEmit (va, sa)) ->
-                            astate <- Some sa
-                            yield Res.Emit (LoopEmit (va, { astate = astate; bstate = None }))
-                        | Res.SkipWith (LoopSkip sa) -> 
-                            astate <- Some sa
-                            yield Res.SkipWith (LoopSkip { astate = astate; bstate = None })
-                        | Res.Stop ->
-                            isRunning <- false
-                            yield Res.Stop
-                if isRunning then
-                    for res in run (b ()) state.bstate do
-                        if isRunning then
-                            match res with
-                            | Res.Emit (LoopEmit (vb, sb)) ->
-                                yield Res.Emit (LoopEmit (vb, { astate = astate; bstate = Some sb }))
-                            | Res.SkipWith (LoopSkip sb) -> 
-                                yield Res.SkipWith (LoopSkip { astate = astate; bstate = Some sb })
-                            | Res.Stop ->
-                                isRunning <- false
-                                yield Res.Stop
-            ]
-            //let state =  state |> Option.defaultValue { astate = None; bstate = None }
-            //let aresults = run a state.astate |> Res.takeUntilStop
-            //let mappedAResults =
-            //    aresults.resultsWithStop
-            //    |> Res.mapMany id (fun sa -> { astate = Some sa; bstate = None })
-            //let mappedBResults =            
-            //    match aresults.isStopped with
-            //    | false ->
-            //        run (b()) state.bstate |> Res.takeUntilStop
-            //        |> fun res -> res.resultsWithStop
-            //        |> Res.mapMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
-            //    | true ->
-            //        []
-            //mappedAResults @ mappedBResults
+            let state =  state |> Option.defaultValue { astate = None; bstate = None }
+            let aresults = run a state.astate |> Res.takeUntilStop
+            let mappedAResults =
+                aresults.resultsWithStop
+                |> Res.mapMany id (fun sa -> { astate = Some sa; bstate = None })
+            let mappedBResults =            
+                match aresults.isStopped with
+                | false ->
+                    run (b()) state.bstate |> Res.takeUntilStop
+                    |> fun res -> res.resultsWithStop
+                    |> Res.mapMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
+                | true ->
+                    []
+            mappedAResults @ mappedBResults
         |> create
 
     let internal combineTodo
