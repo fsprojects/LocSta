@@ -11,7 +11,7 @@ module Lib =
         // map / apply / transformation
         // --------
 
-        let mapValueAndState (proj: 'v -> 's -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        let map2 (proj: 'v -> 's -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
             fun state ->
                 [
                     for res in Gen.run inputGen state do
@@ -22,8 +22,8 @@ module Lib =
                 ]
             |> Gen.createGen
 
-        let mapValue proj (inputGen: LoopGen<_,_>) =
-            mapValueAndState (fun v _ -> proj v) inputGen
+        let map proj (inputGen: LoopGen<_,_>) =
+            map2 (fun v _ -> proj v) inputGen
 
         let apply xGen fGen =
             loop {
@@ -45,7 +45,7 @@ module Lib =
         let inline count inclFrom step =
             feed {
                 let! curr = Init inclFrom
-                return Feed.Feedback (curr, curr + step)
+                return Feed.Emit (curr, curr + step)
             }
 
         let inline countTo incFrom step inclusiveEnd =
@@ -168,7 +168,7 @@ module Lib =
 
         // TODO: Test / Docu
         let includeState (inputGen: LoopGen<_,_>) =
-            mapValueAndState (fun v s -> v,s) inputGen
+            map2 (fun v s -> v,s) inputGen
 
         // TODO: Test / Docu
         let originalResult inputGen =
@@ -195,7 +195,7 @@ module Lib =
                 let! elements = Init []
                 // TODO: Performance
                 let newElements = elements @ [currentValue]
-                return Feed.Feedback (newElements, newElements)
+                return Feed.Emit (newElements, newElements)
             }
 
         let accumulateOnePart partLength currentValue =
@@ -228,7 +228,7 @@ module Lib =
                     forkResults
                     |> List.filter (fun res -> not res.isStopped)
                     |> List.map (fun res -> res.finalState)
-                return Feed.Feedback (emits, newRunningStates)
+                return Feed.Emit (emits, newRunningStates)
             }
 
         // TODO: Test / Docu
@@ -245,7 +245,7 @@ module Lib =
         let random () =
             feed {
                 let! random = Init (dotnetRandom())
-                return Feed.Feedback (random.NextDouble(), random)
+                return Feed.Emit (random.NextDouble(), random)
             }
     
         /// Delays a given value by 1 cycle.
@@ -272,7 +272,7 @@ module Lib =
             feed {
                 let! state = Init seed
                 let res = state < input
-                return Feed.Feedback(res, input)
+                return Feed.Emit(res, input)
             }
     
         /// Negative slope.
@@ -280,7 +280,7 @@ module Lib =
             feed {
                 let! state = Init seed
                 let res = state < input
-                return Feed.Feedback(res, input)
+                return Feed.Emit(res, input)
             }
     
 
@@ -301,10 +301,12 @@ type Extensions() =
         let s = max 0 (defaultArg inclStartIdx 0)
         let e = min 0 (defaultArg inclEndIdx 0)
         loop {
-            let! i = Gen.countTo 0 1 e
+            let! i = Gen.count 0 1
             let! value = inputGen
-            if i > e then
-                return Loop.Stop
-            elif i >= s then
+            if i = 5 then
                 return Loop.Emit value
+            //if i > e then
+            //    return Loop.Stop
+            //elif i >= s then
+            //    return Loop.Emit value
         }

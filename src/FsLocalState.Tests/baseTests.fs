@@ -67,7 +67,7 @@ let [<TestCase>] ``Feedback: both binds + discard`` () =
         let currValue = state + c1 + c2
         let nextValue = state + 1
         if currValue % 2 = 0 then
-            return Feed.Feedback (currValue, nextValue)
+            return Feed.Emit (currValue, nextValue)
         else
             return Feed.SkipWith nextValue
     }
@@ -90,7 +90,7 @@ let [<TestCase>] ``Stop (feed)`` () =
         let! v = Init 0
         let nextValue = v + 1
         if v < 5 then
-            return Feed.Feedback(v, nextValue)
+            return Feed.Emit(v, nextValue)
         else
             return Feed.Stop
     }
@@ -145,6 +145,25 @@ let [<TestCase>] ``Combine`` () =
         return! Gen.ofList [ 7; 8; 9 ]
         return Loop.Emit 10
         return Loop.Emit 11
+    }
+    |> Gen.toList
+    |> should equal
+        [
+            0; 1; 2; 3; 6; 7; 10; 11
+            0; 1; 2; 4; 6; 8; 10; 11
+            0; 1; 2; 5; 6; 9; 10; 11
+            0; 1; 2
+        ]
+
+
+let [<TestCase>] ``Feedback: ResetThis + Combine`` () =
+    failwith "TODO"
+    feed {
+        let! state = Init 0
+        let! c = count 10 1
+        if state = 5 then
+            return Feed.ResetThis
+            return Feed.Emit(state + c, state + 1)
     }
     |> Gen.toList
     |> should equal
