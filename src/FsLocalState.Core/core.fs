@@ -10,7 +10,6 @@ For the API surface, names like 'value or 'state are used instead of chars.
 
 namespace FsLocalState
 
-[<Struct>]
 type Gen<'o,'s> = Gen of ('s option -> 'o list)
 
 [<RequireQualifiedAccess; Struct>]
@@ -69,9 +68,9 @@ module Feed =
 module Res =
     let isStop result = match result with | Res.Stop -> true | _ -> false
 
-    type AggregateResult<'o, 's> =
-        { results: LoopRes<'o, 's> list
-          resultsWithStop: LoopRes<'o, 's> list
+    type AggregateResult<'e, 'd, 's> =
+        { results: Res<'e, 'd> list
+          resultsWithStop: Res<'e, 'd> list
           isStopped: bool
           finalState: 's option }
 
@@ -90,16 +89,21 @@ module Res =
     let mapMany valueMapping stateMapping (results: LoopRes<_,_> list) =
         results |> List.map (map valueMapping stateMapping)
 
-    let mapUntilStop mapping (results: LoopRes<_,_> list) =
+    // TODO: implement it like Loop
+    let mapFeedMany valueMapping stateMapping results =
+        [ for res in results do
+            match res with
+            | Res.Emit (FeedEmit (v,s,f)) -> Res.Emit (FeedEmit (valueMapping v, stateMapping s, f))
+            | Res.SkipWith (FeedSkip (s,f)) -> Res.SkipWith (FeedSkip (stateMapping s, f))
+            | Res.Stop -> Res.Stop
+        ]
+
+    let inline internal mapGenUntilStop getState mapping (results: 'a list) =
         let mappedResults =
             results
             |> Seq.map (fun res ->
-                let state =
-                    match res with
-                    | Res.Emit (LoopEmit (_, s)) -> Some s
-                    | Res.SkipWith (LoopSkip s) -> Some s
-                    | Res.Stop -> None
-                res, state
+                let state = getState res
+                res,state
             )
             |> Seq.takeWhile (fun (_,state) -> Option.isSome state)
             |> Seq.map (fun (res,state) -> mapping res ,state)
@@ -122,7 +126,27 @@ module Res =
           isStopped = isStopped
           finalState = finalState }
 
+    let internal mapFeedUntilStop mapping (results: FeedRes<_,_,_> list) =
+        mapGenUntilStop
+            (fun res ->
+                match res with
+                | Res.Emit (FeedEmit (_, s, f)) -> Some s
+                | Res.SkipWith (FeedSkip (s, f)) -> Some s
+                | Res.Stop -> None)
+            mapping results
+
+    let mapUntilStop mapping (results: LoopRes<_,_> list) =
+        mapGenUntilStop
+            (fun res ->
+                match res with
+                | Res.Emit (LoopEmit (_, s)) -> Some s
+                | Res.SkipWith (LoopSkip s) -> Some s
+                | Res.Stop -> None)
+            mapping results
+
     let takeUntilStop results = mapUntilStop id results
+    
+    let takeFeedUntilStop results = mapFeedUntilStop id results
 
     let emittedValues (results: LoopRes<_,_> list) =
         results
@@ -161,7 +185,7 @@ module Gen =
     // bind
     // --------
 
-    let internal bindLoopWhateverGen skip processResult createWhatever k m
+    let internal bindLoopWhateverGen buildSkip processResult createWhatever k m
         =
         let evalmres mres lastKState leftovers =
             match mres with
@@ -171,12 +195,12 @@ module Gen =
                 match kres with
                 | [] -> 
                     let state = { mstate = mstate; kstate = lastKState; mleftovers = leftovers }
-                    [ skip state ]
+                    [ buildSkip state ]
                 | results ->
                     [ for res in results do yield processResult res mstate leftovers ]
             | Res.SkipWith (LoopSkip stateM) ->
                 let state = { mstate = stateM; kstate = lastKState; mleftovers = leftovers }
-                [ skip state ]
+                [ buildSkip state ]
             | Res.Stop ->
                 [ Res.Stop ]
         let rec evalm lastMState lastKState =
@@ -187,7 +211,7 @@ module Gen =
                 match lastMState with
                 | Some lastStateM ->
                     let state = { mstate = lastStateM; kstate = lastKState; mleftovers = [] }
-                    [ skip state ]
+                    [ buildSkip state ]
                 | None ->
                     []
         fun state ->
@@ -205,7 +229,7 @@ module Gen =
         (m: LoopGen<'o1, 's1>)
         : LoopGen<'o2, GenState<'s1, 's2, LoopRes<'o1, 's1>>>
         =
-        let skip state = Res.SkipWith (LoopSkip state)
+        let buildSkip state = Res.SkipWith (LoopSkip state)
         let processResult res mstate leftovers =
             match res with
             | Res.Emit (LoopEmit (kres, kstate)) ->
@@ -216,14 +240,14 @@ module Gen =
                 Res.SkipWith (LoopSkip state)
             | Res.Stop ->
                 Res.Stop
-        bindLoopWhateverGen skip processResult create k m
+        bindLoopWhateverGen buildSkip processResult create k m
 
     let internal bindLoopFeedFeed
         (k: 'o1 -> FeedGen<'o2,'s2,'f>)
         (m: LoopGen<'o1,'s1>)
         : FeedGen<'o2,_,'f> // TODO: _
         =
-        let skip state = Res.SkipWith (FeedSkip (state, UseLast))
+        let buildSkip state = Res.SkipWith (FeedSkip (state, UseLast))
         let processResult res mstate leftovers =
             match res with
             | Res.Emit (FeedEmit (kres, kstate, kfeedback)) ->
@@ -234,7 +258,7 @@ module Gen =
                 Res.SkipWith (FeedSkip (state, kfeedback))
             | Res.Stop -> 
                 Res.Stop
-        bindLoopWhateverGen skip processResult createFeed k m
+        bindLoopWhateverGen buildSkip processResult createFeed k m
 
     let internal bindInitFeedLoop
         (k: 'f -> FeedGen<'o,'s,'f>)
@@ -280,34 +304,25 @@ module Gen =
 
     let returnSkip<'o,'s> : Gen<'o,'s> =
         createGen (fun _ -> [])
-
     let returnValueRepeating<'v> (value: 'v) : LoopGen<'v, unit> =
         Res.Emit (LoopEmit (value, ())) |> ofGenResultRepeating
-    
     let returnValueOnce (value: 'v) : LoopGen<'v, unit> =
         Res.Emit (LoopEmit (value, ())) |> ofGenResultOnce
-    
     let returnSkipWith<'v, 's> (state: 's) : LoopGen<'v,'s> =
         Res.SkipWith (LoopSkip state) |> ofGenResultRepeating
-    
     let returnStop<'v,'s> : LoopGen<'v,'s> =
         Res.Stop |> ofGenResultRepeating
     
     let internal returnFeedback<'skip, 'v, 's, 'f> (value: 'v) (feedback: 'f) : FeedGen<'v, unit, 'f> =
         Res.Emit (FeedEmit (value, (), feedback)) |> ofGenResultRepeating
-    
     let internal returnFeedbackSkip<'v, 'f> : FeedGen<'v, unit, 'f>  =
         Res.SkipWith (FeedSkip ((), UseLast)) |> ofGenResultRepeating
-    
     let internal returnFeedbackSkipWith<'v, 'f> (feedback: 'f) : FeedGen<'v, unit, 'f>  =
         Res.SkipWith (FeedSkip ((), UseThis feedback)) |> ofGenResultRepeating
-
     let internal returnFeedbackResetThis<'v, 'f> : FeedGen<'v, unit, 'f>  =
         Res.SkipWith (FeedSkip ((), ResetThis)) |> ofGenResultRepeating
-
     let internal returnFeedbackResetTree<'v, 'f> : FeedGen<'v, unit, 'f>  =
         Res.SkipWith (FeedSkip ((), ResetTree)) |> ofGenResultRepeating
-
     let internal returnFeedbackStop<'v,'s,'f> : FeedGen<'v,'s,'f> =
         Res.Stop |> ofGenResultRepeating
 
@@ -367,12 +382,28 @@ module Gen =
             mappedAResults @ mappedBResults
         |> create
 
+    // TODO: Redundant with combine
     let internal combineTodo
-        (a: FeedGen<'o, 'sa, 'fa>)
-        (b: unit -> FeedGen<'o, 'sb, 'fb>)
-        : FeedGen<'o, 'a, 'b>
+        (a: FeedGen<'o, 'sa, 'f>)
+        (b: unit -> FeedGen<'o, 'sb, 'f>)
+        : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
         =
-            failwith "TODO"
+        fun state ->
+            let state =  state |> Option.defaultValue { astate = None; bstate = None }
+            let aresults = run a state.astate |> Res.takeFeedUntilStop
+            let mappedAResults =
+                aresults.resultsWithStop
+                |> Res.mapFeedMany id (fun sa -> { astate = Some sa; bstate = None })
+            let mappedBResults =            
+                match aresults.isStopped with
+                | false ->
+                    run (b()) state.bstate |> Res.takeFeedUntilStop
+                    |> fun res -> res.resultsWithStop
+                    |> Res.mapFeedMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
+                | true ->
+                    []
+            mappedAResults @ mappedBResults
+        |> createFeed
 
 
     // --------
@@ -393,6 +424,7 @@ module Gen =
         member _.Combine(x, delayed) = combineLoopLoop x delayed
         // returns
         member _.Return(Loop.Emit value) = returnValueRepeating value
+        member _.Yield(value: 'a) = returnValueRepeating value
         member _.Return(Loop.SkipWith state) = returnSkipWith state
         member _.Return(Loop.Skip) = returnSkip
         member _.Return(Loop.Stop) = returnStop
@@ -406,6 +438,7 @@ module Gen =
         member _.Combine(x, delayed) = combineTodo x delayed
         // returns
         member _.Return(Feed.Emit (value, feedback)) = returnFeedback value feedback
+        member _.Yield(value: 'v, feedback: 'f) = returnFeedback value feedback
         member _.Return(Feed.SkipWith state) = returnFeedbackSkipWith state
         member _.Return(Feed.Skip) = returnSkip
         member _.Return(Feed.Stop) = returnFeedbackStop

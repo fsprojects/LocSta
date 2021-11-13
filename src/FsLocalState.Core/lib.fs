@@ -45,14 +45,14 @@ module Lib =
         let inline count inclFrom step =
             feed {
                 let! curr = Init inclFrom
-                return Feed.Emit (curr, curr + step)
+                yield curr, curr + step
             }
 
         let inline countTo incFrom step inclusiveEnd =
             loop {
                 let! c = count incFrom step
                 match c <= inclusiveEnd with
-                | true -> return Loop.Emit c
+                | true -> yield c
                 | false -> return Loop.Stop
             }
 
@@ -195,7 +195,7 @@ module Lib =
                 let! elements = Init []
                 // TODO: Performance
                 let newElements = elements @ [currentValue]
-                return Feed.Emit (newElements, newElements)
+                yield newElements, newElements
             }
 
         let accumulateOnePart partLength currentValue =
@@ -205,7 +205,7 @@ module Lib =
                 if c = partLength - 1 then
                     // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
                     // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
-                    return Loop.Emit acc
+                    yield acc
                 else if c = partLength then
                     return Loop.Stop
             }
@@ -228,7 +228,7 @@ module Lib =
                     forkResults
                     |> List.filter (fun res -> not res.isStopped)
                     |> List.map (fun res -> res.finalState)
-                return Feed.Emit (emits, newRunningStates)
+                yield emits, newRunningStates
             }
 
         // TODO: Test / Docu
@@ -245,7 +245,7 @@ module Lib =
         let random () =
             feed {
                 let! random = Init (dotnetRandom())
-                return Feed.Emit (random.NextDouble(), random)
+                yield random.NextDouble(), random
             }
     
         /// Delays a given value by 1 cycle.
@@ -272,7 +272,7 @@ module Lib =
             feed {
                 let! state = Init seed
                 let res = state < input
-                return Feed.Emit(res, input)
+                yield res, input
             }
     
         /// Negative slope.
@@ -280,7 +280,7 @@ module Lib =
             feed {
                 let! state = Init seed
                 let res = state < input
-                return Feed.Emit(res, input)
+                yield res, input
             }
     
 
@@ -289,6 +289,25 @@ module Lib =
         // ----------
 
         let head g = g |> Gen.toListn 1 |> List.exactlyOne
+
+        let skip n g =
+            loop {
+                let! v = g
+                let! c = count 0 1
+                if c >= n then
+                    return Loop.Emit v
+            }
+
+        // TODO: has "truncate" behaviour
+        let take n g =
+            loop {
+                let! v = g
+                let! c = count 0 1
+                if c < n then
+                    return Loop.Emit v
+                else
+                    return Loop.Stop
+            }
 
 
 open System.Runtime.CompilerServices
@@ -299,12 +318,13 @@ type Extensions() =
     [<Extension>]
     static member GetSlice(inputGen: LoopGen<'o, 's>, inclStartIdx, inclEndIdx) =
         let s = max 0 (defaultArg inclStartIdx 0)
-        let e = defaultArg inclEndIdx 0
         loop {
             let! i = Gen.count 0 1
             let! value = inputGen
-            if i > e then
-                return Loop.Stop
-            elif i >= s then
-                return Loop.Emit value
+            if i >= s then
+                match inclEndIdx with
+                | Some e when i > e ->
+                    return Loop.Stop
+                | _ ->
+                    return Loop.Emit value
         }

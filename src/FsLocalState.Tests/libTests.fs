@@ -22,6 +22,7 @@ let [<TestCase>] ``Reset by current`` () =
             0; 1; 2; 3; 4 
         ]
 
+
 let [<TestCase>] ``Reset on stop`` () =
     [0..2]
     |> Gen.ofList
@@ -34,10 +35,12 @@ let [<TestCase>] ``Reset on stop`` () =
             0; 1; 2 
         ]
 
+
 let [<TestCase>] ``Count 0 1`` () =
     count 0 1
     |> Gen.toListn 5
     |> should equal [0..4]
+
 
 let [<TestCase>] ``Count until repeat`` () =
     repeatCount 0 1 3
@@ -48,6 +51,7 @@ let [<TestCase>] ``Count until repeat`` () =
             yield! [0..3]
             yield! [0..3]
         ]
+
 
 let [<TestCase>] ``Accumulate onc part`` () =
     loop {
@@ -60,6 +64,7 @@ let [<TestCase>] ``Accumulate onc part`` () =
         [
             [ 0; 1; 2 ]
         ]
+
 
 let [<TestCase>] ``Accumulate many parts`` () =
     loop {
@@ -89,6 +94,15 @@ let [<TestCase>] ``Default on Stop`` () =
             0; 1; 2; 3
             defaultValue; defaultValue; defaultValue; defaultValue; defaultValue; defaultValue
         ]
+
+
+let [<TestCase>] ``Skip and Take`` () =
+    Gen.ofList [ 0.. 10 ]
+    |> skip 2 
+    |> take 4
+    |> Gen.toList
+    |> should equal [2..5]
+
 
 let [<TestCase>] ``Fork`` () =
     // Task: accumulate value and 2 successors
