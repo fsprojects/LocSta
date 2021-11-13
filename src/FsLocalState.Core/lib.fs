@@ -299,7 +299,7 @@ type Extensions() =
     [<Extension>]
     static member GetSlice(inputGen: LoopGen<'o, 's>, inclStartIdx, inclEndIdx) =
         let s = max 0 (defaultArg inclStartIdx 0)
-        let e = max 0 (defaultArg inclEndIdx 0)
+        let e = min 0 (defaultArg inclEndIdx 0)
         loop {
             let! i = Gen.countTo 0 1 e
             let! value = inputGen

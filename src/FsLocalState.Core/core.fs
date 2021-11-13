@@ -10,13 +10,13 @@ For the API surface, names like 'value or 'state are used instead of chars.
 
 namespace FsLocalState
 
+[<Struct>]
 type Gen<'o,'s> = Gen of ('s option -> 'o list)
 
-// TODO: 'f and f (as function name in bind) can be distracting
-[<RequireQualifiedAccess>]
+[<RequireQualifiedAccess; Struct>]
 type Res<'e, 'd> =
-    | Emit of 'e
-    | SkipWith of 'd
+    | Emit of emit: 'e
+    | SkipWith of skip: 'd
     | Stop
 
 type LoopEmit<'v,'s> = LoopEmit of 'v * 's
@@ -31,6 +31,7 @@ type LoopRes<'o,'s> = Res<LoopEmit<'o,'s>, LoopSkip<'s>>
 type FeedGen<'o,'s,'f> = Gen<Res<FeedEmit<'o,'s,'f>, FeedSkip<'s,'f>>, 's> 
 type FeedRes<'o,'s,'f> = Res<FeedEmit<'o,'s,'f>, FeedSkip<'s,'f>>
 
+[<Struct>]
 type Init<'f> = Init of 'f
 
 type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
@@ -43,17 +44,17 @@ type GenState<'sm, 'sk, 'm> =
 
 
 module Loop =
-    type Emit<'value> = Emit of 'value
-    type SkipWith<'state> = SkipWith of 'state
-    type Skip = Skip
-    type Stop = Stop
+    type [<Struct>] Emit<'value> = Emit of 'value
+    type [<Struct>] SkipWith<'state> = SkipWith of 'state
+    type [<Struct>] Skip = Skip
+    type [<Struct>] Stop = Stop
 
 
 module Feed =
-    type Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
-    type SkipWith<'state> = SkipWith of 'state
-    type Skip = Skip
-    type Stop = Stop
+    type [<Struct>] Feedback<'value, 'feedback> = Feedback of 'value * 'feedback
+    type [<Struct>] SkipWith<'state> = SkipWith of 'state
+    type [<Struct>] Skip = Skip
+    type [<Struct>] Stop = Stop
 
 
 module Res =
@@ -65,7 +66,6 @@ module Res =
           finalState: 's option }
 
     let mapUntilStop mapping (results: LoopRes<_,_> list) =
-        // TODO: Implement a "UntilStopResult" that doesn't have 'Stop' as case and get rid of the failwith.
         let mappedResults =
             results
             |> Seq.map (fun res ->
