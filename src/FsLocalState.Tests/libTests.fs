@@ -85,7 +85,7 @@ let [<TestCase>] ``Default on Stop`` () =
     let defaultValue = 42
     loop {
         let g = [0..3] |> Gen.ofList
-        let! v = g |> Gen.defaultOnStop defaultValue
+        let! v = g |> Gen.onStopThenDefault defaultValue
         return Loop.Emit v
     }
     |> Gen.toListn 10

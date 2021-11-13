@@ -142,30 +142,6 @@ module Lib =
         let onCountThenStop count (inputGen: LoopGen<_,_>) =
             onCountThen count emitFuncForMapValue stopFuncForMapValue inputGen
     
-        type DefaultOnStopState<'s> = RunInput of 's option | Default
-
-        let inline defaultOnStop defaultValue (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-            fun state ->
-                let state = state |> Option.defaultValue (RunInput None)
-                match state with
-                | Default ->
-                    [ Res.Emit (LoopEmit (defaultValue, Default)) ]
-                | RunInput state ->
-                    [
-                        let mutable isRunning = true
-                        for res in Gen.run inputGen state do
-                            if isRunning then
-                                match res with
-                                | Res.Emit (LoopEmit (v, s)) ->
-                                    yield Res.Emit (LoopEmit (v, RunInput (Some s)))
-                                | Res.SkipWith (LoopSkip s) ->
-                                    yield Res.SkipWith (LoopSkip (RunInput (Some s)))
-                                | Res.Stop ->
-                                    isRunning <- false
-                                    yield Res.Emit (LoopEmit (defaultValue, Default))
-                    ]
-            |> Gen.createGen
-
         // TODO: Test / Docu
         let includeState (inputGen: LoopGen<_,_>) =
             map2 (fun v s -> v,s) inputGen

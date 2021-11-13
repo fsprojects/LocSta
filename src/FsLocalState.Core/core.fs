@@ -61,6 +61,7 @@ module Feed =
     type [<Struct>] SkipWith<'state> = SkipWith of 'state
     type [<Struct>] Skip = Skip
     type [<Struct>] Stop = Stop
+    // Will man Reset wirklich als Teil der Builder-Abstraktion?
     type [<Struct>] ResetThis = ResetThis
     type [<Struct>] ResetTree = ResetTree
 
@@ -98,15 +99,11 @@ module Res =
             | Res.Stop -> Res.Stop
         ]
 
-    let inline internal mapGenUntilStop getState mapping (results: 'a list) =
+    let internal mapGenUntilStop tryGetValueAndState (results: Res<'e,'d> list) =
         let mappedResults =
             results
-            |> Seq.map (fun res ->
-                let state = getState res
-                res,state
-            )
+            |> Seq.map tryGetValueAndState
             |> Seq.takeWhile (fun (_,state) -> Option.isSome state)
-            |> Seq.map (fun (res,state) -> mapping res ,state)
         let resultsTilStop,finalState =
             let mutable finalState = None
             let resultsTilStop =
@@ -126,27 +123,27 @@ module Res =
           isStopped = isStopped
           finalState = finalState }
 
-    let internal mapFeedUntilStop mapping (results: FeedRes<_,_,_> list) =
+    let internal mapFeedUntilStop valueMapping stateMapping (results: FeedRes<_,_,_> list) =
         mapGenUntilStop
             (fun res ->
                 match res with
-                | Res.Emit (FeedEmit (_, s, f)) -> Some s
-                | Res.SkipWith (FeedSkip (s, f)) -> Some s
-                | Res.Stop -> None)
-            mapping results
+                | Res.Emit (FeedEmit (v,s,f)) -> (Res.Emit (FeedEmit (valueMapping v, stateMapping s, f))), Some s
+                | Res.SkipWith (FeedSkip (s,f)) -> (Res.SkipWith (FeedSkip (stateMapping s,f))), Some s
+                | Res.Stop -> Res.Stop, None)
+            results
 
-    let mapUntilStop mapping (results: LoopRes<_,_> list) =
+    let mapUntilStop valueMapping stateMapping (results: LoopRes<_,_> list) =
         mapGenUntilStop
             (fun res ->
                 match res with
-                | Res.Emit (LoopEmit (_, s)) -> Some s
-                | Res.SkipWith (LoopSkip s) -> Some s
-                | Res.Stop -> None)
-            mapping results
+                | Res.Emit (LoopEmit (v,s)) -> (Res.Emit (LoopEmit (valueMapping v, stateMapping s))), Some s
+                | Res.SkipWith (LoopSkip s) -> (Res.SkipWith (LoopSkip (stateMapping s))), Some s
+                | Res.Stop -> Res.Stop, None)
+            results
 
-    let takeUntilStop results = mapUntilStop id results
+    let takeUntilStop results = mapUntilStop id id results
     
-    let takeFeedUntilStop results = mapFeedUntilStop id results
+    let takeFeedUntilStop results = mapFeedUntilStop id id results
 
     let emittedValues (results: LoopRes<_,_> list) =
         results
@@ -328,7 +325,7 @@ module Gen =
 
 
     // --------
-    // singleton / seq / list
+    // seq / list
     // --------
 
     let ofSeq (s: seq<_>) =
@@ -351,6 +348,35 @@ module Gen =
             [ res ]
         |> create
 
+    type OnStopThenState<'s> =
+        | RunInput of 's option
+        | Default
+
+    let inline internal onStopThenResult defaultResults (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        fun state ->
+            let state = state |> Option.defaultValue (RunInput None)
+            match state with
+            | Default ->
+                defaultResults
+            | RunInput state ->
+                let res =
+                    run inputGen state
+                    |> Res.mapUntilStop id (fun state -> RunInput (Some state)) 
+                if res.isStopped then
+                    [
+                        yield! res.results
+                        yield! defaultResults
+                    ]
+                else
+                    res.results
+        |> createGen
+        
+    let inline onStopThenDefault defaultValue (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        onStopThenResult [ Res.Emit (LoopEmit (defaultValue, Default)) ] inputGen
+
+    let inline onStopThenSkip (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        onStopThenResult [] inputGen
+
 
     // --------
     // combine
@@ -360,7 +386,7 @@ module Gen =
         { astate: 'sa option
           bstate: 'sb option }
 
-    let internal combineLoopLoop
+    let internal combineLoop
         (a: LoopGen<'o, 'sa>)
         (b: unit -> LoopGen<'o, 'sb>)
         : LoopGen<'o, CombineInfo<'sa,'sb>>
@@ -383,7 +409,7 @@ module Gen =
         |> create
 
     // TODO: Redundant with combine
-    let internal combineTodo
+    let internal combineFeed
         (a: FeedGen<'o, 'sa, 'f>)
         (b: unit -> FeedGen<'o, 'sb, 'f>)
         : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
@@ -420,8 +446,8 @@ module Gen =
     type LoopBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
-        member _.Combine(x, delayed) = combineLoopLoop x delayed
-        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
+        member _.Combine(x, delayed) = combineLoop x delayed
+        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         // returns
         member _.Return(Loop.Emit value) = returnValueRepeating value
         member _.Yield(value: 'a) = returnValueRepeating value
@@ -434,9 +460,9 @@ module Gen =
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
-        member _.Combine(x, delayed) = combineLoopLoop x delayed
-        member _.Combine(x, delayed) = combineTodo x delayed
-        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bindLoopFeedFeed body
+        member _.Combine(x, delayed) = combineLoop x delayed
+        member _.Combine(x, delayed) = combineFeed x delayed
+        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bindLoopFeedFeed body
         // returns
         member _.Return(Feed.Emit (value, feedback)) = returnFeedback value feedback
         member _.Yield(value: 'v, feedback: 'f) = returnFeedback value feedback
