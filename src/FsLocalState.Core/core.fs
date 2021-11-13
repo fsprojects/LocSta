@@ -414,7 +414,6 @@ module Gen =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = ofList x
         member _.Zero() = returnSkip
-        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         member _.Delay(delayed) = delayed
         member _.Run(delayed) = delayed ()
 
@@ -422,6 +421,7 @@ module Gen =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
         member _.Combine(x, delayed) = combineLoopLoop x delayed
+        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         // returns
         member _.Return(Loop.Emit value) = returnValueRepeating value
         member _.Yield(value: 'a) = returnValueRepeating value
@@ -436,6 +436,7 @@ module Gen =
         member _.Bind(m, f) = bindLoopFeedFeed f m
         member _.Combine(x, delayed) = combineLoopLoop x delayed
         member _.Combine(x, delayed) = combineTodo x delayed
+        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bindLoopFeedFeed body
         // returns
         member _.Return(Feed.Emit (value, feedback)) = returnFeedback value feedback
         member _.Yield(value: 'v, feedback: 'f) = returnFeedback value feedback

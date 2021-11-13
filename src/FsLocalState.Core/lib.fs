@@ -213,6 +213,7 @@ module Lib =
         let accumulateManyParts count currentValue =
             accumulateOnePart count currentValue |> onStopThenReset
 
+        // TODO: Maybe fork is so important that it could be implemenmted as an own builder
         let fork (inputGen: Gen<_,_>) =
             feed {
                 let! runningStates = Init []
@@ -228,7 +229,13 @@ module Lib =
                     forkResults
                     |> List.filter (fun res -> not res.isStopped)
                     |> List.map (fun res -> res.finalState)
-                yield emits, newRunningStates
+                if emits.Length = 0 then
+                    return Feed.SkipWith newRunningStates // in any case, emit the new state
+                for e in emits do
+                    // TODO: it would be really great to have an "Init" counterpart - a "Store"
+                    // or something, so that the feedback state is set ONCE and not many times redundantly
+                    // when yielding more than once
+                    yield e, newRunningStates
             }
 
         // TODO: Test / Docu
