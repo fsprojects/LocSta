@@ -30,7 +30,7 @@ module Lib =
                 let! l' = xGen
                 let! f' = fGen
                 let result = f' l'
-                return Loop.Emit result
+                yield result
             }
 
         /// Transforms a generator function to an effect function.    
@@ -278,7 +278,7 @@ module Lib =
                 let! v = g
                 let! c = count 0 1
                 if c >= n then
-                    return Loop.Emit v
+                    yield v
             }
 
         // TODO: has "truncate" behaviour
@@ -287,7 +287,7 @@ module Lib =
                 let! v = g
                 let! c = count 0 1
                 if c < n then
-                    return Loop.Emit v
+                    yield v
                 else
                     return Loop.Stop
             }
@@ -309,5 +309,5 @@ type Extensions() =
                 | Some e when i > e ->
                     return Loop.Stop
                 | _ ->
-                    return Loop.Emit value
+                    yield value
         }

@@ -57,7 +57,7 @@ let [<TestCase>] ``Accumulate onc part`` () =
     loop {
         for x in [0..10] do
             let! values = accumulateOnePart 3 x
-            return Loop.Emit values
+            yield values
     }
     |> Gen.toList
     |> should equal
@@ -70,7 +70,7 @@ let [<TestCase>] ``Accumulate many parts`` () =
     loop {
         for x in [0..10] do
             let! values = accumulateManyParts 3 x
-            return Loop.Emit values
+            yield values
     }
     |> Gen.toList
     |> should equal
@@ -86,7 +86,7 @@ let [<TestCase>] ``Default on Stop`` () =
     loop {
         let g = [0..3] |> Gen.ofList
         let! v = g |> Gen.onStopThenDefault defaultValue
-        return Loop.Emit v
+        yield v
     }
     |> Gen.toListn 10
     |> should equal

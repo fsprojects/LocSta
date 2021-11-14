@@ -15,7 +15,7 @@ let [<TestCase>] ``Operator == gen int`` () =
         let! prove = count 0 1
         let! res = count 0 1 == 5
         if res then
-            return Loop.Emit prove
+            yield prove
         else if prove > 10 then
             return Loop.Stop
     }

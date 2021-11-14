@@ -10,53 +10,52 @@ open FsLocalState
 open FsLocalState.Lib.Gen
 open NUnit.Framework
 
-
-let [<TestCase>] ``Pairwise`` () =
+let [<TestCase>] ``Pairwise let! (loop)`` () =
     loop {
         let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
         let! v2 = Gen.ofList [  1 ;  2 ;  3 ;  4  ]
-        return Loop.Emit (v1,v2)
+        yield v1,v2
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
-let [<TestCase>] ``Pairwise using For Loop`` () =
+let [<TestCase>] ``Pairwise for (loop)`` () =
     loop {
         for v1 in [ "a"; "b"; "c"; "d" ] do
         for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            return Loop.Emit (v1,v2)
+            yield v1,v2
     }
     |> Gen.toList
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
-let [<TestCase>] ``Zero (gen)`` () =
+let [<TestCase>] ``Zero (loop)`` () =
     loop {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
         if v % 2 = 0 then
-            return Loop.Emit v
+            yield v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
 
-let [<TestCase>] ``Zero For Loop (gen)`` () =
+let [<TestCase>] ``Zero For Loop (loop)`` () =
     loop {
         for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
             if v % 2 = 0 then
-                return Loop.Emit v
+                yield v
     }
     |> Gen.toList
     |> should equal [ 0; 2; 4; 6 ]
 
 
-let [<TestCase>] ``Stop after Emit`` () =
+let [<TestCase>] ``Stop after Emit (loop)`` () =
     let expect = 3
     loop {
         let! c = count 0 1
         if c = expect then
-            return Loop.Emit c
+            yield c
             return Loop.Stop
     }
     |> Gen.toList
@@ -64,7 +63,7 @@ let [<TestCase>] ``Stop after Emit`` () =
     |> should equal expect
 
 
-let [<TestCase>] ``Feedback: both binds + discard`` () =
+let [<TestCase>] ``Binds + skip (feed)`` () =
     feed {
         let! state = Init 0
         let! c1 = count 0 10
@@ -80,11 +79,11 @@ let [<TestCase>] ``Feedback: both binds + discard`` () =
     |> should equal [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
     
 
-let [<TestCase>] ``Stop (gen)`` () =
+let [<TestCase>] ``Stop (loop)`` () =
     loop {
         let! v = count 0 1
         if v < 5 then
-            return Loop.Emit v
+            yield v
         else
             return Loop.Stop
     }
@@ -105,13 +104,10 @@ let [<TestCase>] ``Stop (feed)`` () =
     |> should equal [ 0 .. 4 ]
 
 
-let [<TestCase>] ``Singleton`` () =
-    loop {
-        return Loop.Emit 0
-        return Loop.Stop
-    }
+let [<TestCase>] ``Singleton (loop)`` () =
+    Gen.returnValueOnce 42
     |> Gen.toList
-    |> should equal [0]
+    |> should equal [42]
 
 
 let [<TestCase>] ``GetSlice`` () =
@@ -122,16 +118,16 @@ let [<TestCase>] ``GetSlice`` () =
     |> should equal [3;4;5]
 
 
-let [<TestCase>] ``Combine`` () =
+let [<TestCase>] ``Combine (loop)`` () =
     loop {
-        return Loop.Emit 0
-        return Loop.Emit 1
-        return Loop.Emit 2
+        yield 0
+        yield 1
+        yield 2
         return! Gen.ofList [ 3; 4; 5 ]
-        return Loop.Emit 6
+        yield 6
         return! Gen.ofList [ 7; 8; 9 ]
-        return Loop.Emit 10
-        return Loop.Emit 11
+        yield 10
+        yield 11
     }
     |> Gen.toList
     |> should equal
@@ -143,23 +139,22 @@ let [<TestCase>] ``Combine`` () =
         ]
 
 
-// TODO: Document "if" behaviour (also in combination with combine)
-//let [<TestCase>] ``Feedback: ResetThis + Combine`` () =
-//    failwith "TODO"
-//    feed {
-//        let! state = Init 1
-//        let! c = count 10 10
-//        if state = 4 then
-//            yield state + c, state + 1
-//            return Feed.ResetThis
-//        else
-//            yield state + c, state + 1
-//    }
-//    |> Gen.toList
-//    |> should equal
-//        [
-//            11; 22; 33
+ //TODO: Document "if" behaviour (also in combination with combine)
+let [<TestCase>] ``ResetThis + Combine (feed)`` () =
+    feed {
+        let! state = Init 1
+        let! c = count 10 10
+        if state = 4 then
+            yield state + c, state + 1
+            return Feed.ResetThis
+        if state <> 4 then
+            yield state + c, state + 1
+    }
+    |> Gen.toList
+    |> should equal
+        [
+            11; 22; 33
 
-//        ]
+        ]
 
 // TODO: ResetTree
