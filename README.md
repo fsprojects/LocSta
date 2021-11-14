@@ -12,6 +12,7 @@ preserves it's own state from one evaluation to the next. While this might sound
 open FsLocalState
 open FsLocalState.Lib.Gen
 
+// just a demo helper...
 let equals (expected: 'a) (actual: 'a) = expected = actual
 ```
 
