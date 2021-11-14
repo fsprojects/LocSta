@@ -33,7 +33,7 @@ loop {
 ```
 
 
-*"Pairwise" sequence processing*
+*"Pairwise" sequence processing**
 
 * The *pairwise* characteristics seen in the example above can also be applied to sequences.
 * Using the usual `seq` CE, the result woule be a cartesian product of sequence 1 and sequence 2
@@ -49,7 +49,7 @@ loop {
 ```
 
 
-*Controlling*
+**Controlling**
 
 It is possible to explicitly control the workflow by emitting `Stop`, `Skip` and others:
 
@@ -68,7 +68,7 @@ loop {
 ```
 
 
-*Writing stateful functions*
+**Writing stateful functions**
 
 * Until now, we only *used* stateful functions. But what if we want to *write* functions, and maintain a state?
 * Here's an example: Accumulate counted values, so that in each evaluation cycle, a list with all the counted values since beginning is yielded.
