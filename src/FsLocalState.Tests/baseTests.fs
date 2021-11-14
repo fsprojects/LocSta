@@ -104,7 +104,7 @@ let [<TestCase>] ``Stop (feed)`` () =
     |> should equal [ 0 .. 4 ]
 
 
-let [<TestCase>] ``Singleton (loop)`` () =
+let [<TestCase>] ``Singleton`` () =
     Gen.returnValueOnce 42
     |> Gen.toList
     |> should equal [42]
@@ -140,21 +140,46 @@ let [<TestCase>] ``Combine (loop)`` () =
 
 
  //TODO: Document "if" behaviour (also in combination with combine)
-let [<TestCase>] ``ResetThis + Combine (feed)`` () =
+let [<TestCase>] ``ResetThis + Combine`` () =
+    let n = 3
     feed {
         let! state = Init 1
         let! c = count 10 10
-        if state = 4 then
-            yield state + c, state + 1
+        let vf = state + c, state + 1
+        if state = n then
+            yield vf
             return Feed.ResetThis
-        if state <> 4 then
-            yield state + c, state + 1
+        if state <> n then
+            yield vf
     }
-    |> Gen.toList
+    |> Gen.toListn 9
     |> should equal
         [
             11; 22; 33
-
+            41; 52; 63
+            71; 82; 93
         ]
 
 // TODO: ResetTree
+
+
+ //TODO: Document "if" behaviour (also in combination with combine)
+let [<TestCase>] ``Collect`` () =
+    failwith "TODO"
+    feed {
+        let! state = Init 1
+        let! c = count 10 10
+        let vf = state + c, state + 1
+        if state = 4 then
+            yield vf
+            return Feed.ResetThis
+        if state <> 4 then
+            yield vf
+    }
+    |> Gen.toListn 9
+    |> should equal
+        [
+            11; 22; 33
+            41; 52; 63
+            71; 82; 93
+        ]
