@@ -17,7 +17,7 @@ success
 
 $packPath = "./.pack"
 
-dotnet pack ./src/FsLocalState.Core/FsLocalState.fsproj -o $packPath -c Release
+dotnet pack ./src/FsLocalState/FsLocalState.fsproj -o $packPath -c Release
 success
 
 $packageName = Get-ChildItem "$packPath/*.nupkg" | Sort-Object desc | select-object -first 1

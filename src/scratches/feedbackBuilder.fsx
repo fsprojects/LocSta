@@ -1,7 +1,7 @@
 
 fsi.PrintWidth <- 100
 
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
 (*
@@ -47,8 +47,8 @@ module Gen =
 let forValue res = match res with | Value (v,s) -> v,s | _ -> failwith "unexpected"
 let run g state = state |> Gen.run g |> forValue
 
-open FsLocalState.Core
-open FsLocalState.Core.Gen
+open FsLocalState
+open FsLocalState.Gen
 
 
 

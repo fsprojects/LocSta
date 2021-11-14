@@ -1,5 +1,5 @@
 
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
 let getFeedback seed =

@@ -1,5 +1,5 @@
 
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
 //gen {
@@ -63,3 +63,13 @@ let a () =
 //            Gen.returnFeedback state (c + 1)
 //        )
 //    )
+
+
+let x = ResizeArray<int>()
+
+x.Add 1
+x.Add 2
+x.Add 3
+
+x
+

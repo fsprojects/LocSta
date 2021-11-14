@@ -1,5 +1,5 @@
 ﻿
-#r "../../src/FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../../src/FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 
 open FsLocalState
 

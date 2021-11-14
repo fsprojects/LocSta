@@ -1,10 +1,12 @@
 #if INTERACTIVE
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
+let equals (expected: 'a) (actual: 'a) = expected = actual
 #endif
 
-module ArithmeticTests
+module FsLocalState.ArithmeticTests
 
+open TestHelper
 open FsUnit
 open FsLocalState
 open FsLocalState.Lib.Gen
@@ -20,11 +22,11 @@ let [<TestCase>] ``Operator == gen int`` () =
             return Loop.Stop
     }
     |> Gen.toListn 10
-    |> should equal [ 5 ]
+    |> equals [ 5 ]
 
 let [<TestCase>] ``Operator + gen gen`` () =
     Gen.returnValueOnce 1 + Gen.returnValueOnce 2
     |> Gen.head
-    |> should equal 3
+    |> equals 3
 
 // TODO: some more

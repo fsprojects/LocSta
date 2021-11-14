@@ -1,10 +1,12 @@
 #if INTERACTIVE
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
+open FsLocalState.Lib.Gen
 #endif
 
-module LibTests
+module FsLocalState.LibTests
 
+open TestHelper
 open FsUnit
 open FsLocalState
 open FsLocalState.Lib.Gen
@@ -15,7 +17,7 @@ let [<TestCase>] ``Reset by current`` () =
     count 0 1
     |> whenFuncThenReset (fun v -> v = 5)
     |> Gen.toListn (5 * 3)
-    |> should equal
+    |> equals
         [ 
             0; 1; 2; 3; 4
             0; 1; 2; 3; 4
@@ -28,7 +30,7 @@ let [<TestCase>] ``Reset on stop`` () =
     |> Gen.ofList
     |> onStopThenReset
     |> Gen.toListn 9
-    |> should equal
+    |> equals
         [ 
             0; 1; 2 
             0; 1; 2 
@@ -39,13 +41,13 @@ let [<TestCase>] ``Reset on stop`` () =
 let [<TestCase>] ``Count 0 1`` () =
     count 0 1
     |> Gen.toListn 5
-    |> should equal [0..4]
+    |> equals [0..4]
 
 
 let [<TestCase>] ``Count until repeat`` () =
     repeatCount 0 1 3
     |> Gen.toListn 12
-    |> should equal
+    |> equals
         [
             yield! [0..3]
             yield! [0..3]
@@ -60,7 +62,7 @@ let [<TestCase>] ``Accumulate onc part`` () =
             yield values
     }
     |> Gen.toList
-    |> should equal
+    |> equals
         [
             [ 0; 1; 2 ]
         ]
@@ -73,7 +75,7 @@ let [<TestCase>] ``Accumulate many parts`` () =
             yield values
     }
     |> Gen.toList
-    |> should equal
+    |> equals
         [
             [ 0; 1; 2 ]
             [ 3; 4; 5 ]
@@ -89,7 +91,7 @@ let [<TestCase>] ``Default on Stop`` () =
         yield v
     }
     |> Gen.toListn 10
-    |> should equal
+    |> equals
         [ 
             0; 1; 2; 3
             defaultValue; defaultValue; defaultValue; defaultValue; defaultValue; defaultValue
@@ -101,7 +103,7 @@ let [<TestCase>] ``Skip and Take`` () =
     |> skip 2 
     |> take 4
     |> Gen.toList
-    |> should equal [2..5]
+    |> equals [2..5]
 
 
 let [<TestCase>] ``Fork`` () =
@@ -123,7 +125,7 @@ let [<TestCase>] ``Fork`` () =
         //return! accumulateOnePart 3 v |> fork
     }
     |> Gen.toList
-    |> should equal
+    |> equals
         [
             [0; 1; 2]; [1; 2; 3]; [2; 3; 4]
             [3; 4; 5]; [4; 5; 6]; [5; 6; 7]

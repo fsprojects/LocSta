@@ -3,21 +3,102 @@
 ===
 
 FsLocalState is library designed to write and compose functions, where each of these functions inside of a computation
-preserves it's own state from one evaluation to the next. While this might sound like dealing with impure or internally mutable functions -
-which would have object semantic and thus making composability hard or impossible - it is based on a pure function approach.
+preserves it's own state from one evaluation to the next. While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. Even though many concepts overlap with `seq`, there are significant differences in behaviour and usage, as well as in the fundamental ideas.
+
+## Basic Examples
 
 ```fsharp
-let mySynthVoice frq =
-    gen {
-        let! modulator = sin 5.0
-        let amount = 0.05
-        let! res =
-            saw (frq * (1.0 - modulator * amount))
-            |=> lowpass 12000.0
-            |=> highpass 2000.0
-        return res
-    }
+#r "./src/FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
+open FsLocalState
+open FsLocalState.Lib.Gen
+
+let equals (expected: 'a) (actual: 'a) = expected = actual
 ```
+
+
+*Count 2 values (use "count" as a stateful function)*
+
+* While `count` seems to be a pure function (there's no object instance or pointer to an object), it is stateful per se.
+* How does it work: The "Local State" CE evaluates the `count` functions, collects their state, and applies that state to the `count` functions again on subsequent evaluations.
+
+```fsharp
+loop {
+    let! v1 = count 0 1     // count from 0, increment by 1
+    let! v2 = count 100 5   // count from 1000, increment by 5
+    yield v1 + v2
+}
+|> Gen.toListn 4
+|> equals [ (0 + 100); (1 + 105); (2 + 110); (3 + 115) ]
+```
+
+
+*"Pairwise" sequence processing*
+
+* The *pairwise* characteristics seen in the example above can also be applied to sequences.
+* Using the usual `seq` CE, the result woule be a cartesian product of sequence 1 and sequence 2
+
+```fsharp
+loop {
+    for v1 in [ "a"; "b"; "c"; "d" ] do
+    for v2 in [  1 ;  2 ;  3 ;  4  ] do
+         yield v1,v2
+}
+|> Gen.toList
+|> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
+```
+
+
+*Controlling*
+
+It is possible to explicitly control the workflow by emitting `Stop`, `Skip` and others:
+
+```fsharp
+loop {
+    let! v = count 0 1      // this would yield and never stop
+    if v = 50 then
+        return Loop.Skip    // we don't want '50' to be part of the result
+    elif v = 100 then
+        return Loop.Stop    // 'break' after 100 elements are yielded
+    else
+        yield v
+}
+|> Gen.toList
+|> (=) [ yield! [0..49]; yield! [51..99] ]
+```
+
+
+*Writing stateful functions*
+
+* Until now, we only *used* stateful functions. But what if we want to *write* functions, and maintain a state?
+* Here's an example: Accumulate counted values, so that in each evaluation cycle, a list with all the counted values since beginning is yielded.
+
+```fsharp
+feed {
+    let! state = Init []
+    let! v = count 0 1
+    let accumulated = v :: state
+    yield accumulated |> List.rev, accumulated
+}
+|> Gen.toListn 4
+|> equals
+    [
+        [0]
+        [0; 1]
+        [0; 1; 2]
+        [0; 1; 2; 3]
+    ]
+```
+
+# Current State of Development
+
+*This library is still experimental and volatile.*
+
+
+# >>>> The following docu is outdated.
+
+Please have a look at [the base tests](./src/FsLocalState.Tests/baseTests.fs) or  [the library tests](./src/FsLocalState.Tests/libTests.fs) for getting an impression of what the library does.
+
+-----------------------------------------------------------------------------------------------
 
 
 Try FsLocalState in your browser

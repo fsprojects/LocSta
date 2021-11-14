@@ -1,7 +1,7 @@
 
 fsi.PrintWidth <- 100
 
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 
 (*
@@ -68,15 +68,3 @@ let res = count "start" 1 |> Gen.toSeqState |> Seq.truncate 2 |> Seq.toList
 let res2 = count "start" 1 |> Gen.toListn 3
 
 
-
-fdb {
-    let! s = init 'a'
-    let nextChar = 
-        System.Convert.ToByte s
-        |> fun x -> x + 1uy
-        |> System.Convert.ToChar
-    let! v = count "Hallo" 1
-    let res = (string s) + "-" + v
-    return Res.feedback res nextChar
-}
-|> Gen.toListn 3

@@ -1,4 +1,5 @@
-module UseCaseTests
+
+module FsLocalState.UseCaseTests
 
 open FsUnit
 open FsLocalState
@@ -27,7 +28,7 @@ open NUnit.Framework
 //    }
 //    |> Gen.toListn 9
 //    |> List.last
-//    |> should equal
+//    |> equals
 //        [
 //            [ 8; 7; 6 ]
 //            [ 5; 4; 3 ]

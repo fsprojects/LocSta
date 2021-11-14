@@ -1,10 +1,11 @@
 #if INTERACTIVE
-#r "../FsLocalState.Core/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
 #endif
 
-module BaseTests
+module FsLocalState.BaseTests
 
+open TestHelper
 open FsUnit
 open FsLocalState
 open FsLocalState.Lib.Gen
@@ -17,7 +18,7 @@ let [<TestCase>] ``Pairwise let! (loop)`` () =
         yield v1,v2
     }
     |> Gen.toList
-    |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
+    |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
 let [<TestCase>] ``Pairwise for (loop)`` () =
@@ -27,7 +28,7 @@ let [<TestCase>] ``Pairwise for (loop)`` () =
             yield v1,v2
     }
     |> Gen.toList
-    |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
+    |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
 let [<TestCase>] ``Combine + for (loop)`` () =
@@ -39,7 +40,7 @@ let [<TestCase>] ``Combine + for (loop)`` () =
             yield "X"
     }
     |> Gen.toList
-    |> should equal [ "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X" ]
+    |> equals [ "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X" ]
 
 
 let [<TestCase>] ``Zero (loop)`` () =
@@ -49,7 +50,7 @@ let [<TestCase>] ``Zero (loop)`` () =
             yield v
     }
     |> Gen.toList
-    |> should equal [ 0; 2; 4; 6 ]
+    |> equals [ 0; 2; 4; 6 ]
 
 
 let [<TestCase>] ``Zero For Loop (loop)`` () =
@@ -59,7 +60,7 @@ let [<TestCase>] ``Zero For Loop (loop)`` () =
                 yield v
     }
     |> Gen.toList
-    |> should equal [ 0; 2; 4; 6 ]
+    |> equals [ 0; 2; 4; 6 ]
 
 
 let [<TestCase>] ``Stop after Emit (loop)`` () =
@@ -72,7 +73,7 @@ let [<TestCase>] ``Stop after Emit (loop)`` () =
     }
     |> Gen.toList
     |> List.exactlyOne
-    |> should equal expect
+    |> equals expect
 
 
 let [<TestCase>] ``Binds + skip (feed)`` () =
@@ -88,7 +89,7 @@ let [<TestCase>] ``Binds + skip (feed)`` () =
             return Feed.SkipWith nextValue
     }
     |> Gen.toListn 4
-    |> should equal [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
+    |> equals [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
     
 
 let [<TestCase>] ``Stop (loop)`` () =
@@ -100,7 +101,7 @@ let [<TestCase>] ``Stop (loop)`` () =
             return Loop.Stop
     }
     |> Gen.toList
-    |> should equal [ 0 .. 4 ]
+    |> equals [ 0 .. 4 ]
 
 
 let [<TestCase>] ``Stop (feed)`` () =
@@ -113,13 +114,13 @@ let [<TestCase>] ``Stop (feed)`` () =
             return Feed.Stop
     }
     |> Gen.toList
-    |> should equal [ 0 .. 4 ]
+    |> equals [ 0 .. 4 ]
 
 
 let [<TestCase>] ``Singleton`` () =
     Gen.returnValueOnce 42
     |> Gen.toList
-    |> should equal [42]
+    |> equals [42]
 
 
 let [<TestCase>] ``GetSlice`` () =
@@ -127,7 +128,7 @@ let [<TestCase>] ``GetSlice`` () =
     |> Gen.ofList
     |> fun g -> g[3..5]
     |> Gen.toList
-    |> should equal [3;4;5]
+    |> equals [3;4;5]
 
 
 let [<TestCase>] ``Combine (loop)`` () =
@@ -142,7 +143,7 @@ let [<TestCase>] ``Combine (loop)`` () =
         yield 11
     }
     |> Gen.toList
-    |> should equal
+    |> equals
         [
             0; 1; 2; 3; 6; 7; 10; 11
             0; 1; 2; 4; 6; 8; 10; 11
@@ -165,7 +166,7 @@ let [<TestCase>] ``ResetThis + Combine`` () =
             yield vf
     }
     |> Gen.toListn 9
-    |> should equal
+    |> equals
         [
             11; 22; 33
             41; 52; 63
@@ -189,7 +190,7 @@ let [<TestCase>] ``Collect`` () =
             yield vf
     }
     |> Gen.toListn 9
-    |> should equal
+    |> equals
         [
             11; 22; 33
             41; 52; 63
