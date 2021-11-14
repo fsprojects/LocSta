@@ -17,7 +17,7 @@ let equals (expected: 'a) (actual: 'a) = expected = actual
 ```
 
 
-*Count 2 values (use "count" as a stateful function)*
+**Count 2 values (use "count" as a stateful function)**
 
 * While `count` seems to be a pure function (there's no object instance or pointer to an object), it is stateful per se.
 * How does it work: The "Local State" CE evaluates the `count` functions, collects their state, and applies that state to the `count` functions again on subsequent evaluations.
