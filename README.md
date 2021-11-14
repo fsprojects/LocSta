@@ -40,9 +40,9 @@ loop {
 
 ```fsharp
 loop {
-    for v1 in [ "a"; "b"; "c"; "d" ] do
-    for v2 in [  1 ;  2 ;  3 ;  4  ] do
-         yield v1,v2
+    let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofList
+    let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofList
+    yield v1,v2
 }
 |> Gen.toList
 |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
