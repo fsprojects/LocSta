@@ -30,6 +30,18 @@ let [<TestCase>] ``Pairwise for (loop)`` () =
     |> should equal [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
+let [<TestCase>] ``Combine + for (loop)`` () =
+    loop {
+        for v1 in [ "a"; "b"; "c"; "d" ] do
+            yield v1
+        for v2 in [  1 ;  2 ;  3 ;  4  ] do
+            yield v2.ToString()
+            yield "X"
+    }
+    |> Gen.toList
+    |> should equal [ "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X" ]
+
+
 let [<TestCase>] ``Zero (loop)`` () =
     loop {
         let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList

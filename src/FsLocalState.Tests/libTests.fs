@@ -114,7 +114,7 @@ let [<TestCase>] ``Fork`` () =
             let newState = v :: state
             let! c = count 0 1
             if c = 2 then
-                // TODO: ValueThenStop wäre schon cool, weil der State vor Stop irrelevant ist.
+                // TODO: StopWith wäre schon cool, weil der State vor Stop irrelevant ist.
                 yield newState |> List.rev, newState
                 return Feed.Stop
             return Feed.SkipWith newState
@@ -124,5 +124,8 @@ let [<TestCase>] ``Fork`` () =
     }
     |> Gen.toList
     |> should equal
-        [[[0; 1; 2]]; [[1; 2; 3]]; [[2; 3; 4]]; [[3; 4; 5]]; [[4; 5; 6]];
-         [[5; 6; 7]]; [[6; 7; 8]]; [[7; 8; 9]]; [[8; 9; 10]]]
+        [
+            [0; 1; 2]; [1; 2; 3]; [2; 3; 4]
+            [3; 4; 5]; [4; 5; 6]; [5; 6; 7]
+            [6; 7; 8]; [7; 8; 9]; [8; 9; 10]
+        ]
