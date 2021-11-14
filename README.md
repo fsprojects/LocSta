@@ -33,7 +33,7 @@ loop {
 ```
 
 
-*"Pairwise" sequence processing**
+**"Pairwise" sequence processing**
 
 * The *pairwise* characteristics seen in the example above can also be applied to sequences.
 * Using the usual `seq` CE, the result woule be a cartesian product of sequence 1 and sequence 2
