@@ -22,12 +22,13 @@ let [<TestCase>] ``Pairwise let! (loop)`` () =
 
 
 let [<TestCase>] ``Pairwise for (loop)`` () =
+    failwith "TODO"
     loop {
         for v1 in [ "a"; "b"; "c"; "d" ] do
         for v2 in [  1 ;  2 ;  3 ;  4  ] do
             yield v1,v2
     }
-    |> Gen.toList
+    |> Gen.toListn 10
     |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 

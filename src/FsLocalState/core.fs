@@ -293,11 +293,14 @@ module Gen =
     // returns
     // --------
 
-    let internal ofGenResultRepeating (res: Res<_,_>) : Gen<_,_> =
-        createGen (fun _ -> [ res ])
-
-    let internal ofGenResultOnce (res: Res<_,_>) : Gen<_,_> =
-        createGen (fun _ -> [ res; Res.Stop ])
+    let ofGenResultsRepeating (res: Res<_,_> list) : Gen<_,_> =
+        createGen (fun _ -> res)
+    let ofGenResultRepeating (res: Res<_,_>) : Gen<_,_> =
+        ofGenResultsRepeating [res]
+    let ofGenResultsOnce (res: Res<_,_> list) : Gen<_,_> =
+        createGen (fun _ -> [ yield! res; Res.Stop ])
+    let ofGenResultOnce (res: Res<_,_>) : Gen<_,_> =
+        ofGenResultsOnce [res]
 
     let returnSkip<'o,'s> : Gen<'o,'s> =
         createGen (fun _ -> [])
@@ -328,6 +331,7 @@ module Gen =
     // seq / list
     // --------
 
+    // TODO: think about dropping ofSeq support completely
     let ofSeq (s: seq<_>) =
         fun enumerator ->
             let enumerator = enumerator |> Option.defaultWith (fun () -> s.GetEnumerator())
@@ -432,13 +436,26 @@ module Gen =
         |> createFeed
 
 
+    // TODO: remove this
+    //// --------
+    //// For
+    //// --------
+
+    //let forSequence (s: 'a seq) (body: 'a -> Gen<'o, 's>) =
+    //    s
+    //    |> Seq.fold (fun state curr ->
+    //        let res = body curr
+    //        comb
+    //    ) []
+
+
     // --------
     // Builder
     // --------
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
-        member _.YieldFrom(x) = ofList x
+        member _.YieldFrom(x) = ofList x // TODO: test this
         member _.Zero() = returnSkip
         member _.Delay(delayed) = delayed
         member _.Run(delayed) = delayed ()
@@ -446,8 +463,9 @@ module Gen =
     type LoopBuilder() =
         inherit BaseBuilder()
         member _.Bind(m, f) = bind f m
+        //member _.For(sequence: list<'a>, body) = ofList sequence |> onStopThenSkip |> bind body
+        //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
-        member _.For(sequence: seq<'a>, body) = ofSeq sequence |> bind body
         // returns
         member _.Return(Loop.Emit value) = returnValueRepeating value
         member _.Yield(value: 'a) = returnValueRepeating value
@@ -460,10 +478,10 @@ module Gen =
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
+        member _.For(sequence: list<'a>, body) = ofList sequence |> onStopThenSkip |> bindLoopFeedFeed body
+        //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bindLoopFeedFeed body
         member _.Combine(x, delayed) = combineLoop x delayed
         member _.Combine(x, delayed) = combineFeed x delayed
-        member _.For(sequence: seq<'a>, body) =
-            ofSeq sequence |> bindLoopFeedFeed body
         // returns
         member _.Return(Feed.Emit (value, feedback)) = returnFeedback value feedback
         member _.Yield(value: 'v, feedback: 'f) = returnFeedback value feedback
