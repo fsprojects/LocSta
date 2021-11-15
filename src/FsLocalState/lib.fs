@@ -16,7 +16,7 @@ module Lib =
                 [
                     for res in Gen.run inputGen state do
                         match res with
-                        | Res.Emit (LoopEmit (v,s)) -> Res.Emit (LoopEmit (proj v s, s))
+                        | Res.Emit (LoopState (v,s)) -> Res.Emit (LoopState (proj v s, s))
                         | Res.SkipWith (LoopSkip s) -> Res.SkipWith (LoopSkip s)
                         | Res.Stop -> Res.Stop
                 ]
@@ -61,7 +61,7 @@ module Lib =
         // reset / stop / count / ...
         // ----------
 
-        let private emitFuncForMapValue = fun g v s -> [ Res.Emit (LoopEmit (v, s)) ]
+        let private emitFuncForMapValue = fun g v s -> [ Res.Emit (LoopState (v, s)) ]
         let private resetFuncForMapValue = fun g v s -> Gen.run g None
         let private stopFuncForMapValue = fun g v s -> [ Res.Stop ]
 
@@ -73,7 +73,7 @@ module Lib =
                 [
                     for res in Gen.run inputGen state do
                         match res with
-                        | Res.Emit (LoopEmit (o,s)) ->
+                        | Res.Emit (LoopState (o,s)) ->
                             match pred o with
                             | false -> yield! onFalse inputGen o s
                             | true -> yield! onTrue inputGen o s
@@ -152,12 +152,12 @@ module Lib =
                 [
                     for res in Gen.run inputGen state do
                         match res with
-                        | Res.Emit (LoopEmit (_,s)) as res ->
-                            yield Res.Emit (LoopEmit (res, Some s))
+                        | Res.Emit (LoopState (_,s)) as res ->
+                            yield Res.Emit (LoopState (res, Some s))
                         | Res.SkipWith (LoopSkip s) as res ->
-                            yield Res.Emit (LoopEmit (res, Some s))
+                            yield Res.Emit (LoopState (res, Some s))
                         | Res.Stop as res ->
-                            yield Res.Emit (LoopEmit (res, state))
+                            yield Res.Emit (LoopState (res, state))
                 ]
             |> Gen.createGen
 
