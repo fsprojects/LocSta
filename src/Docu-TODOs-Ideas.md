@@ -8,3 +8,7 @@
             return Feed.ResetThis
         if state <> n then
             yield vf
+
+* Unterschied erklären zwischen
+    * let! v = [0..10] |> Gen.ofList
+    * for v in [0..10] do

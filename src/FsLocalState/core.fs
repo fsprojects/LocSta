@@ -436,17 +436,17 @@ module Gen =
         |> createFeed
 
 
-    // TODO: remove this
-    //// --------
-    //// For
-    //// --------
+    // --------
+    // For
+    // --------
 
-    //let forSequence (s: 'a seq) (body: 'a -> Gen<'o, 's>) =
-    //    s
-    //    |> Seq.fold (fun state curr ->
-    //        let res = body curr
-    //        comb
-    //    ) []
+    let forList (l: 'a list) (body: 'a -> Gen<'o, 's>) =
+        fun state ->
+            let state = state |> Option.defaultValue (List.init l.Length (fun _ -> None))
+            let tmp = List.zip l state
+            let results = [ for v,s in List.zip l state do body v |> run s ]
+            
+        |> create
 
 
     // --------
