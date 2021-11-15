@@ -72,13 +72,24 @@ loop {
 
 * Until now, we only *used* stateful functions. But what if we want to *write* functions, and maintain a state?
 * Here's an example: Accumulate counted values, so that in each evaluation cycle, a list with all the counted values since beginning is yielded.
+* Instead of the `loop` builder, it uses the `feed` builder.
 
 ```fsharp
 feed {
+    // Place 'Init' on top of the computation and
+    // give it a seed value (here: an empty list).
+    // In the first evaluation, the seed value will be returned,
+    // but in subsequent evaluations, the 'newState' value will be returned.
     let! state = Init []
+    
     let! v = count 0 1
-    let accumulated = v :: state
-    yield accumulated |> List.rev, accumulated
+    let accumulatedValues = v :: state
+    
+    let output = accumulatedValues |> List.rev
+    let newState = accumulatedValues
+    
+    // yield a tuple of the actual return value and a state value.
+    yield output, newState
 }
 |> Gen.toListn 4
 |> equals
