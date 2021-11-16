@@ -14,7 +14,7 @@ type Gen<'o,'s> = Gen of ('s option -> 'o)
 
 [<RequireQualifiedAccess>]
 type Res<'v,'s> =
-    | Continue of 'v list * 's
+    | Continue of 'v list * 's option
     | Stop of 'v list
 
 type LoopState<'s> = LoopState of 's
@@ -39,8 +39,8 @@ type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
 
 [<Struct>]
 type BindState<'sm, 'sk, 'm> =
-    { mstate: 'sm option       // this is optional because a Gen can have no state by just yielding Stop
-      kstate: 'sk option
+    { mstate: 'sm option       // this is optional because m can have no state by just yielding Stop
+      kstate: 'sk option       // means: k evaluates to a constant; "return" uses this.
       mleftovers: 'm list
       isStopped: bool }
 
@@ -178,6 +178,16 @@ module Gen =
     // bind
     // --------
 
+    let (|DefaultableLoopState|) lastState =
+        function 
+        | Some (LoopState state) -> Some state
+        | None -> lastState
+
+    let (|OptinalLoopState|) =
+        function 
+        | Some (LoopState state) -> Some state
+        | None -> None
+
     // TODO: remove redundancies below like it was before
     //let internal bindLoopWhateverGen processResult createWhatever k m
     //    =
@@ -218,22 +228,22 @@ module Gen =
         (k: 'o1 -> LoopGen<'o2,'s2>)
         (m: LoopGen<'o1,'s1>)
         : LoopGen<'o2, BindState<'s1,'s2,'o1>>
-        =
+        =           
         fun state ->
             let evalk mval mstate mleftovers lastKState isStopped =
                 match run (k mval) lastKState with
-                | Res.Continue (kvalues, LoopState kstate) ->
-                    let state = { mstate = mstate; kstate = Some kstate; mleftovers = mleftovers; isStopped = isStopped }
-                    Res.Continue (kvalues, LoopState state)
+                | Res.Continue (kvalues, DefaultableLoopState lastKState kstate) ->
+                    let state = { mstate = mstate; kstate = kstate; mleftovers = mleftovers; isStopped = isStopped }
+                    Res.Continue (kvalues, Some (LoopState state))
                 | Res.Stop kvalues ->
                     Res.Stop kvalues
             let evalmres mres lastMState lastKState isStopped =
                 match mres with
-                | Res.Continue (mval :: mleftovers, LoopState mstate) ->
-                    evalk mval (Some mstate) mleftovers lastKState isStopped
-                | Res.Continue ([], LoopState mstate) ->
-                    let state = { mstate = Some mstate; kstate = lastKState; mleftovers = []; isStopped = isStopped }
-                    Res.Continue ([], LoopState state)
+                | Res.Continue (mval :: mleftovers, DefaultableLoopState lastMState mstate) ->
+                    evalk mval mstate mleftovers lastKState isStopped
+                | Res.Continue ([], DefaultableLoopState lastMState mstate) ->
+                    let state = { mstate = mstate; kstate = lastKState; mleftovers = []; isStopped = isStopped }
+                    Res.Continue ([], Some (LoopState state))
                 | Res.Stop (mval :: mleftovers) ->
                     evalk mval lastMState mleftovers lastKState isStopped
                 | Res.Stop [] ->
@@ -277,7 +287,7 @@ module Gen =
             let getInitial () = let (Init m) = m in m
             let evalk lastFeed lastKState =
                 match run (k lastFeed) lastKState with
-                | Res.Continue (kvalues, FeedState (kstate, feedback)) ->
+                | Res.Continue (kvalues, Some (FeedState (kstate, feedback))) ->
                     let feedback,kstate =
                         match feedback with
                         | UseThis feedback -> Some feedback, Some kstate
@@ -285,7 +295,10 @@ module Gen =
                         | ResetThis -> None, Some kstate
                         | ResetTree -> None, None
                     let state = { mstate = feedback; kstate = kstate; mleftovers = []; isStopped = false }
-                    Res.Continue (kvalues, LoopState state)
+                    Res.Continue (kvalues, Some (LoopState state))
+                | Res.Continue (kvalues, None) ->
+                    let state = { mstate = Some lastFeed; kstate = None; mleftovers = []; isStopped = false }
+                    Res.Continue (kvalues, Some (LoopState state))
                 | Res.Stop kvalues ->
                     Res.Stop kvalues
             match state with
@@ -297,7 +310,6 @@ module Gen =
                 evalk (getInitial()) kstate
             | Some { mstate = Some feedback; kstate = kstate } ->
                 evalk feedback kstate
-                
         |> create
 
 
@@ -305,38 +317,32 @@ module Gen =
     // returns
     // --------
 
-    let ofGenResultsRepeating (res: Res<_,_> list) : Gen<_,_> =
-        createGen (fun _ -> res)
-    let ofGenResultRepeating (res: Res<_,_>) : Gen<_,_> =
-        ofGenResultsRepeating [res]
-    let ofGenResultsOnce (res: Res<_,_> list) : Gen<_,_> =
-        createGen (fun _ -> [ yield! res; Res.Stop ])
-    let ofGenResultOnce (res: Res<_,_>) : Gen<_,_> =
-        ofGenResultsOnce [res]
+    let ofGenResult (res: Res<'o,'s>) : Gen<Res<'o,'s>,'s> =
+        (fun _ -> res) |> createGen
 
-    let returnSkip<'o,'s> : Gen<'o,'s> =
-        createGen (fun _ -> [])
-    let returnValueRepeating<'v> (value: 'v) : LoopGen<'v, unit> =
-        Res.Emit (LoopState (value, ())) |> ofGenResultRepeating
-    let returnValueOnce (value: 'v) : LoopGen<'v, unit> =
-        Res.Emit (LoopState (value, ())) |> ofGenResultOnce
-    let returnSkipWith<'v, 's> (state: 's) : LoopGen<'v,'s> =
-        Res.SkipWith (LoopSkip state) |> ofGenResultRepeating
-    let returnStop<'v,'s> : LoopGen<'v,'s> =
-        Res.Stop |> ofGenResultRepeating
+    //let returnSkip<'o,'s> : Gen<Res<'o,'s>,'s> =
+    //    ofGenResult (Res.Continue ([], None))
+    //let returnValueRepeating<'v> (value: 'v) : LoopGen<'v, _> =
+    //    ofGenResult (Res.Continue ([value], None))
+    //let returnValueOnce (value: 'v) : LoopGen<'v, unit> =
+    //    Res.Emit (LoopState (value, ())) |> ofGenResultOnce
+    //let returnSkipWith<'v, 's> (state: 's) : LoopGen<'v,'s> =
+    //    Res.SkipWith (LoopSkip state) |> ofGenResultRepeating
+    //let returnStop<'v,'s> : LoopGen<'v,'s> =
+    //    Res.Stop |> ofGenResultRepeating
     
-    let internal returnFeedback<'skip, 'v, 's, 'f> (value: 'v) (feedback: 'f) : FeedGen<'v, unit, 'f> =
-        Res.Emit (FeedEmit (value, (), feedback)) |> ofGenResultRepeating
-    let internal returnFeedbackSkip<'v, 'f> : FeedGen<'v, unit, 'f>  =
-        Res.SkipWith (FeedState ((), UseLast)) |> ofGenResultRepeating
-    let internal returnFeedbackSkipWith<'v, 'f> (feedback: 'f) : FeedGen<'v, unit, 'f>  =
-        Res.SkipWith (FeedState ((), UseThis feedback)) |> ofGenResultRepeating
-    let internal returnFeedbackResetThis<'v, 'f> : FeedGen<'v, unit, 'f>  =
-        Res.SkipWith (FeedState ((), ResetThis)) |> ofGenResultRepeating
-    let internal returnFeedbackResetTree<'v, 'f> : FeedGen<'v, unit, 'f>  =
-        Res.SkipWith (FeedState ((), ResetTree)) |> ofGenResultRepeating
-    let internal returnFeedbackStop<'v,'s,'f> : FeedGen<'v,'s,'f> =
-        Res.Stop |> ofGenResultRepeating
+    //let internal returnFeedback<'skip, 'v, 's, 'f> (value: 'v) (feedback: 'f) : FeedGen<'v, unit, 'f> =
+    //    Res.Emit (FeedEmit (value, (), feedback)) |> ofGenResultRepeating
+    //let internal returnFeedbackSkip<'v, 'f> : FeedGen<'v, unit, 'f>  =
+    //    Res.SkipWith (FeedState ((), UseLast)) |> ofGenResultRepeating
+    //let internal returnFeedbackSkipWith<'v, 'f> (feedback: 'f) : FeedGen<'v, unit, 'f>  =
+    //    Res.SkipWith (FeedState ((), UseThis feedback)) |> ofGenResultRepeating
+    //let internal returnFeedbackResetThis<'v, 'f> : FeedGen<'v, unit, 'f>  =
+    //    Res.SkipWith (FeedState ((), ResetThis)) |> ofGenResultRepeating
+    //let internal returnFeedbackResetTree<'v, 'f> : FeedGen<'v, unit, 'f>  =
+    //    Res.SkipWith (FeedState ((), ResetTree)) |> ofGenResultRepeating
+    //let internal returnFeedbackStop<'v,'s,'f> : FeedGen<'v,'s,'f> =
+    //    Res.Stop |> ofGenResultRepeating
 
 
     // --------
@@ -347,51 +353,46 @@ module Gen =
     let ofSeq (s: seq<_>) =
         fun enumerator ->
             let enumerator = enumerator |> Option.defaultWith (fun () -> s.GetEnumerator())
-            let nextValue =
-                match enumerator.MoveNext() with
-                | true -> Res.Emit (LoopState (enumerator.Current, enumerator))
-                | false -> Res.Stop
-            [ nextValue ]
+            match enumerator.MoveNext() with
+            | true -> Res.Continue ([enumerator.Current], Some (LoopState enumerator))
+            | false -> Res.Stop []
         |> create
         
+    // TODO: Könnten eigentlich 2 Funktionen sein:
+    //          a) Liste komplett abspulen, dann weiter
+    //          b) pairwise
+    //               ^------------- erstmal das hier
     let ofList (list: list<_>) =
         fun l ->
             let l = l |> Option.defaultValue list
-            let res =
-                match l with
-                | x::xs -> Res.Emit (LoopState (x, xs))
-                | [] -> Res.Stop
-            [ res ]
+            match l with
+            | x::xs -> Res.Continue ([x], Some (LoopState xs))
+            | [] -> Res.Stop []
         |> create
 
     type OnStopThenState<'s> =
         | RunInput of 's option
-        | Default
+        | UseDefault
 
-    let inline internal onStopThenResult defaultResults (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+    let inline internal onStopThenValues defaultValues (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
         fun state ->
             let state = state |> Option.defaultValue (RunInput None)
             match state with
-            | Default ->
-                defaultResults
+            | UseDefault ->
+                Res.Continue (defaultValues, Some (LoopState (UseDefault)))
             | RunInput state ->
-                let res =
-                    run inputGen state
-                    |> Res.mapUntilStop id (fun state -> RunInput (Some state)) 
-                if res.isStopped then
-                    [
-                        yield! res.results
-                        yield! defaultResults
-                    ]
-                else
-                    res.results
+                match run inputGen state with
+                | Res.Continue (values, OptinalLoopState state) ->
+                    Res.Continue (values, Some (LoopState (RunInput state)))
+                | Res.Stop values ->
+                    Res.Continue (values, Some (LoopState (UseDefault)))
         |> createGen
         
     let inline onStopThenDefault defaultValue (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-        onStopThenResult [ Res.Emit (LoopState (defaultValue, Default)) ] inputGen
+        onStopThenValues [defaultValue] inputGen
 
     let inline onStopThenSkip (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-        onStopThenResult [] inputGen
+        onStopThenValues [] inputGen
 
 
     // --------
