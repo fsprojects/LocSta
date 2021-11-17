@@ -119,7 +119,7 @@ let [<TestCase>] ``Stop (feed)`` () =
 
 
 let [<TestCase>] ``Singleton`` () =
-    Gen.ofValue 42
+    Gen.singleton 42
     |> Gen.toList
     |> equals [42]
 

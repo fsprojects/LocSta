@@ -250,10 +250,14 @@ module Gen =
     let internal returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
         returnFeedRes (Res.Stop values)
 
-    let ofValues<'v, 's> values : LoopGen<'v,'s> =
+    let repeatn<'v, 's> values : LoopGen<'v,'s> =
         returnLoopRes (Res.Continue (values, LoopState None))
-    let ofValue<'v, 's> value : LoopGen<'v,'s> =
-        ofValues [value]
+    let repeat<'v, 's> value : LoopGen<'v,'s> =
+        repeatn [value]
+    let singletons<'v, 's> values : LoopGen<'v,'s> =
+        returnLoopRes (Res.Stop values)
+    let singleton<'v, 's> value : LoopGen<'v,'s> =
+        singletons [value]
 
 
     // --------

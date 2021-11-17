@@ -59,53 +59,53 @@ module Lib =
         // reset / stop / count / ...
         // ----------
 
-        let private emitFuncForMapValue = fun gen values s -> Res.Continue (values, LoopState s)
         let private resetFuncForMapValue = fun gen values s -> Gen.run gen None
         let private stopFuncForMapValue = fun gen values s -> Res.Stop values
 
         /// Evluates the input gen and passes it's output to the predicate function:
         /// When that returns true, the input gen is evaluated once again with an empty state.
         /// It resurns the value and a bool indicating is a reset did happen.
-        let whenFuncThen (pred: _ -> bool) onFalse onTrue (inputGen: LoopGen<_,_>) =
+        let whenFuncThen (pred: _ -> bool) onTrue (inputGen: LoopGen<_,_>) =
             fun state ->
                 match Gen.run inputGen state with
                 | Res.Continue (values, LoopState s) ->
-                    match pred values with
-                    | false -> onFalse inputGen values s
-                    | true -> onTrue inputGen values s
+                    let valuesUntilPred = values |> List.takeWhile (fun v -> not (pred v))
+                    match valuesUntilPred.Length = values.Length with
+                    | true -> Res.Continue (values, LoopState s)
+                    | false -> onTrue inputGen valuesUntilPred s
                 | Res.Stop values -> Res.Stop values
             |> Gen.createGen
 
         /// Evluates the input gen and passes it's output to the predicate function:
         /// When that returns true, the input gen is evaluated once again with an empty state.
         let whenFuncThenReset (pred: _ -> bool) (inputGen: LoopGen<_,_>) =
-            whenFuncThen pred emitFuncForMapValue resetFuncForMapValue inputGen
+            whenFuncThen pred resetFuncForMapValue inputGen
 
         let whenFuncThenStop (pred: _ -> bool) (inputGen: LoopGen<_,_>) =
-            whenFuncThen pred emitFuncForMapValue stopFuncForMapValue inputGen
+            whenFuncThen pred stopFuncForMapValue inputGen
 
         /// When the given predicate is true, the input gen is evaluated with an empty state.
-        let whenValueThen (pred: bool) onTrue onFalse (inputGen: LoopGen<_,_>) =
-            whenFuncThen (fun _ -> pred) onTrue onFalse inputGen
+        let whenValueThen (pred: bool) onFalse (inputGen: LoopGen<_,_>) =
+            whenFuncThen (fun _ -> pred) onFalse inputGen
 
         /// When the given predicate is true, the input gen is evaluated with an empty state.
         let whenValueThenReset (pred: bool) (inputGen: LoopGen<_,_>) =
-            whenValueThen pred emitFuncForMapValue resetFuncForMapValue inputGen
+            whenValueThen pred resetFuncForMapValue inputGen
 
         let whenValueThenStop (pred: bool) (inputGen: LoopGen<_,_>) =
-            whenValueThen pred emitFuncForMapValue stopFuncForMapValue inputGen
+            whenValueThen pred stopFuncForMapValue inputGen
 
-        let whenThen (pred: LoopGen<_,_>) onTrue onFalse (inputGen: LoopGen<_,_>) =
+        let whenThen (pred: LoopGen<_,_>) onFalse (inputGen: LoopGen<_,_>) =
             loop {
                 let! pred = pred
-                return! whenValueThen pred onTrue onFalse inputGen
+                return! whenValueThen pred onFalse inputGen
             }
 
         let whenThenReset (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
-            whenThen pred emitFuncForMapValue resetFuncForMapValue inputGen
+            whenThen pred resetFuncForMapValue inputGen
 
         let whenThenStop (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
-            whenThen pred emitFuncForMapValue stopFuncForMapValue inputGen
+            whenThen pred stopFuncForMapValue inputGen
 
         // TODO: doOnStop?
 
@@ -119,17 +119,17 @@ module Lib =
         let inline repeatCount inclusiveStart increment inclusiveEnd =
             countTo inclusiveStart increment inclusiveEnd |> onStopThenReset
 
-        let onCountThen count onTrue onFalse (inputGen: LoopGen<_,_>) =
+        let onCountThen count onFalse (inputGen: LoopGen<_,_>) =
             loop {
                 let! c = repeatCount 0 1 (count - 1)
-                return! whenValueThen (c = count) onTrue onFalse inputGen
+                return! whenValueThen (c = count) onFalse inputGen
             }
 
         let onCountThenReset count (inputGen: LoopGen<_,_>) =
-            onCountThen count emitFuncForMapValue resetFuncForMapValue inputGen
+            onCountThen count resetFuncForMapValue inputGen
 
         let onCountThenStop count (inputGen: LoopGen<_,_>) =
-            onCountThen count emitFuncForMapValue stopFuncForMapValue inputGen
+            onCountThen count stopFuncForMapValue inputGen
     
         // TODO: Test / Docu
         let includeState (inputGen: LoopGen<_,_>) =
