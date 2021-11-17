@@ -46,17 +46,21 @@ type BindState<'sm, 'sk, 'm> =
       mleftovers: 'm list
       isStopped: bool }
 
-
+/// Vocabulary for Return of loop computations.
 module Loop =
-    type [<Struct>] Emit<'value> = Emit of 'value  // TODO: 'value list
+    type [<Struct>] Emit<'value> = Emit of 'value
+    type [<Struct>] EmitMany<'value> = EmitMany of 'value list
     type [<Struct>] Skip = Skip
-    type [<Struct>] Stop<'value> = Stop of 'value  // TODO: 'value list
+    type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value list
+    type [<Struct>] Stop = Stop
 
-
+/// Vocabulary for Return of feed computations.
 module Feed =
-    type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback  // TODO: 'value list
+    type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
+    type [<Struct>] EmitMany<'value, 'feedback> = EmitMany of 'value list * 'feedback
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
-    type [<Struct>] Stop<'value> = Stop of 'value  // TODO: 'value list
+    type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value list
+    type [<Struct>] Stop = Stop
     // Will man Reset wirklich als Teil der Builder-Abstraktion?
     type [<Struct>] ResetThis = ResetThis                                 // TODO: 'value list oder 'value
     type [<Struct>] ResetTree = ResetTree                                 // TODO: 'value list oder 'value
@@ -72,7 +76,7 @@ module Gen =
     // --------
 
     let createGen f = Gen f
-    let create f : LoopGen<_,_> = Gen f
+    let createLoop f : LoopGen<_,_> = Gen f
     let createFeed f : FeedGen<_,_,_> = Gen f
 
     
@@ -149,12 +153,12 @@ module Gen =
                 evalmres (run m lastMState) lastMState kstate false
             | None ->
                 evalmres (run m None) None None false
-        |> create
+        |> createLoop
 
     let internal bindLoopFeedFeed
         (k: 'o1 -> FeedGen<'o2,'s2,'f>)
         (m: LoopGen<'o1,'s1>)
-        //: FeedGen<'o2,_,'f> // TODO: _
+        : FeedGen<'o2,_,'f> // TODO: _
         =
         fun state ->
             let evalk mval mstate mleftovers lastKState isStopped =
@@ -185,18 +189,6 @@ module Gen =
             | None ->
                 evalmres (run m None) None None false
         |> createFeed
-        //let buildSkip state = Res.SkipWith (FeedState (state, UseLast))
-        //let processResult res mstate leftovers =
-        //    match res with
-        //    | Res.Emit (FeedEmit (kres, kstate, kfeedback)) ->
-        //        let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
-        //        Res.Emit (FeedEmit (kres, state, kfeedback))
-        //    | Res.SkipWith (FeedState (kstate, kfeedback)) -> 
-        //        let state = { mstate = mstate; kstate = Some kstate; mleftovers = leftovers }
-        //        Res.SkipWith (FeedState (state, kfeedback))
-        //    | Res.Stop -> 
-        //        Res.Stop
-        //bindLoopWhateverGen buildSkip processResult createFeed k m
 
     let internal bindInitFeedLoop
         (k: 'f -> FeedGen<'o,'s,'f>)
@@ -230,7 +222,7 @@ module Gen =
                 evalk (getInitial()) kstate
             | Some { mstate = Some feedback; kstate = kstate } ->
                 evalk feedback kstate
-        |> create
+        |> createLoop
 
 
     // --------
@@ -238,21 +230,30 @@ module Gen =
     // --------
 
     let internal returnLoopRes res =
-        (fun _ -> res) |> create
+        (fun _ -> res) |> createLoop
     let internal returnFeedRes res =
         (fun _ -> res) |> createFeed
 
     // TODO: Schauen, ob dieses Vokabular noch Sinn ergibt
 
-    let returnContinue<'v, 's> values state : LoopGen<'v,'s> =
+    let internal returnContinue<'v, 's> values state : LoopGen<'v,'s> =
         returnLoopRes (Res.Continue (values, state))
-    let returnStop<'v,'s> values : LoopGen<'v,'s> =
+    let internal returnContinueValues<'v, 's> values : LoopGen<'v,'s> =
+        returnLoopRes (Res.Continue (values, LoopState None))
+    let internal returnStop<'v,'s> values : LoopGen<'v,'s> =
         returnLoopRes (Res.Stop values)
     
-    let returnContinueFeed<'v,'s,'f> values state : FeedGen<'v,'s,'f> =
-        returnFeedRes (Res.Continue (values, state))
-    let returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
+    let internal returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
+        returnFeedRes (Res.Continue (values, feedback))
+    let internal returnContinueValuesFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
+        returnFeedRes (Res.Continue (values, FeedState (None, Some (UseThis feedback))))
+    let internal returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
         returnFeedRes (Res.Stop values)
+
+    let ofValues<'v, 's> values : LoopGen<'v,'s> =
+        returnLoopRes (Res.Continue (values, LoopState None))
+    let ofValue<'v, 's> value : LoopGen<'v,'s> =
+        ofValues [value]
 
 
     // --------
@@ -266,7 +267,7 @@ module Gen =
             match enumerator.MoveNext() with
             | true -> Res.Continue ([enumerator.Current], LoopState (Some enumerator))
             | false -> Res.Stop []
-        |> create
+        |> createLoop
         
     // TODO: Könnten eigentlich 2 Funktionen sein:
     //          a) Liste komplett abspulen, dann weiter
@@ -278,7 +279,7 @@ module Gen =
             match l with
             | x::xs -> Res.Continue ([x], LoopState (Some xs))
             | [] -> Res.Stop []
-        |> create
+        |> createLoop
 
     type OnStopThenState<'s> =
         | RunInput of 's option
@@ -329,38 +330,39 @@ module Gen =
                     Res.Stop (avalues @ bvalues)
             | Res.Stop avalues ->
                 Res.Stop avalues
-        |> create
+        |> createLoop
 
     // TODO: Redundant with combine
-    //let internal combineFeed
-    //    (a: FeedGen<'o, 'sa, 'f>)
-    //    (b: unit -> FeedGen<'o, 'sb, 'f>)
-    //    : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
-    //    =
-    //    fun state ->
-    //        let state =  state |> Option.defaultValue { astate = None; bstate = None }
-    //        match run a state.astate with
-    //        | Res.Continue (avalues, astate) ->
-    //            match run (b()) state.bstate with
-    //            | Res.Continue (bvalues, bstate) ->
-    //                Res.Continue (avalues @ bvalues, Some (LoopState ({ astate = astate; bstate = bstate })))
-    //            | Res.Stop bvalues ->
-    //                Res.Stop (avalues @ bvalues)
-    //        | Res.Stop avalues ->
-    //            Res.Stop avalues
-    //        //let mappedAResults =
-    //        //    aresults.resultsWithStop
-    //        //    |> Res.mapFeedMany id (fun sa -> { astate = Some sa; bstate = None })
-    //        //let mappedBResults =            
-    //        //    match aresults.isStopped with
-    //        //    | false ->
-    //        //        run (b()) state.bstate |> Res.takeFeedUntilStop
-    //        //        |> fun res -> res.resultsWithStop
-    //        //        |> Res.mapFeedMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
-    //        //    | true ->
-    //        //        []
-    //        //mappedAResults @ mappedBResults
-    //    |> createFeed
+    let internal combineFeed
+        (a: FeedGen<'o, 'sa, 'f>)
+        (b: unit -> FeedGen<'o, 'sb, 'f>)
+        : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
+        =
+        failwith "TODO"
+        //fun state ->
+        //    let state =  state |> Option.defaultValue { astate = None; bstate = None }
+        //    match run a state.astate with
+        //    | Res.Continue (avalues, astate) ->
+        //        match run (b()) state.bstate with
+        //        | Res.Continue (bvalues, bstate) ->
+        //            Res.Continue (avalues @ bvalues, Some (LoopState ({ astate = astate; bstate = bstate })))
+        //        | Res.Stop bvalues ->
+        //            Res.Stop (avalues @ bvalues)
+        //    | Res.Stop avalues ->
+        //        Res.Stop avalues
+        //    //let mappedAResults =
+        //    //    aresults.resultsWithStop
+        //    //    |> Res.mapFeedMany id (fun sa -> { astate = Some sa; bstate = None })
+        //    //let mappedBResults =            
+        //    //    match aresults.isStopped with
+        //    //    | false ->
+        //    //        run (b()) state.bstate |> Res.takeFeedUntilStop
+        //    //        |> fun res -> res.resultsWithStop
+        //    //        |> Res.mapFeedMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
+        //    //    | true ->
+        //    //        []
+        //    //mappedAResults @ mappedBResults
+        //|> createFeed
 
 
     // --------
@@ -393,31 +395,40 @@ module Gen =
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
         // returns
-        member _.Return(Loop.Emit value) = returnContinue [value] (LoopState None)
-        member _.Yield(value) : LoopGen<_,_> = returnContinue [value] (LoopState None)
-        member _.Return(Loop.Skip) = returnContinue [] (LoopState None)
-        member _.Return(Loop.Stop value) = returnStop [value]
+        member _.Yield(value) : LoopGen<_,_> = returnContinueValues [value]
+        member _.Return(Loop.Emit value) = returnContinueValues [value]
+        member _.Return(Loop.EmitMany values) = returnContinueValues values
+        member _.Return(Loop.Skip) = returnContinueValues []
+        member _.Return(Loop.EmitAndStop values) = returnStop values
+        member _.Return(Loop.Stop) = returnStop []
         
     type FeedBuilder() =
         inherit BaseBuilder()
+        member _.Zero() = returnContinueFeed [] (FeedState (None,None))
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
         member _.For(sequence: list<'a>, body) = ofList sequence |> onStopThenSkip |> bindLoopFeedFeed body
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bindLoopFeedFeed body
         member _.Combine(x, delayed) = combineLoop x delayed
-        //member _.Combine(x, delayed) = combineFeed x delayed // TODO
+        member _.Combine(x, delayed) = combineFeed x delayed
         // returns
-        member _.Return(Feed.Emit (value, feedback)) =
-            returnContinueFeed [value] (FeedState(None, Some(UseThis feedback)))
         member _.Yield(value, feedback) =
-            returnContinueFeed [value] (FeedState(None, Some(UseThis feedback)))
+            returnContinueValuesFeed [value] feedback
+        member _.Return(Feed.Emit (value, feedback)) =
+            returnContinueValuesFeed [value] feedback
+        member _.Return(Feed.EmitMany (values, feedback)) =
+            returnContinueValuesFeed values feedback
         member _.Return(Feed.SkipWith feedback) = 
-            returnContinueFeed [] (FeedState(None, Some(UseThis feedback)))
-        member _.Return(Feed.Stop value) = 
-            returnStopFeed [value]
-        //member _.Return(Feed.ResetThis) = returnFeedbackResetThis // TODO (siehe Kommentar oben)
-        //member _.Return(Feed.ResetTree) = returnFeedbackResetTree // TODO (siehe Kommentar oben)
+            returnContinueValuesFeed [] feedback
+        member _.Return(Feed.EmitAndStop values) = 
+            returnStopFeed values
+        member _.Return(Feed.Stop) = 
+            returnStopFeed []
+        member _.Return(Feed.ResetThis) =
+            returnContinueFeed [] (FeedState (None, Some ResetThis)) // TODO (siehe Kommentar oben)
+        member _.Return(Feed.ResetTree) =
+            returnContinueFeed [] (FeedState (None, Some ResetTree)) // TODO (siehe Kommentar oben)
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()

@@ -21,27 +21,27 @@ let [<TestCase>] ``Pairwise let! (loop)`` () =
     |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
-let [<TestCase>] ``Pairwise for (loop)`` () =
-    failwith "TODO"
-    loop {
-        for v1 in [ "a"; "b"; "c"; "d" ] do
-        for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            yield v1,v2
-    }
-    |> Gen.toListn 10
-    |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
+//let [<TestCase>] ``Pairwise for (loop)`` () =
+//    failwith "TODO"
+//    loop {
+//        for v1 in [ "a"; "b"; "c"; "d" ] do
+//        for v2 in [  1 ;  2 ;  3 ;  4  ] do
+//            yield v1,v2
+//    }
+//    |> Gen.toListn 10
+//    |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
-let [<TestCase>] ``Combine + for (loop)`` () =
-    loop {
-        for v1 in [ "a"; "b"; "c"; "d" ] do
-            yield v1
-        for v2 in [  1 ;  2 ;  3 ;  4  ] do
-            yield v2.ToString()
-            yield "X"
-    }
-    |> Gen.toList
-    |> equals [ "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X" ]
+//let [<TestCase>] ``Combine + for (loop)`` () =
+//    loop {
+//        for v1 in [ "a"; "b"; "c"; "d" ] do
+//            yield v1
+//        for v2 in [  1 ;  2 ;  3 ;  4  ] do
+//            yield v2.ToString()
+//            yield "X"
+//    }
+//    |> Gen.toList
+//    |> equals [ "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X" ]
 
 
 let [<TestCase>] ``Zero (loop)`` () =
@@ -54,14 +54,14 @@ let [<TestCase>] ``Zero (loop)`` () =
     |> equals [ 0; 2; 4; 6 ]
 
 
-let [<TestCase>] ``Zero For Loop (loop)`` () =
-    loop {
-        for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
-            if v % 2 = 0 then
-                yield v
-    }
-    |> Gen.toList
-    |> equals [ 0; 2; 4; 6 ]
+//let [<TestCase>] ``Zero For Loop (loop)`` () =
+//    loop {
+//        for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
+//            if v % 2 = 0 then
+//                yield v
+//    }
+//    |> Gen.toList
+//    |> equals [ 0; 2; 4; 6 ]
 
 
 let [<TestCase>] ``Stop after Emit (loop)`` () =
@@ -119,7 +119,7 @@ let [<TestCase>] ``Stop (feed)`` () =
 
 
 let [<TestCase>] ``Singleton`` () =
-    Gen.returnValueOnce 42
+    Gen.ofValue 42
     |> Gen.toList
     |> equals [42]
 

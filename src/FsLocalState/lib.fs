@@ -11,12 +11,13 @@ module Lib =
         // map / apply / transformation
         // --------
 
-        let map2 (proj: 'v -> 's -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        let map2 (proj: 'v -> 's option -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
             fun state ->
+                let mapValues values state = [ for v in values do proj v state ]
                 match Gen.run inputGen state with
-                | Res.Emit (LoopState (v,s)) -> Res.Emit (LoopState (proj v s, s))
-                | Res.SkipWith (LoopSkip s) -> Res.SkipWith (LoopSkip s)
-                | Res.Stop -> Res.Stop
+                | Res.Continue (values, LoopState s) ->
+                    Res.Continue (mapValues values s, LoopState s)
+                | Res.Stop values -> Res.Stop (mapValues values None)
             |> Gen.createGen
 
         let map proj (inputGen: LoopGen<_,_>) =
@@ -58,25 +59,21 @@ module Lib =
         // reset / stop / count / ...
         // ----------
 
-        let private emitFuncForMapValue = fun g v s -> [ Res.Emit (LoopState (v, s)) ]
-        let private resetFuncForMapValue = fun g v s -> Gen.run g None
-        let private stopFuncForMapValue = fun g v s -> [ Res.Stop ]
+        let private emitFuncForMapValue = fun gen values s -> Res.Continue (values, LoopState s)
+        let private resetFuncForMapValue = fun gen values s -> Gen.run gen None
+        let private stopFuncForMapValue = fun gen values s -> Res.Stop values
 
         /// Evluates the input gen and passes it's output to the predicate function:
         /// When that returns true, the input gen is evaluated once again with an empty state.
         /// It resurns the value and a bool indicating is a reset did happen.
         let whenFuncThen (pred: _ -> bool) onFalse onTrue (inputGen: LoopGen<_,_>) =
             fun state ->
-                [
-                    for res in Gen.run inputGen state do
-                        match res with
-                        | Res.Emit (LoopState (o,s)) ->
-                            match pred o with
-                            | false -> yield! onFalse inputGen o s
-                            | true -> yield! onTrue inputGen o s
-                        | Res.SkipWith (LoopSkip s) -> yield Res.SkipWith (LoopSkip s)
-                        | Res.Stop -> yield Res.Stop
-                ]
+                match Gen.run inputGen state with
+                | Res.Continue (values, LoopState s) ->
+                    match pred values with
+                    | false -> onFalse inputGen values s
+                    | true -> onTrue inputGen values s
+                | Res.Stop values -> Res.Stop values
             |> Gen.createGen
 
         /// Evluates the input gen and passes it's output to the predicate function:
@@ -112,17 +109,12 @@ module Lib =
 
         // TODO: doOnStop?
 
-        // TODO: Docu: Stop means thet inputGen is *immediately* reevaluated (in this cycle; not in the next)
         let onStopThenReset (inputGen: LoopGen<_,_>) =
-            let rec genFunc state =
-                let g = Gen.run inputGen
-                [
-                    for res in g state do
-                        match res with
-                        | Res.Stop -> yield! genFunc None
-                        | _ -> yield res
-                ]
-            Gen.createGen genFunc
+            fun state ->
+                match Gen.run inputGen state with
+                | Res.Stop values -> Res.Continue (values, LoopState None)
+                | x -> x
+            |> Gen.createLoop
 
         let inline repeatCount inclusiveStart increment inclusiveEnd =
             countTo inclusiveStart increment inclusiveEnd |> onStopThenReset
@@ -143,20 +135,20 @@ module Lib =
         let includeState (inputGen: LoopGen<_,_>) =
             map2 (fun v s -> v,s) inputGen
 
-        // TODO: Test / Docu
-        let originalResult inputGen =
-            fun state ->
-                [
-                    for res in Gen.run inputGen state do
-                        match res with
-                        | Res.Emit (LoopState (_,s)) as res ->
-                            yield Res.Emit (LoopState (res, Some s))
-                        | Res.SkipWith (LoopSkip s) as res ->
-                            yield Res.Emit (LoopState (res, Some s))
-                        | Res.Stop as res ->
-                            yield Res.Emit (LoopState (res, state))
-                ]
-            |> Gen.createGen
+        //// TODO: Test / Docu
+        //let originalResult inputGen =
+        //    fun state ->
+        //        [
+        //            for res in Gen.run inputGen state do
+        //                match res with
+        //                | Res.Emit (LoopState (_,s)) as res ->
+        //                    yield Res.Emit (LoopState (res, Some s))
+        //                | Res.SkipWith (LoopSkip s) as res ->
+        //                    yield Res.Emit (LoopState (res, Some s))
+        //                | Res.Stop as res ->
+        //                    yield Res.Emit (LoopState (res, state))
+        //        ]
+        //    |> Gen.createGen
 
 
         // ----------
@@ -186,34 +178,34 @@ module Lib =
         let accumulateManyParts count currentValue =
             accumulateOnePart count currentValue |> onStopThenReset
 
-        // TODO: Maybe fork is so important that it could be implemenmted as an own builder
-        let fork (inputGen: Gen<_,_>) =
-            feed {
-                let! runningStates = Init []
-                let inputGen = Gen.run inputGen
-                // TODO: Performance
-                let forkResults =
-                    runningStates @ [None]
-                    |> List.map (fun forkState -> inputGen forkState |> Res.takeUntilStop)
-                let emits =
-                    forkResults
-                    |> List.collect (fun aggRes -> Res.emittedValues aggRes.results)
-                let newRunningStates =
-                    forkResults
-                    |> List.filter (fun res -> not res.isStopped)
-                    |> List.map (fun res -> res.finalState)
-                if emits.Length = 0 then
-                    return Feed.SkipWith newRunningStates // in any case, emit the new state
-                for e in emits do
-                    // TODO: it would be really great to have an "Init" counterpart - a "Store"
-                    // or something, so that the feedback state is set ONCE and not many times redundantly
-                    // when yielding more than once
-                    yield e, newRunningStates
-            }
+        //// TODO: Maybe fork is so important that it could be implemenmted as an own builder
+        //let fork (inputGen: Gen<_,_>) =
+        //    feed {
+        //        let! runningStates = Init []
+        //        let inputGen = Gen.run inputGen
+        //        // TODO: Performance
+        //        let forkResults =
+        //            runningStates @ [None]
+        //            |> List.map (fun forkState -> inputGen forkState |> Res.takeUntilStop)
+        //        let emits =
+        //            forkResults
+        //            |> List.collect (fun aggRes -> Res.emittedValues aggRes.results)
+        //        let newRunningStates =
+        //            forkResults
+        //            |> List.filter (fun res -> not res.isStopped)
+        //            |> List.map (fun res -> res.finalState)
+        //        if emits.Length = 0 then
+        //            return Feed.SkipWith newRunningStates // in any case, emit the new state
+        //        for e in emits do
+        //            // TODO: it would be really great to have an "Init" counterpart - a "Store"
+        //            // or something, so that the feedback state is set ONCE and not many times redundantly
+        //            // when yielding more than once
+        //            yield e, newRunningStates
+        //    }
 
-        // TODO: Test / Docu
-        let windowed windowSize currentValue =
-            accumulateOnePart windowSize currentValue |> fork
+        //// TODO: Test / Docu
+        //let windowed windowSize currentValue =
+        //    accumulateOnePart windowSize currentValue |> fork
 
 
         // ----------
@@ -228,13 +220,13 @@ module Lib =
                 yield random.NextDouble(), random
             }
     
-        /// Delays a given value by 1 cycle.
-        let delay1 value =
-            fun state ->
-                match state with
-                | None -> [ Res.SkipWith (None, value) ]
-                | Some delayed -> [ Res.Emit (delayed, value) ]
-            |> Gen.createGen
+        ///// Delays a given value by 1 cycle.
+        //let delay1 value =
+        //    fun state ->
+        //        match state with
+        //        | None -> [ Res.SkipWith (None, value) ]
+        //        | Some delayed -> [ Res.Emit (delayed, value) ]
+        //    |> Gen.createGen
     
         /// Delays a given value by n cycle.
         let delayn n value =
