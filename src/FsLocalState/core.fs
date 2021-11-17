@@ -14,7 +14,7 @@ type Gen<'o,'s> = Gen of ('s option -> 'o)
 
 [<RequireQualifiedAccess>]
 type Res<'v,'s> =
-    | Continue of 'v list * 's option
+    | Continue of 'v list * 's option // TODO: why is 's optional? Do we need "DefaultableLoopState"?
     | Stop of 'v list
 
 type LoopState<'s> = LoopState of 's
@@ -183,7 +183,7 @@ module Gen =
         | Some (LoopState state) -> Some state
         | None -> lastState
 
-    let (|OptinalLoopState|) =
+    let (|OptionalLoopState|) =
         function 
         | Some (LoopState state) -> Some state
         | None -> None
@@ -382,7 +382,7 @@ module Gen =
                 Res.Continue (defaultValues, Some (LoopState (UseDefault)))
             | RunInput state ->
                 match run inputGen state with
-                | Res.Continue (values, OptinalLoopState state) ->
+                | Res.Continue (values, OptionalLoopState state) ->
                     Res.Continue (values, Some (LoopState (RunInput state)))
                 | Res.Stop values ->
                     Res.Continue (values, Some (LoopState (UseDefault)))
@@ -403,26 +403,22 @@ module Gen =
         { astate: 'sa option
           bstate: 'sb option }
 
-    let internal combineLoop
-        (a: LoopGen<'o, 'sa>)
-        (b: unit -> LoopGen<'o, 'sb>)
-        : LoopGen<'o, CombineInfo<'sa,'sb>>
+    let internal combineLoop a b
+        //(a: LoopGen<'o, 'sa>)
+        //(b: unit -> LoopGen<'o, 'sb>)
+        //: LoopGen<'o, CombineInfo<'sa,'sb>>
         =
         fun state ->
             let state =  state |> Option.defaultValue { astate = None; bstate = None }
-            let aresults = run a state.astate |> Res.takeUntilStop
-            let mappedAResults =
-                aresults.resultsWithStop
-                |> Res.mapMany id (fun sa -> { astate = Some sa; bstate = None })
-            let mappedBResults =            
-                match aresults.isStopped with
-                | false ->
-                    run (b()) state.bstate |> Res.takeUntilStop
-                    |> fun res -> res.resultsWithStop
-                    |> Res.mapMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
-                | true ->
-                    []
-            mappedAResults @ mappedBResults
+            match run a state.astate with
+            | Res.Continue (avalues, OptionalLoopState astate) ->
+                match run (b()) state.bstate with
+                | Res.Continue (bvalues, OptionalLoopState bstate) ->
+                    Res.Continue (avalues @ bvalues, Some (LoopState ({ astate = astate; bstate = bstate })))
+                | Res.Stop bvalues ->
+                    Res.Stop (avalues @ bvalues)
+            | Res.Stop avalues ->
+                Res.Stop avalues
         |> create
 
     // TODO: Redundant with combine
@@ -433,19 +429,27 @@ module Gen =
         =
         fun state ->
             let state =  state |> Option.defaultValue { astate = None; bstate = None }
-            let aresults = run a state.astate |> Res.takeFeedUntilStop
-            let mappedAResults =
-                aresults.resultsWithStop
-                |> Res.mapFeedMany id (fun sa -> { astate = Some sa; bstate = None })
-            let mappedBResults =            
-                match aresults.isStopped with
-                | false ->
-                    run (b()) state.bstate |> Res.takeFeedUntilStop
-                    |> fun res -> res.resultsWithStop
-                    |> Res.mapFeedMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
-                | true ->
-                    []
-            mappedAResults @ mappedBResults
+            match run a state.astate with
+            | Res.Continue (avalues, astate) ->
+                match run (b()) state.bstate with
+                | Res.Continue (bvalues, bstate) ->
+                    Res.Continue (avalues @ bvalues, Some (LoopState ({ astate = astate; bstate = bstate })))
+                | Res.Stop bvalues ->
+                    Res.Stop (avalues @ bvalues)
+            | Res.Stop avalues ->
+                Res.Stop avalues
+            //let mappedAResults =
+            //    aresults.resultsWithStop
+            //    |> Res.mapFeedMany id (fun sa -> { astate = Some sa; bstate = None })
+            //let mappedBResults =            
+            //    match aresults.isStopped with
+            //    | false ->
+            //        run (b()) state.bstate |> Res.takeFeedUntilStop
+            //        |> fun res -> res.resultsWithStop
+            //        |> Res.mapFeedMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
+            //    | true ->
+            //        []
+            //mappedAResults @ mappedBResults
         |> createFeed
 
 
