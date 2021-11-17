@@ -12,9 +12,11 @@ namespace FsLocalState
 
 type Gen<'o,'s> = Gen of ('s option -> 'o)
 
+// TODO: why is 's optional - what does it mean exactly? Could mean: Reset or UseLast.
+//       Is it important to specify that or will it defined by the library?
 [<RequireQualifiedAccess>]
 type Res<'v,'s> =
-    | Continue of 'v list * 's option // TODO: why is 's optional? Do we need "DefaultableLoopState"?
+    | Continue of 'v list * 's option
     | Stop of 'v list
 
 type LoopState<'s> = LoopState of 's
@@ -60,94 +62,6 @@ module Feed =
     type [<Struct>] ResetTree = ResetTree                                 // TODO: 'value list oder 'value
 
 
-//module Res =
-//    let isStop result = match result with | Res.Stop -> true | _ -> false
-
-//    type AggregateResult<'e,'d,'s> =
-//        { results: Res<'e, 'd> list
-//          resultsWithStop: Res<'e, 'd> list
-//          isStopped: bool
-//          finalState: 's option }
-
-//    let map2 valueMapping stateMapping (result: LoopRes<_,_>) =
-//        match result with
-//        | Res.Emit (LoopState (v,s)) -> Res.Emit (LoopState (valueMapping v s, stateMapping s))
-//        | Res.SkipWith (LoopSkip s) -> Res.SkipWith (LoopSkip (stateMapping s))
-//        | Res.Stop -> Res.Stop
-
-//    let map valueMapping stateMapping (result: LoopRes<_,_>) =
-//        map2 (fun v _ -> valueMapping v) stateMapping result
-
-//    let mapMany2 valueMapping stateMapping (results: LoopRes<_,_> list) =
-//        results |> List.map (map2 valueMapping stateMapping)
-
-//    let mapMany valueMapping stateMapping (results: LoopRes<_,_> list) =
-//        results |> List.map (map valueMapping stateMapping)
-
-//    // TODO: implement it like Loop
-//    let mapFeedMany valueMapping stateMapping results =
-//        [ for res in results do
-//            match res with
-//            | Res.Emit (FeedEmit (v,s,f)) -> Res.Emit (FeedEmit (valueMapping v, stateMapping s, f))
-//            | Res.SkipWith (FeedState (s,f)) -> Res.SkipWith (FeedState (stateMapping s, f))
-//            | Res.Stop -> Res.Stop
-//        ]
-
-//    let internal mapGenUntilStop tryGetValueAndState (results: Res<'e,'d> list) =
-//        let mappedResults =
-//            results
-//            |> Seq.map tryGetValueAndState
-//            |> Seq.takeWhile (fun (_,state) -> Option.isSome state)
-//        let resultsTilStop,finalState =
-//            let mutable finalState = None
-//            let resultsTilStop =
-//                seq {
-//                    for (res, state) in mappedResults do
-//                        finalState <- state
-//                        yield res
-//                }
-//                |> Seq.toList
-//            resultsTilStop,finalState
-//        let isStopped = results.Length > resultsTilStop.Length
-//        { results = resultsTilStop
-//          resultsWithStop =
-//            if isStopped
-//            then [ yield! resultsTilStop; yield Res.Stop ]
-//            else resultsTilStop
-//          isStopped = isStopped
-//          finalState = finalState }
-
-//    let internal mapFeedUntilStop valueMapping stateMapping (results: FeedRes<_,_,_> list) =
-//        mapGenUntilStop
-//            (fun res ->
-//                match res with
-//                | Res.Emit (FeedEmit (v,s,f)) -> (Res.Emit (FeedEmit (valueMapping v, stateMapping s, f))), Some s
-//                | Res.SkipWith (FeedState (s,f)) -> (Res.SkipWith (FeedState (stateMapping s,f))), Some s
-//                | Res.Stop -> Res.Stop, None)
-//            results
-
-//    let mapUntilStop valueMapping stateMapping (results: LoopRes<_,_> list) =
-//        mapGenUntilStop
-//            (fun res ->
-//                match res with
-//                | Res.Emit (LoopState (v,s)) -> (Res.Emit (LoopState (valueMapping v, stateMapping s))), Some s
-//                | Res.SkipWith (LoopSkip s) -> (Res.SkipWith (LoopSkip (stateMapping s))), Some s
-//                | Res.Stop -> Res.Stop, None)
-//            results
-
-//    let takeUntilStop results = mapUntilStop id id results
-    
-//    let takeFeedUntilStop results = mapFeedUntilStop id id results
-
-//    let emittedValues (results: LoopRes<_,_> list) =
-//        results
-//        |> List.choose (fun res ->
-//            match res with
-//            | Res.Emit (LoopState (v, _)) -> Some v
-//            | _ -> None
-//        )
-
-
 module Gen =
     
     let run (gen: Gen<_,_>) = let (Gen b) = gen in b
@@ -160,16 +74,6 @@ module Gen =
     let createGen f = Gen f
     let create f : LoopGen<_,_> = Gen f
     let createFeed f : FeedGen<_,_,_> = Gen f
-
-    // Creates a Gen from a function that takes non-optional state, initialized with the given seed value.
-    let createWithSeed f seed =
-        fun s ->
-            let state = Option.defaultValue seed s
-            f state
-        |> create
-
-    let createWithSeed2 seed f =
-        createWithSeed seed f
 
     
     // --------
@@ -257,7 +161,38 @@ module Gen =
         (m: LoopGen<'o1,'s1>)
         //: FeedGen<'o2,_,'f> // TODO: _
         =
-            failwith "TODO"
+        fun state ->
+            let evalk mval mstate mleftovers lastKState isStopped =
+                match run (k mval) lastKState with
+                | Res.Continue (kvalues, Some (FeedState (kstate, feedback))) ->
+                    let state = { mstate = mstate; kstate = kstate; mleftovers = mleftovers; isStopped = isStopped }
+                    Res.Continue (kvalues, Some (FeedState (Some state, feedback)))
+                | Res.Continue (kvalues, None) ->
+                    let state = { mstate = mstate; kstate = lastKState; mleftovers = mleftovers; isStopped = isStopped }
+                    Res.Continue (kvalues, Some (FeedState (Some state, feedback)))
+                | Res.Stop kvalues ->
+                    Res.Stop kvalues
+            let evalmres mres lastMState lastKState isStopped =
+                match mres with
+                | Res.Continue (mval :: mleftovers, OptionalLoopState mstate) ->
+                    evalk mval mstate mleftovers lastKState isStopped
+                | Res.Continue ([], OptionalLoopState mstate) ->
+                    let state = { mstate = mstate; kstate = lastKState; mleftovers = []; isStopped = isStopped }
+                    Res.Continue ([], Some (LoopState state))
+                | Res.Stop (mval :: mleftovers) ->
+                    evalk mval lastMState mleftovers lastKState isStopped
+                | Res.Stop [] ->
+                    Res.Stop []
+            match state with
+            | Some { mstate = lastMState; mleftovers = x :: xs; kstate = lastKState; isStopped = isStopped } ->
+                evalk x lastMState xs lastKState isStopped
+            | Some { mleftovers = []; isStopped = true } ->
+                Res.Stop []
+            | Some { mstate = lastMState; mleftovers = []; kstate = kstate } ->
+                evalmres (run m lastMState) lastMState kstate false
+            | None ->
+                evalmres (run m None) None None false
+        |> createFeed
         //let buildSkip state = Res.SkipWith (FeedState (state, UseLast))
         //let processResult res mstate leftovers =
         //    match res with
@@ -310,14 +245,22 @@ module Gen =
     // returns
     // --------
 
-    let returnGenResult (res: Res<'v,'s>) : Gen<Res<'v,'s>,'s> =
-        (fun _ -> res) |> createGen
+    let internal returnLoopRes res =
+        (fun _ -> res) |> create
+    let internal returnFeedRes res =
+        (fun _ -> res) |> createFeed
 
     // TODO: Schauen, ob dieses Vokabular noch Sinn ergibt
-    let returnContinue<'v, 's> (values: 'v list) (state: 's option) : Gen<Res<'v,'s>, 's> =
-        returnGenResult (Res.Continue (values, state))
-    let returnStop<'v,'s> (values: 'v list) : Gen<Res<'v,'s>,'s> =
-        returnGenResult (Res.Stop values)
+
+    let returnContinue<'v, 's> values state : LoopGen<'v,'s> =
+        returnLoopRes (Res.Continue (values, state))
+    let returnStop<'v,'s> values : LoopGen<'v,'s> =
+        returnLoopRes (Res.Stop values)
+    
+    let returnContinueFeed<'v,'s,'f> values state : FeedGen<'v,'s,'f> =
+        returnFeedRes (Res.Continue (values, state))
+    let returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
+        returnFeedRes (Res.Stop values)
 
 
     // --------
@@ -459,7 +402,7 @@ module Gen =
         member _.Combine(x, delayed) = combineLoop x delayed
         // returns
         member _.Return(Loop.Emit value) = returnContinue [value] None
-        member _.Yield(value) = returnContinue [value] None
+        member _.Yield(value) : LoopGen<_,_> = returnContinue [value] None
         member _.Return(Loop.Skip) = returnContinue [] None
         member _.Return(Loop.Stop value) = returnStop [value]
         
@@ -473,10 +416,14 @@ module Gen =
         member _.Combine(x, delayed) = combineLoop x delayed
         //member _.Combine(x, delayed) = combineFeed x delayed // TODO
         // returns
-        member _.Return(Feed.Emit (value, feedback)) = returnContinue [value] (Some(FeedState(None, UseThis feedback)))
-        member this.Yield(value, feedback) = returnContinue [value] (Some(FeedState(None, UseThis feedback)))
-        member _.Return(Feed.SkipWith feedback) = returnContinue [] (Some(FeedState(None, UseThis feedback)))
-        member _.Return(Feed.Stop value) = returnStop [value]
+        member _.Return(Feed.Emit (value, feedback)) =
+            returnContinueFeed [value] (Some(FeedState(None, UseThis feedback)))
+        member _.Yield(value, feedback) =
+            returnContinueFeed [value] (Some(FeedState(None, UseThis feedback)))
+        member _.Return(Feed.SkipWith feedback) = 
+            returnContinueFeed [] (Some(FeedState(None, UseThis feedback)))
+        member _.Return(Feed.Stop value) = 
+            returnStopFeed [value]
         //member _.Return(Feed.ResetThis) = returnFeedbackResetThis // TODO (siehe Kommentar oben)
         //member _.Return(Feed.ResetTree) = returnFeedbackResetTree // TODO (siehe Kommentar oben)
     
@@ -507,61 +454,22 @@ module Gen =
     
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
-    let resumeOrStart (state: 's option) (g: LoopGen<_,'s>) =
+    let toSeq (g: LoopGen<_,'s>) : seq<_> =
         let f = run g
-        let mutable state = state
+        let mutable state = None
         let mutable resume = true
         seq {
             while resume do
-                for res in f state do
-                    if resume then
-                        match res with
-                        | Res.Emit (LoopState (fres, fstate)) ->
-                            state <- Some fstate
-                            yield (fres, fstate)
-                        | Res.SkipWith (LoopSkip fstate) ->
-                            state <- Some fstate
-                        | Res.Stop ->
-                            resume <- false
+                match f state with
+                | Res.Continue (values, Some (LoopState fstate)) ->
+                    state <- Some fstate
+                    yield! values
+                | Res.Continue (values, None) ->
+                    yield! values
+                | Res.Stop values ->
+                    resume <- false
+                    yield! values
         }
-    
-    let resume state (g: LoopGen<_,'s>) = resumeOrStart (Some state) g
-
-    // TODO: Document this
-    /// Be careful: This uses a state machine, which means:
-    /// A mutable object is used as state!
-    let toSeqStateFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_ * 's> =
-        let mutable state = None
-        let mutable resume = true
-
-        fun inputValues ->
-            seq {
-                let enumerator = inputValues.GetEnumerator()
-                while enumerator.MoveNext() && resume do
-                    let value = enumerator.Current
-                    let fxres = run (fx value) state
-                    for res in fxres do
-                        if resume then
-                            match res with
-                            | Res.Emit (LoopState (resF, stateF)) ->
-                                state <- Some stateF
-                                yield (resF, stateF)
-                            | Res.SkipWith (LoopSkip stateF) ->
-                                state <- Some stateF
-                            | Res.Stop ->
-                                resume <- false
-            }
-
-    let toSeqFx (fx: Fx<'i,_,'s>) : seq<'i> -> seq<_> =
-        let evaluable = toSeqStateFx fx
-        fun inputValues -> evaluable inputValues |> Seq.map fst
-    
-    let toSeqState (g: LoopGen<_,_>) = resumeOrStart None g
-    
-    let toSeq (g: LoopGen<_,_>) = toSeqState g |> Seq.map fst
-
-    let toListFx fx inputSeq =
-        inputSeq |> toSeqFx fx |> Seq.toList
     
     let toList gen =
         toSeq gen |> Seq.toList
