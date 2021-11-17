@@ -13,13 +13,10 @@ module Lib =
 
         let map2 (proj: 'v -> 's -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
             fun state ->
-                [
-                    for res in Gen.run inputGen state do
-                        match res with
-                        | Res.Emit (LoopState (v,s)) -> Res.Emit (LoopState (proj v s, s))
-                        | Res.SkipWith (LoopSkip s) -> Res.SkipWith (LoopSkip s)
-                        | Res.Stop -> Res.Stop
-                ]
+                match Gen.run inputGen state with
+                | Res.Emit (LoopState (v,s)) -> Res.Emit (LoopState (proj v s, s))
+                | Res.SkipWith (LoopSkip s) -> Res.SkipWith (LoopSkip s)
+                | Res.Stop -> Res.Stop
             |> Gen.createGen
 
         let map proj (inputGen: LoopGen<_,_>) =
