@@ -28,7 +28,7 @@ type Feedback<'f> =
     | ResetThis
     | ResetTree
 
-type FeedState<'s,'f> = FeedState of 's * Feedback<'f>
+type FeedState<'s,'f> = FeedState of 's option * Feedback<'f>
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
 type FeedGen<'o,'s,'f> = Gen<FeedRes<'o,'s,'f>, 's> 
 
@@ -46,7 +46,7 @@ type BindState<'sm, 'sk, 'm> =
 
 
 module Loop =
-    type [<Struct>] Emit<'value> = Emit of 'value // TODO: 'value list
+    type [<Struct>] Emit<'value> = Emit of 'value  // TODO: 'value list
     type [<Struct>] Skip = Skip
     type [<Struct>] Stop<'value> = Stop of 'value  // TODO: 'value list
 
@@ -56,8 +56,8 @@ module Feed =
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
     type [<Struct>] Stop<'value> = Stop of 'value  // TODO: 'value list
     // Will man Reset wirklich als Teil der Builder-Abstraktion?
-    type [<Struct>] ResetThis = ResetThis
-    type [<Struct>] ResetTree = ResetTree
+    type [<Struct>] ResetThis = ResetThis                                 // TODO: 'value list oder 'value
+    type [<Struct>] ResetTree = ResetTree                                 // TODO: 'value list oder 'value
 
 
 //module Res =
@@ -283,9 +283,9 @@ module Gen =
                 | Res.Continue (kvalues, Some (FeedState (kstate, feedback))) ->
                     let feedback,kstate =
                         match feedback with
-                        | UseThis feedback -> Some feedback, Some kstate
-                        | UseLast -> Some lastFeed, Some kstate
-                        | ResetThis -> None, Some kstate
+                        | UseThis feedback -> Some feedback, kstate
+                        | UseLast -> Some lastFeed, kstate
+                        | ResetThis -> None, kstate
                         | ResetTree -> None, None
                     let state = { mstate = feedback; kstate = kstate; mleftovers = []; isStopped = false }
                     Res.Continue (kvalues, Some (LoopState state))
@@ -313,17 +313,11 @@ module Gen =
     let returnGenResult (res: Res<'v,'s>) : Gen<Res<'v,'s>,'s> =
         (fun _ -> res) |> createGen
 
-    // Loop
-    let returnSkip<'o,'s> : Gen<Res<'o,'s>,'s> =
-        returnGenResult (Res.Continue ([], None))
-    let returnValueRepeating<'v, 's> (value: 'v) : Gen<Res<'v,'s>, 's> =
-        returnGenResult (Res.Continue ([value], None))
-    let returnValueOnce (value: 'v) =
-        returnGenResult (Res.Stop [value])
-    let returnSkipWith<'v, 's> (state: 's) : Gen<Res<'v,'s>,'s> =
-        returnGenResult (Res.Continue ([], Some state))
-    let returnStop<'v,'s> (value: 'v) : Gen<Res<'v,'s>,'s> =
-        returnGenResult (Res.Stop [value])
+    // TODO: Schauen, ob dieses Vokabular noch Sinn ergibt
+    let returnContinue<'v, 's> (values: 'v list) (state: 's option) : Gen<Res<'v,'s>, 's> =
+        returnGenResult (Res.Continue (values, state))
+    let returnStop<'v,'s> (values: 'v list) : Gen<Res<'v,'s>,'s> =
+        returnGenResult (Res.Stop values)
 
 
     // --------
@@ -453,7 +447,7 @@ module Gen =
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = ofList x // TODO: test this
-        member _.Zero() = returnSkip
+        member _.Zero() = returnContinue [] None
         member _.Delay(delayed) = delayed
         member _.Run(delayed) = delayed ()
 
@@ -464,10 +458,10 @@ module Gen =
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
         // returns
-        member _.Return(Loop.Emit value) = returnValueRepeating value
-        member _.Yield(value: 'a) = returnValueRepeating value
-        member _.Return(Loop.Skip) = returnSkip
-        member _.Return(Loop.Stop value) = returnStop value
+        member _.Return(Loop.Emit value) = returnContinue [value] None
+        member _.Yield(value) = returnContinue [value] None
+        member _.Return(Loop.Skip) = returnContinue [] None
+        member _.Return(Loop.Stop value) = returnStop [value]
         
     type FeedBuilder() =
         inherit BaseBuilder()
@@ -479,13 +473,12 @@ module Gen =
         member _.Combine(x, delayed) = combineLoop x delayed
         //member _.Combine(x, delayed) = combineFeed x delayed // TODO
         // returns
-        member _.Return(Feed.Emit (value, feedback)) = returnFeedback value feedback
-        member _.Yield(value: 'v, feedback: 'f) = returnFeedback value feedback
-        member _.Return(Feed.SkipWith state) = returnFeedbackSkipWith state
-        member _.Return(Feed.Skip) = returnSkip
-        member _.Return(Feed.Stop) = returnFeedbackStop
-        member _.Return(Feed.ResetThis) = returnFeedbackResetThis
-        member _.Return(Feed.ResetTree) = returnFeedbackResetTree
+        member _.Return(Feed.Emit (value, feedback)) = returnContinue [value] (Some(FeedState(None, UseThis feedback)))
+        member this.Yield(value, feedback) = returnContinue [value] (Some(FeedState(None, UseThis feedback)))
+        member _.Return(Feed.SkipWith feedback) = returnContinue [] (Some(FeedState(None, UseThis feedback)))
+        member _.Return(Feed.Stop value) = returnStop [value]
+        //member _.Return(Feed.ResetThis) = returnFeedbackResetThis // TODO (siehe Kommentar oben)
+        //member _.Return(Feed.ResetTree) = returnFeedbackResetTree // TODO (siehe Kommentar oben)
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()
