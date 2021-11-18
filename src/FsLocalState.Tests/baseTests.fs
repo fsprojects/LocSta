@@ -11,6 +11,10 @@ open FsLocalState
 open FsLocalState.Lib.Gen
 open NUnit.Framework
 
+
+// TODO: More systematic testing
+
+
 let [<TestCase>] ``Pairwise let! (loop)`` () =
     loop {
         let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
