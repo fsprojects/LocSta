@@ -2,4 +2,4 @@
 
 open FsUnit
 
-let inline equals (expected: 'a) (actual: 'b) = actual |> should equal expected
+let inline equals (expected: 'a) (actual: 'a) = actual |> should equal expected

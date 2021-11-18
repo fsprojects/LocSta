@@ -50,16 +50,18 @@ type BindState<'sm, 'sk, 'm> =
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
     type [<Struct>] EmitMany<'value> = EmitMany of 'value list
+    type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
+    type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
     type [<Struct>] Skip = Skip
-    type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value list
     type [<Struct>] Stop = Stop
 
 /// Vocabulary for Return of feed computations.
 module Feed =
     type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
     type [<Struct>] EmitMany<'value, 'feedback> = EmitMany of 'value list * 'feedback
+    type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
+    type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
-    type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value list
     type [<Struct>] Stop = Stop
     // Will man Reset wirklich als Teil der Builder-Abstraktion?
     type [<Struct>] ResetThis = ResetThis                                 // TODO: 'value list oder 'value
@@ -366,8 +368,9 @@ module Gen =
         member _.Yield(value) : LoopGen<_,_> = returnContinueValues [value]
         member _.Return(Loop.Emit value) = returnContinueValues [value]
         member _.Return(Loop.EmitMany values) = returnContinueValues values
+        member _.Return(Loop.EmitAndStop value) = returnStop [value]
+        member _.Return(Loop.EmitManyAndStop values) = returnStop values
         member _.Return(Loop.Skip) = returnContinueValues []
-        member _.Return(Loop.EmitAndStop values) = returnStop values
         member _.Return(Loop.Stop) = returnStop []
         
     type FeedBuilder() =
@@ -381,22 +384,17 @@ module Gen =
         member _.Combine(x, delayed) = combineLoop x delayed
         member _.Combine(x, delayed) = combineFeed x delayed
         // returns
-        member _.Yield(value, feedback) =
-            returnContinueValuesFeed [value] feedback
-        member _.Return(Feed.Emit (value, feedback)) =
-            returnContinueValuesFeed [value] feedback
-        member _.Return(Feed.EmitMany (values, feedback)) =
-            returnContinueValuesFeed values feedback
-        member _.Return(Feed.SkipWith feedback) = 
-            returnContinueValuesFeed [] feedback
-        member _.Return(Feed.EmitAndStop values) = 
-            returnStopFeed values
-        member _.Return(Feed.Stop) = 
-            returnStopFeed []
-        member _.Return(Feed.ResetThis) =
-            returnContinueFeed [] (FeedState (None, Some ResetThis)) // TODO (siehe Kommentar oben)
-        member _.Return(Feed.ResetTree) =
-            returnContinueFeed [] (FeedState (None, Some ResetTree)) // TODO (siehe Kommentar oben)
+        member _.Yield(value, feedback) = returnContinueValuesFeed [value] feedback
+        member _.Return(Feed.Emit (value, feedback)) = returnContinueValuesFeed [value] feedback
+        member _.Return(Feed.EmitMany (values, feedback)) = returnContinueValuesFeed values feedback
+        member _.Return(Feed.EmitAndStop value) = returnStopFeed [value]
+        member _.Return(Feed.EmitManyAndStop values) = returnStopFeed values
+        member _.Return(Feed.SkipWith feedback) = returnContinueValuesFeed [] feedback
+        member _.Return(Feed.Stop) = returnStopFeed []
+        // TODO (siehe Kommentar oben)
+        member _.Return(Feed.ResetThis) = returnContinueFeed [] (FeedState (None, Some ResetThis))
+        // TODO (siehe Kommentar oben)
+        member _.Return(Feed.ResetTree) = returnContinueFeed [] (FeedState (None, Some ResetTree))
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()
