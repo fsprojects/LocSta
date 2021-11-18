@@ -73,3 +73,17 @@ x.Add 3
 
 x
 
+type Loop = Loop of int
+type Feed = Feed of string
+type Res<'a> = Res of 'a
+
+let (|MatchLoop|) x = match x with Loop i -> i
+let (|MatchFeed|) x = match x with Feed s -> s
+
+let create res (|State|) =
+    match res with
+    | Res ((State s) as inp) ->
+        s, Res inp
+
+create (Res(Loop 5)) (|MatchLoop|)
+create (Res(Feed "5")) (|MatchFeed|)

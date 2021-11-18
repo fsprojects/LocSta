@@ -85,52 +85,14 @@ module Gen =
     // --------
 
     // TODO: remove redundancies below like it was before
-    //let internal bindLoopWhateverGen processResult createWhatever k m
-    //    =
-    //    fun state ->
-    //        let lastMState, lastKState, lastLeftovers =
-    //            match state with
-    //            | None -> None, None, []
-    //            | Some state -> Some state.mstate, state.kstate, state.mleftovers
-    //        let evalk mres leftovers =
-    //            match mres with
-    //            | Res.Continue (mvalues, mstate) ->
-    //                let kgen = k mres
-    //                let kres = run kgen lastKState
-    //                match kres with
-    //                | [] -> 
-    //                    let state = { mstate = mstate; kstate = lastKState; mleftovers = leftovers }
-    //                    [ buildSkip state ]
-    //                | results ->
-    //                    [ for res in results do yield processResult res mstate leftovers ]
-    //            | Res.Stop mvalues ->
-    //                [ Res.Stop ]
-    //        match lastLeftovers with
-    //        | x :: xs -> evalk x xs
-    //        | [] ->
-    //            match run m lastMState with
-    //            | res :: leftovers ->
-    //                evalk res leftovers
-    //            | [] ->
-    //                match lastMState with
-    //                | Some lastStateM ->
-    //                    let state = { mstate = lastStateM; kstate = lastKState; mleftovers = [] }
-    //                    [ buildSkip state ]
-    //                | None ->
-    //                    []
-    //    |> createWhatever
-
-    let bind
-        (k: 'o1 -> LoopGen<'o2,'s2>)
-        (m: LoopGen<'o1,'s1>)
-        : LoopGen<'o2, BindState<'s1,'s2,'o1>>
-        =           
+    let internal bindLoopWhateverGen (|State|) buildState createWhatever k m
+        =
         fun state ->
             let evalk mval mstate mleftovers lastKState isStopped =
                 match run (k mval) lastKState with
-                | Res.Continue (kvalues, LoopState kstate) ->
+                | Res.Continue (kvalues, ((State kstate) as whateverState)) ->
                     let state = { mstate = mstate; kstate = kstate; mleftovers = mleftovers; isStopped = isStopped }
-                    Res.Continue (kvalues, LoopState (Some state))
+                    Res.Continue (kvalues, buildState state (Some whateverState))
                 | Res.Stop kvalues ->
                     Res.Stop kvalues
             let evalmres mres lastMState lastKState isStopped =
@@ -139,7 +101,7 @@ module Gen =
                     evalk mval mstate mleftovers lastKState isStopped
                 | Res.Continue ([], LoopState mstate) ->
                     let state = { mstate = mstate; kstate = lastKState; mleftovers = []; isStopped = isStopped }
-                    Res.Continue ([], LoopState (Some state))
+                    Res.Continue ([], buildState state None)
                 | Res.Stop (mval :: mleftovers) ->
                     evalk mval lastMState mleftovers lastKState isStopped
                 | Res.Stop [] ->
@@ -153,42 +115,30 @@ module Gen =
                 evalmres (run m lastMState) lastMState kstate false
             | None ->
                 evalmres (run m None) None None false
-        |> createLoop
+        |> createWhatever
+
+    let bind
+        (k: 'o1 -> LoopGen<'o2,'s2>)
+        (m: LoopGen<'o1,'s1>)
+        : LoopGen<'o2, BindState<'s1,'s2,'o1>>
+        =        
+        bindLoopWhateverGen
+            (fun state -> match state with LoopState s -> s)
+            (fun state _ -> LoopState (Some state)) 
+            createLoop k m
 
     let internal bindLoopFeedFeed
         (k: 'o1 -> FeedGen<'o2,'s2,'f>)
         (m: LoopGen<'o1,'s1>)
         : FeedGen<'o2,_,'f> // TODO: _
         =
-        fun state ->
-            let evalk mval mstate mleftovers lastKState isStopped =
-                match run (k mval) lastKState with
-                | Res.Continue (kvalues, FeedState (kstate, feedback)) ->
-                    let state = { mstate = mstate; kstate = kstate; mleftovers = mleftovers; isStopped = isStopped }
-                    Res.Continue (kvalues, FeedState (Some state, feedback))
-                | Res.Stop kvalues ->
-                    Res.Stop kvalues
-            let evalmres mres lastMState lastKState isStopped =
-                match mres with
-                | Res.Continue (mval :: mleftovers, LoopState mstate) ->
-                    evalk mval mstate mleftovers lastKState isStopped
-                | Res.Continue ([], LoopState mstate) ->
-                    let state = { mstate = mstate; kstate = lastKState; mleftovers = []; isStopped = isStopped }
-                    Res.Continue ([], FeedState (Some state, None))
-                | Res.Stop (mval :: mleftovers) ->
-                    evalk mval lastMState mleftovers lastKState isStopped
-                | Res.Stop [] ->
-                    Res.Stop []
-            match state with
-            | Some { mstate = lastMState; mleftovers = x :: xs; kstate = lastKState; isStopped = isStopped } ->
-                evalk x lastMState xs lastKState isStopped
-            | Some { mleftovers = []; isStopped = true } ->
-                Res.Stop []
-            | Some { mstate = lastMState; mleftovers = []; kstate = kstate } ->
-                evalmres (run m lastMState) lastMState kstate false
-            | None ->
-                evalmres (run m None) None None false
-        |> createFeed
+        bindLoopWhateverGen
+            (fun state -> match state with FeedState (s, _) -> s)
+            (fun state feedState ->
+                match feedState with
+                | Some (FeedState (s, feedback)) -> FeedState (Some state, feedback)
+                | None -> FeedState (Some state, None))
+            createFeed k m
 
     let internal bindInitFeedLoop
         (k: 'f -> FeedGen<'o,'s,'f>)
