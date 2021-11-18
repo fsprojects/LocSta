@@ -287,12 +287,26 @@ module Gen =
         |> createLoop
 
     // TODO: Redundant with combine
+    // TODO: verstehe ich noch nicht ganz: was passiert denn mit afeedback? -> Testen:
+    // Wie genau verhält es sich, wenn ich 2 feeds combine (und 'fa, 'fb, 'fc)?
     let internal combineFeed
-        (a: FeedGen<'o, 'sa, 'f>)
-        (b: unit -> FeedGen<'o, 'sb, 'f>)
-        : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
+        (a: FeedGen<'o, 'sa, 'fa>)
+        (b: unit -> FeedGen<'o, 'sb, 'fb>)
+        : FeedGen<'o, CombineInfo<'sa,'sb>, 'fc>
         =
-        failwith "TODO"
+        fun state ->
+            let state =  state |> Option.defaultValue { astate = None; bstate = None }
+            match run a state.astate with
+            | Res.Continue (avalues, FeedState (astate, afeedback)) ->
+                match run (b()) state.bstate with
+                | Res.Continue (bvalues, FeedState (bstate, bfeedback)) ->
+                    let state = { astate = astate; bstate = bstate }
+                    Res.Continue (avalues @ bvalues, FeedState (Some state, None))
+                | Res.Stop bvalues ->
+                    Res.Stop (avalues @ bvalues)
+            | Res.Stop avalues ->
+                Res.Stop avalues
+        |> createFeed
         //fun state ->
         //    let state =  state |> Option.defaultValue { astate = None; bstate = None }
         //    match run a state.astate with
