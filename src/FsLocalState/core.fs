@@ -468,10 +468,8 @@ module Gen =
         seq {
             while resume do
                 match f state with
-                | Res.Continue (values, LoopState (Some fstate)) ->
-                    state <- Some fstate
-                    yield! values
-                | Res.Continue (values, LoopState None) ->
+                | Res.Continue (values, LoopState fstate) ->
+                    state <- fstate
                     yield! values
                 | Res.Stop values ->
                     resume <- false
