@@ -97,3 +97,16 @@ let [<TestCase>] ``Combine yield + stop (loop)`` () =
     |> Gen.toListn 10
     |> equals [0;10]
     
+
+// TODO: how model combine on feed?
+//let [<TestCase>] ``TODO`` () =
+//    feed {
+//        let! state = Init 10
+//        yield 5,state
+        
+//        let! state = Init 10
+//        yield 5,state
+//    }
+//    |> Gen.toListn 10
+//    |> equals [0;10]
+    
