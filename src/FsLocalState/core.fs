@@ -8,12 +8,14 @@ A hint for the type argument names:
 For the API surface, names like 'value or 'state are used instead of chars.
 *)
 
+// TODO: InlineIfLambda, ValueOptions, Structs
 namespace FsLocalState
 
 type Gen<'o,'s> = Gen of ('s option -> 'o)
 
 // TODO: why is 's optional - what does it mean exactly? Could mean: Reset or UseLast.
 //       Is it important to specify that or will it defined by the library?
+// TODO: Is it really a good idea generaliziong Res instead of using disjoint results for Feed and Loop?
 [<RequireQualifiedAccess>]
 type Res<'v,'s> =
     | Continue of 'v list * 's
@@ -63,7 +65,7 @@ module Feed =
     type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
     type [<Struct>] Stop = Stop
-    // Will man Reset wirklich als Teil der Builder-Abstraktion?
+    // TODO: Will man Reset wirklich als Teil der Builder-Abstraktion?
     type [<Struct>] ResetThis = ResetThis                                 // TODO: 'value list oder 'value
     type [<Struct>] ResetTree = ResetTree                                 // TODO: 'value list oder 'value
 
@@ -186,8 +188,6 @@ module Gen =
     let internal returnFeedRes res =
         (fun _ -> res) |> createFeed
 
-    // TODO: Schauen, ob dieses Vokabular noch Sinn ergibt
-
     let internal returnContinue<'v, 's> values state : LoopGen<'v,'s> =
         returnLoopRes (Res.Continue (values, state))
     let internal returnContinueValues<'v, 's> values : LoopGen<'v,'s> =
@@ -224,12 +224,20 @@ module Gen =
             | true -> Res.Continue ([enumerator.Current], LoopState (Some enumerator))
             | false -> Res.Stop []
         |> createLoop
-        
-    // TODO: Könnten eigentlich 2 Funktionen sein:
-    //          a) Liste komplett abspulen, dann weiter
-    //          b) pairwise
-    //               ^------------- erstmal das hier
-    let ofList (list: list<_>) =
+
+    // TODO: Improve naming
+
+    /// Emits the head of the list and retains the excess or stopps on an empty list.
+    let ofListOneByOne (list: list<_>) =
+        fun l ->
+            let l = l |> Option.defaultValue list
+            match l with
+            | x::xs -> Res.Continue ([x], LoopState (Some xs))
+            | [] -> Res.Stop []
+        |> createLoop
+
+    /// Emits the complete list or stopps on an empty list.
+    let ofListAllAtOnce (list: list<_>) =
         fun l ->
             let l = l |> Option.defaultValue list
             match l with
@@ -353,7 +361,7 @@ module Gen =
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
-        member _.YieldFrom(x) = ofList x // TODO: test this
+        member _.YieldFrom(x) = ofListOneByOne x // TODO: test this
         member _.Delay(delayed) = delayed
         member _.Run(delayed) = delayed ()
 
@@ -361,6 +369,7 @@ module Gen =
         inherit BaseBuilder()
         member _.Zero() = returnContinue [] (LoopState None)
         member _.Bind(m, f) = bind f m
+        // TODO: Das wieder reinmachen
         //member _.For(sequence: list<'a>, body) = ofList sequence |> onStopThenSkip |> bind body
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
@@ -379,7 +388,7 @@ module Gen =
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
-        member _.For(sequence: list<'a>, body) = ofList sequence |> onStopThenSkip |> bindLoopFeedFeed body
+        //member _.For(sequence: list<'a>, body) = ofListOneByOne sequence |> onStopThenSkip |> bindLoopFeedFeed body
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bindLoopFeedFeed body
         member _.Combine(x, delayed) = combineLoop x delayed
         member _.Combine(x, delayed) = combineFeed x delayed

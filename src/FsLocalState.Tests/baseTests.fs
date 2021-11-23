@@ -13,12 +13,13 @@ open NUnit.Framework
 
 
 // TODO: More systematic testing
+// TODO: ofListAllAtOnce
 
 
 let [<TestCase>] ``Pairwise let! (loop)`` () =
     loop {
-        let! v1 = Gen.ofList [ "a"; "b"; "c"; "d" ]
-        let! v2 = Gen.ofList [  1 ;  2 ;  3 ;  4  ]
+        let! v1 = Gen.ofListOneByOne [ "a"; "b"; "c"; "d" ]
+        let! v2 = Gen.ofListOneByOne [  1 ;  2 ;  3 ;  4  ]
         yield v1,v2
     }
     |> Gen.toList
@@ -50,7 +51,7 @@ let [<TestCase>] ``Pairwise let! (loop)`` () =
 
 let [<TestCase>] ``Zero (loop)`` () =
     loop {
-        let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofList
+        let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofListAllAtOnce
         if v % 2 = 0 then
             yield v
     }
@@ -130,7 +131,7 @@ let [<TestCase>] ``Singleton`` () =
 
 let [<TestCase>] ``GetSlice`` () =
     [0..9]
-    |> Gen.ofList
+    |> Gen.ofListAllAtOnce
     |> fun g -> g[3..5]
     |> Gen.toList
     |> equals [3;4;5]
@@ -141,9 +142,9 @@ let [<TestCase>] ``Combine (loop)`` () =
         yield 0
         yield 1
         yield 2
-        return! Gen.ofList [ 3; 4; 5 ]
+        return! Gen.ofListAllAtOnce [ 3; 4; 5 ]
         yield 6
-        return! Gen.ofList [ 7; 8; 9 ]
+        return! Gen.ofListAllAtOnce [ 7; 8; 9 ]
         yield 10
         yield 11
     }
