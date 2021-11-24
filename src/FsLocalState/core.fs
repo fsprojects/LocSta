@@ -300,59 +300,24 @@ module Gen =
     // TODO: verstehe ich noch nicht ganz: was passiert denn mit afeedback? -> Testen:
     // Wie genau verhält es sich, wenn ich 2 feeds combine (und 'fa, 'fb, 'fc)?
     let internal combineFeed
-        (a: FeedGen<'o, 'sa, 'fa>)
-        (b: unit -> FeedGen<'o, 'sb, 'fb>)
-        : FeedGen<'o, CombineInfo<'sa,'sb>, 'fc>
+        (a: FeedGen<'o, 'sa, 'f>)
+        (b: unit -> FeedGen<'o, 'sb, 'f>)
+        : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
         =
         fun state ->
             let state =  state |> Option.defaultValue { astate = None; bstate = None }
             match run a state.astate with
+            // TODO: document this: 'afeedback' is unused, which means: the last emitted feedback is used when combining
             | Res.Continue (avalues, FeedState (astate, afeedback)) ->
                 match run (b()) state.bstate with
                 | Res.Continue (bvalues, FeedState (bstate, bfeedback)) ->
                     let state = { astate = astate; bstate = bstate }
-                    Res.Continue (avalues @ bvalues, FeedState (Some state, None))
+                    Res.Continue (avalues @ bvalues, FeedState (Some state, bfeedback))
                 | Res.Stop bvalues ->
                     Res.Stop (avalues @ bvalues)
             | Res.Stop avalues ->
                 Res.Stop avalues
         |> createFeed
-        //fun state ->
-        //    let state =  state |> Option.defaultValue { astate = None; bstate = None }
-        //    match run a state.astate with
-        //    | Res.Continue (avalues, astate) ->
-        //        match run (b()) state.bstate with
-        //        | Res.Continue (bvalues, bstate) ->
-        //            Res.Continue (avalues @ bvalues, Some (LoopState ({ astate = astate; bstate = bstate })))
-        //        | Res.Stop bvalues ->
-        //            Res.Stop (avalues @ bvalues)
-        //    | Res.Stop avalues ->
-        //        Res.Stop avalues
-        //    //let mappedAResults =
-        //    //    aresults.resultsWithStop
-        //    //    |> Res.mapFeedMany id (fun sa -> { astate = Some sa; bstate = None })
-        //    //let mappedBResults =            
-        //    //    match aresults.isStopped with
-        //    //    | false ->
-        //    //        run (b()) state.bstate |> Res.takeFeedUntilStop
-        //    //        |> fun res -> res.resultsWithStop
-        //    //        |> Res.mapFeedMany id (fun sb -> { astate = aresults.finalState; bstate = Some sb })
-        //    //    | true ->
-        //    //        []
-        //    //mappedAResults @ mappedBResults
-        //|> createFeed
-
-
-    // --------
-    // For
-    // --------
-
-    //let forList (l: 'a list) (body: 'a -> Gen<'o, 's>) =
-    //    fun state ->
-    //        let state = state |> Option.defaultValue (List.init l.Length (fun _ -> None))
-    //        let tmp = List.zip l state
-    //        let results = [ for v,s in List.zip l state do body v |> run s ]
-    //    |> create
 
 
     // --------

@@ -14,7 +14,7 @@ open NUnit.Framework
 
 // TODO: More systematic testing
 
-let [<TestCase>] ``Yield repeating value (loop)`` () =
+let [<TestCase>] ``Repeating single value with 'yield' (loop)`` () =
     loop {
         yield 5
     }
@@ -22,7 +22,7 @@ let [<TestCase>] ``Yield repeating value (loop)`` () =
     |> equals (List.replicate 10 5)
 
 
-let [<TestCase>] ``Emit repeating value (loop)`` () =
+let [<TestCase>] ``Repeating single value with 'Emit' (loop)`` () =
     loop {
         return Loop.Emit 5
     }
@@ -30,11 +30,16 @@ let [<TestCase>] ``Emit repeating value (loop)`` () =
     |> equals [ 5; 5; 5; 5; 5; 5; 5; 5; 5; 5 ]
 
 
-
-let [<TestCase>] ``Emit many repeating values (loop)`` () =
+let [<TestCase>] ``Repeating many values with 'EmitMany' (loop)`` () =
     loop {
         return Loop.EmitMany [5;6]
     }
+    |> Gen.toListn 10
+    |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
+
+
+let [<TestCase>] ``Repeating many values with 'EmitMany' (loop)`` () =
+    Gen.ofli
     |> Gen.toListn 10
     |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
 
