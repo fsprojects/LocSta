@@ -2,6 +2,8 @@
 ﻿FsLocalState
 ===
 
+![build status](https://github.com/ronaldschlenker/FsLocalState/actions/workflows/push-master_pull-request.yml/badge.svg?event=push)
+
 FsLocalState is library designed to write and compose functions, where each of these functions inside of a computation
 preserves it's own state from one evaluation to the next. While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. Even though many concepts overlap with `seq`, there are significant differences in behaviour and usage, as well as in the fundamental ideas.
 
