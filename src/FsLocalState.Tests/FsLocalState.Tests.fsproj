@@ -8,8 +8,8 @@
 
   <ItemGroup>
     <Compile Include="testHelper.fs" />
-    <Compile Include="coreTests.fs" />
-    <Compile Include="baseTests.fs" />
+    <Compile Include="coreLoopTests.fs" />
+    <Compile Include="coreFeedTests.fs" />
     <Compile Include="libTests.fs" />
     <Compile Include="useCaseTests.fs" />
   </ItemGroup>

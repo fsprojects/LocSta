@@ -4,7 +4,7 @@ open FsLocalState
 open FsLocalState.Lib.Gen
 #endif
 
-module FsLocalState.LibTests
+module ``Lib Tests``
 
 open TestHelper
 open FsUnit

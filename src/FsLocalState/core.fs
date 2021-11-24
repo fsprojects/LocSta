@@ -51,18 +51,18 @@ type BindState<'sm, 'sk, 'm> =
 /// Vocabulary for Return of loop computations.
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
-    type [<Struct>] EmitMany<'value> = EmitMany of 'value list
+    type [<Struct>] Collect<'value> = Collect of 'value list
     type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
-    type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
+    type [<Struct>] CollectyAndStop<'value> = CollectAndStop of 'value list
     type [<Struct>] Skip = Skip
     type [<Struct>] Stop = Stop
 
 /// Vocabulary for Return of feed computations.
 module Feed =
     type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
-    type [<Struct>] EmitMany<'value, 'feedback> = EmitMany of 'value list * 'feedback
+    type [<Struct>] Collect<'value, 'feedback> = Collect of 'value list * 'feedback
     type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
-    type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
+    type [<Struct>] CollectAndStop<'value> = CollectAndStop of 'value list
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
     type [<Struct>] Stop = Stop
     // TODO: Will man Reset wirklich als Teil der Builder-Abstraktion?
@@ -227,7 +227,7 @@ module Gen =
 
     // TODO: Improve naming
 
-    /// Emits the head of the list and retains the excess or stopps on an empty list.
+    /// Emits the head of the list and retains the excess or stops on an empty list.
     let ofListOneByOne (list: list<_>) =
         fun l ->
             let l = l |> Option.defaultValue list
@@ -238,11 +238,10 @@ module Gen =
 
     /// Emits the complete list or stopps on an empty list.
     let ofListAllAtOnce (list: list<_>) =
-        fun l ->
-            let l = l |> Option.defaultValue list
-            match l with
-            | x::xs -> Res.Continue ([x], LoopState (Some xs))
+        fun _ ->
+            match list with
             | [] -> Res.Stop []
+            | l -> Res.Continue (l, LoopState None)
         |> createLoop
 
     type OnStopThenState<'s> =
@@ -341,9 +340,9 @@ module Gen =
         // returns
         member _.Yield(value) : LoopGen<_,_> = returnContinueValues [value]
         member _.Return(Loop.Emit value) = returnContinueValues [value]
-        member _.Return(Loop.EmitMany values) = returnContinueValues values
+        member _.Return(Loop.Collect values) = returnContinueValues values
         member _.Return(Loop.EmitAndStop value) = returnStop [value]
-        member _.Return(Loop.EmitManyAndStop values) = returnStop values
+        member _.Return(Loop.CollectAndStop values) = returnStop values
         member _.Return(Loop.Skip) = returnContinueValues []
         member _.Return(Loop.Stop) = returnStop []
         
@@ -360,9 +359,9 @@ module Gen =
         // returns
         member _.Yield(value, feedback) = returnContinueValuesFeed [value] feedback
         member _.Return(Feed.Emit (value, feedback)) = returnContinueValuesFeed [value] feedback
-        member _.Return(Feed.EmitMany (values, feedback)) = returnContinueValuesFeed values feedback
+        member _.Return(Feed.Collect (values, feedback)) = returnContinueValuesFeed values feedback
         member _.Return(Feed.EmitAndStop value) = returnStopFeed [value]
-        member _.Return(Feed.EmitManyAndStop values) = returnStopFeed values
+        member _.Return(Feed.CollectAndStop values) = returnStopFeed values
         member _.Return(Feed.SkipWith feedback) = returnContinueValuesFeed [] feedback
         member _.Return(Feed.Stop) = returnStopFeed []
         // TODO (siehe Kommentar oben)
