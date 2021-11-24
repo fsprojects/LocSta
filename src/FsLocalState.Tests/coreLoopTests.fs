@@ -13,11 +13,9 @@ open NUnit.Framework
 
 
 let [<TestCase>] ``Repeating single value with 'yield'`` () =
-    loop {
-        yield 5
-    }
+    loop { 5 }
     |> Gen.toListn 10
-    |> equals (List.replicate 10 5)
+    |> equals [ 5; 5; 5; 5; 5; 5; 5; 5; 5; 5 ]
 
 
 let [<TestCase>] ``Repeating single value with 'Loop.Emit'`` () =
@@ -26,6 +24,14 @@ let [<TestCase>] ``Repeating single value with 'Loop.Emit'`` () =
     }
     |> Gen.toListn 10
     |> equals [ 5; 5; 5; 5; 5; 5; 5; 5; 5; 5 ]
+
+
+let [<TestCase>] ``Repeating many values in sequence with 'yield!'`` () =
+    loop {
+        yield! [5;6]
+    }
+    |> Gen.toListn 10
+    |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
 
 
 let [<TestCase>] ``Repeating many values in sequence with 'Loop.Collect'`` () =
@@ -154,5 +160,5 @@ let [<TestCase>] ``For and Skip combined`` () =
             if v % 2 = 0 then
                 yield v
     }
-    |> Gen.toListn 8
+    |> Gen.toListn 10
     |> equals [ 0; 2; 4; 6; 8;  0; 2; 4; 6; 8 ]

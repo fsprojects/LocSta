@@ -340,7 +340,7 @@ module Gen =
                     yield! values
         }
 
-    // TODO: quite redundant with toSeq
+    // TODO: quite redundant with toSeq, but wrapping it's 'g' seems inefficient
     let toSeqFx (fx: 'i -> LoopGen<'o,'s>) : seq<'i> -> seq<'o> =
         let mutable state = None
         let mutable resume = true
@@ -359,9 +359,12 @@ module Gen =
     
     let toList gen =
         toSeq gen |> Seq.toList
-    
+
     let toListn count gen =
         toSeq gen |> Seq.truncate count |> Seq.toList
+
+    let toListFx fx input =
+        input |> toSeqFx fx |> Seq.toList
 
 
     // --------
@@ -370,18 +373,15 @@ module Gen =
 
     type BaseBuilder() =
         member _.ReturnFrom(x) = x
-        member _.YieldFrom(x) = ofListOneByOne x // TODO: test this
+        member _.YieldFrom(x) = ofListAllAtOnce x
         member _.Delay(delayed) = delayed
         member _.Run(delayed) = delayed ()
+        member _.For(list: list<_>, body) = list |> toListFx body |> ofListAllAtOnce
 
     type LoopBuilder() =
         inherit BaseBuilder()
         member _.Zero() = returnContinue [] (LoopState None)
         member _.Bind(m, f) = bind f m
-        // TODO: Das wieder reinmachen
-        member _.For(list: list<_>, body) = 
-            // is that really necessary?
-            list |> (body |> toSeqFx) |> Seq.toList |> ofListAllAtOnce
         // TODO
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed

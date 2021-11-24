@@ -37,27 +37,77 @@ let [<TestCase>] ``Pairwise let! (loop)`` () =
 //    |> equals [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
 
 
-//let [<TestCase>] ``Combine + for (loop)`` () =
-//    loop {
-//        for v1 in [ "a"; "b"; "c"; "d" ] do
-//            yield v1
-//        for v2 in [  1 ;  2 ;  3 ;  4  ] do
-//            yield v2.ToString()
-//            yield "X"
-//    }
-//    |> Gen.toList
-//    |> equals [ "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X" ]
-
-
-let [<TestCase>] ``Zero (loop)`` () =
+let [<TestCase>] ``Combine ofListOneByOne (loop)`` () =
     loop {
-        let! v = [ 0; 1; 2; 3; 4; 5; 6 ] |> Gen.ofListAllAtOnce
-        if v % 2 = 0 then
-            yield v
+        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListOneByOne
+        yield v1
+        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListOneByOne
+        yield v2.ToString()
+        yield "X"
     }
-    |> Gen.toList
-    |> equals [ 0; 2; 4; 6 ]
+    |> Gen.toListn 24
+    |> equals 
+        [ 
+            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
+            (* don't repeat, since Gen.ofListOneByOne stops after the list has ended. *)
+        ]
 
+
+let [<TestCase>] ``Combine + ofListOneByOne + onStopThenReset (loop)`` () =
+    loop {
+        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListOneByOne |> Gen.onStopThenReset
+        yield v1
+        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListOneByOne |> Gen.onStopThenReset
+        yield v2.ToString()
+        yield "X"
+    }
+    |> Gen.toListn 24
+    |> equals 
+        [
+            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
+             (* repeat due to 'onStopThenReset' *)
+            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
+        ]
+
+
+let [<TestCase>] ``Combine + ofListAllAtOnce + onStopThenReset (loop)`` () =
+    loop {
+        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListAllAtOnce |> Gen.onStopThenReset
+        yield v1
+        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListAllAtOnce |> Gen.onStopThenReset
+        yield v2.ToString()
+        yield "X"
+    }
+    |> Gen.toListn 24
+    |> equals
+        [ 
+            "a"; "b"; "c"; "d"
+            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
+            (* repeat due to 'onStopThenReset' *)
+            "a"; "b"; "c"; "d"
+            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
+        ]
+        
+
+let [<TestCase>] ``Combine + for (loop)`` () =
+    loop {
+        for v1 in [ "a"; "b"; "c"; "d" ] do
+            yield v1
+        for v2 in [  1 ;  2 ;  3 ;  4  ] do
+            yield v2.ToString()
+            yield "X"
+    }
+    |> Gen.toListn 24
+    |> equals
+        [
+            (* 'for' is equivalent to: Gen.ofListAllAtOnce >> Gen.onStopThenReset *)
+
+            "a"; "b"; "c"; "d"
+            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
+            (* repeat *)
+            "a"; "b"; "c"; "d"
+            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
+        ]
 
 
 let [<TestCase>] ``Stop after Emit (loop)`` () =
@@ -142,10 +192,8 @@ let [<TestCase>] ``ofListAllAtOnce`` () =
     |> Gen.toListn 24
     |> equals
         [
-            0; 1; 2; 3; 6; 7; 10; 11
-            0; 1; 2; 4; 6; 8; 10; 11
-            0; 1; 2; 5; 6; 9; 10; 11
-            0; 1; 2
+            0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11
+            0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11
         ]
 
 
