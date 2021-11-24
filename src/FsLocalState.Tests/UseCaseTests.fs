@@ -70,23 +70,24 @@ let [<TestCase>] ``Combine + ofListOneByOne + onStopThenReset (loop)`` () =
         ]
 
 
-let [<TestCase>] ``Combine + ofListAllAtOnce + onStopThenReset (loop)`` () =
-    loop {
-        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListAllAtOnce |> Gen.onStopThenReset
-        yield v1
-        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListAllAtOnce |> Gen.onStopThenReset
-        yield v2.ToString()
-        yield "X"
-    }
-    |> Gen.toListn 24
-    |> equals
-        [ 
-            "a"; "b"; "c"; "d"
-            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
-            (* repeat due to 'onStopThenReset' *)
-            "a"; "b"; "c"; "d"
-            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
-        ]
+// TODO
+//let [<TestCase>] ``Combine + ofListAllAtOnce + onStopThenReset (loop)`` () =
+//    loop {
+//        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListAllAtOnce |> Gen.onStopThenReset
+//        yield v1
+//        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListAllAtOnce |> Gen.onStopThenReset
+//        yield v2.ToString()
+//        yield "X"
+//    }
+//    |> Gen.toListn 24
+//    |> equals
+//        [ 
+//            "a"; "b"; "c"; "d"
+//            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
+//            (* repeat due to 'onStopThenReset' *)
+//            "a"; "b"; "c"; "d"
+//            "1"; "X"; "2"; "X"; "3"; "X"; "4"; "X";
+//        ]
         
 
 let [<TestCase>] ``Combine + for (loop)`` () =
@@ -172,7 +173,7 @@ let [<TestCase>] ``Singleton`` () =
 
 let [<TestCase>] ``GetSlice`` () =
     [0..9]
-    |> Gen.ofListAllAtOnce
+    |> Gen.ofListOneByOne
     |> fun g -> g.[3..5]
     |> Gen.toList
     |> equals [3;4;5]
@@ -244,7 +245,6 @@ let [<TestCase>] ``ResetThis + Combine`` () =
 
  //TODO: Document "if" behaviour (also in combination with combine)
 let [<TestCase>] ``Collect`` () =
-    failwith "TODO"
     feed {
         let! state = Init 1
         let! c = count 10 10

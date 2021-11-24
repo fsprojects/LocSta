@@ -27,7 +27,7 @@ let [<TestCase>] ``Reset by current`` () =
 
 let [<TestCase>] ``Reset on stop`` () =
     [0..2]
-    |> Gen.ofListAllAtOnce
+    |> Gen.ofListOneByOne
     |> onStopThenReset
     |> Gen.toListn 9
     |> equals
@@ -86,7 +86,7 @@ let [<TestCase>] ``Count until repeat`` () =
 let [<TestCase>] ``Default on Stop`` () =
     let defaultValue = 42
     loop {
-        let g = [0..3] |> Gen.ofListAllAtOnce
+        let g = [0..3] |> Gen.ofListOneByOne
         let! v = g |> Gen.onStopThenDefault defaultValue
         yield v
     }
@@ -99,7 +99,7 @@ let [<TestCase>] ``Default on Stop`` () =
 
 
 let [<TestCase>] ``Skip and Take`` () =
-    Gen.ofListAllAtOnce [ 0.. 10 ]
+    Gen.ofListOneByOne [ 0.. 10 ]
     |> skip 2 
     |> take 4
     |> Gen.toList
