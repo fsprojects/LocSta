@@ -1,6 +1,16 @@
 
 #r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
+open FsLocalState.Lib.Gen
+
+loop {
+    return! count 0 1
+    for x in [0..10] do
+        let! y = loop { 5 }
+        yield x + y
+}
+|> Gen.toListn 10
+
 
 //gen {
 //    let! c = count 0 1

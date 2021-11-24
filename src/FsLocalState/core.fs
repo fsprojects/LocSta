@@ -66,8 +66,9 @@ module Feed =
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
     type [<Struct>] Stop = Stop
     // TODO: Will man Reset wirklich als Teil der Builder-Abstraktion?
-    type [<Struct>] ResetThis = ResetThis                                 // TODO: 'value list oder 'value
-    type [<Struct>] ResetTree = ResetTree                                 // TODO: 'value list oder 'value
+    // TODO: 'value list oder 'value
+    type [<Struct>] ResetThis = ResetThis
+    type [<Struct>] ResetTree = ResetTree
 
 
 module Gen =
@@ -88,7 +89,6 @@ module Gen =
     // bind
     // --------
 
-    // TODO: remove redundancies below like it was before
     let internal bindLoopWhateverGen (|State|) buildState createWhatever k m
         =
         fun state ->
@@ -319,6 +319,51 @@ module Gen =
         |> createFeed
 
 
+    // -------
+    // Evaluation
+    // -------
+    
+    // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
+
+    let toSeq (g: LoopGen<_,'s>) : seq<_> =
+        let f = run g
+        let mutable state = None
+        let mutable resume = true
+        seq {
+            while resume do
+                match f state with
+                | Res.Continue (values, LoopState fstate) ->
+                    state <- fstate
+                    yield! values
+                | Res.Stop values ->
+                    resume <- false
+                    yield! values
+        }
+
+    // TODO: quite redundant with toSeq
+    let toSeqFx (fx: 'i -> LoopGen<'o,'s>) : seq<'i> -> seq<'o> =
+        let mutable state = None
+        let mutable resume = true
+        fun inputValues ->
+            let enumerator = inputValues.GetEnumerator()
+            seq {
+                while resume && enumerator.MoveNext() do
+                    match run (fx enumerator.Current) state with
+                    | Res.Continue (values, LoopState fstate) ->
+                        state <- fstate
+                        yield! values
+                    | Res.Stop values ->
+                        resume <- false
+                        yield! values
+            }
+    
+    let toList gen =
+        toSeq gen |> Seq.toList
+    
+    let toListn count gen =
+        toSeq gen |> Seq.truncate count |> Seq.toList
+
+
     // --------
     // Builder
     // --------
@@ -334,7 +379,10 @@ module Gen =
         member _.Zero() = returnContinue [] (LoopState None)
         member _.Bind(m, f) = bind f m
         // TODO: Das wieder reinmachen
-        //member _.For(sequence: list<'a>, body) = ofList sequence |> onStopThenSkip |> bind body
+        member _.For(list: list<_>, body) = 
+            // is that really necessary?
+            list |> (body |> toSeqFx) |> Seq.toList |> ofListAllAtOnce
+        // TODO
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
         // returns
@@ -352,7 +400,8 @@ module Gen =
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
-        //member _.For(sequence: list<'a>, body) = ofListOneByOne sequence |> onStopThenSkip |> bindLoopFeedFeed body
+        member _.For(list: list<'a>, body) = ofListAllAtOnce list |> onStopThenSkip |> bindLoopFeedFeed body
+        // TODO
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bindLoopFeedFeed body
         member _.Combine(x, delayed) = combineLoop x delayed
         member _.Combine(x, delayed) = combineFeed x delayed
@@ -388,34 +437,6 @@ module Gen =
             let! f' = f x
             return! g f' 
         }
-
-    
-    // -------
-    // Evaluation
-    // -------
-    
-    // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
-
-    let toSeq (g: LoopGen<_,'s>) : seq<_> =
-        let f = run g
-        let mutable state = None
-        let mutable resume = true
-        seq {
-            while resume do
-                match f state with
-                | Res.Continue (values, LoopState fstate) ->
-                    state <- fstate
-                    yield! values
-                | Res.Stop values ->
-                    resume <- false
-                    yield! values
-        }
-    
-    let toList gen =
-        toSeq gen |> Seq.toList
-    
-    let toListn count gen =
-        toSeq gen |> Seq.truncate count |> Seq.toList
 
 
 [<RequireQualifiedAccess>]

@@ -1,6 +1,7 @@
 #if INTERACTIVE
 #r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
 open FsLocalState
+open FsLocalState.Lib.Gen
 #endif
 
 module ``Core Tests (Loop)``
@@ -100,7 +101,7 @@ let [<TestCase>] ``Combine computed values with 'yield's and 'Loop.Stop'`` () =
         yield 100
     }
     |> Gen.toListn 10
-    |> equals [0;10]
+    |> equals [ 0; 10 ]
 
 
 let [<TestCase>] ``Skip (explicit) with 'Loop.Skip'`` () =
@@ -122,4 +123,36 @@ let [<TestCase>] ``Skip (implicit) with 'Zero'`` () =
     }
     |> Gen.toListn 10
     |> equals [ 0; 1; 2; 3; 4; (* skip 5 *) 6; 7; 8; 9; 10 ]
-    
+
+
+let [<TestCase>] ``For`` () =
+    loop {
+        for v in [ 0; 1; 2; 3 ] do
+            yield v
+    }
+    |> Gen.toListn 8
+    |> equals [ 0; 1; 2; 3;  0; 1; 2; 3; ]
+
+
+let [<TestCase>] ``For combined`` () =
+    loop {
+        for v in [ 0; 1; 2; 3 ] do
+            yield v
+        for v in [ 6; 7; 8; 9 ] do
+            yield v
+    }
+    |> Gen.toListn 16
+    |> equals [ 0; 1; 2; 3;  6; 7; 8; 9;  0; 1; 2; 3;  6; 7; 8; 9 ]
+
+
+let [<TestCase>] ``For and Skip combined`` () =
+    loop {
+        for v in [ 0; 1; 2; 3; 4 ] do
+            if v % 2 = 0 then
+                yield v
+        for v in [ 5; 6; 7; 8; 9 ] do
+            if v % 2 = 0 then
+                yield v
+    }
+    |> Gen.toListn 8
+    |> equals [ 0; 2; 4; 6; 8;  0; 2; 4; 6; 8 ]

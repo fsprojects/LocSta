@@ -3,7 +3,7 @@
 open FsLocalState
 #endif
 
-module ``Base Tests``
+module ``Use Case Tests``
 
 open TestHelper
 open FsUnit
@@ -58,15 +58,6 @@ let [<TestCase>] ``Zero (loop)`` () =
     |> Gen.toList
     |> equals [ 0; 2; 4; 6 ]
 
-
-//let [<TestCase>] ``Zero For Loop (loop)`` () =
-//    loop {
-//        for v in [ 0; 1; 2; 3; 4; 5; 6 ] do
-//            if v % 2 = 0 then
-//                yield v
-//    }
-//    |> Gen.toList
-//    |> equals [ 0; 2; 4; 6 ]
 
 
 let [<TestCase>] ``Stop after Emit (loop)`` () =
@@ -137,7 +128,7 @@ let [<TestCase>] ``GetSlice`` () =
     |> equals [3;4;5]
 
 
-let [<TestCase>] ``Combine (loop)`` () =
+let [<TestCase>] ``ofListAllAtOnce`` () =
     loop {
         yield 0
         yield 1
@@ -145,6 +136,27 @@ let [<TestCase>] ``Combine (loop)`` () =
         return! Gen.ofListAllAtOnce [ 3; 4; 5 ]
         yield 6
         return! Gen.ofListAllAtOnce [ 7; 8; 9 ]
+        yield 10
+        yield 11
+    }
+    |> Gen.toListn 24
+    |> equals
+        [
+            0; 1; 2; 3; 6; 7; 10; 11
+            0; 1; 2; 4; 6; 8; 10; 11
+            0; 1; 2; 5; 6; 9; 10; 11
+            0; 1; 2
+        ]
+
+
+let [<TestCase>] ``ofListOneByOne`` () =
+    loop {
+        yield 0
+        yield 1
+        yield 2
+        return! Gen.ofListOneByOne [ 3; 4; 5 ]
+        yield 6
+        return! Gen.ofListOneByOne [ 7; 8; 9 ]
         yield 10
         yield 11
     }
@@ -205,13 +217,11 @@ let [<TestCase>] ``Collect`` () =
 
 
 
-
-
-let [<TestCase>] ``Repeating many values in sequence with 'Gen.ofListAllAtOnce'`` () =
-    Gen.ofListOneByOne [5;6]
-    |> Gen.onStopThenReset
-    |> Gen.toListn 10
-    |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
+//let [<TestCase>] ``Repeating many values in sequence with 'Gen.ofListAllAtOnce'`` () =
+//    Gen.ofListOneByOne [5;6]
+//    |> Gen.onStopThenReset
+//    |> Gen.toListn 10
+//    |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
 
 
 

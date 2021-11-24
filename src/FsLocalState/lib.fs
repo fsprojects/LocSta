@@ -85,8 +85,8 @@ module Lib =
             whenFuncThen pred stopFuncForMapValue inputGen
 
         /// When the given predicate is true, the input gen is evaluated with an empty state.
-        let whenValueThen (pred: bool) onFalse (inputGen: LoopGen<_,_>) =
-            whenFuncThen (fun _ -> pred) onFalse inputGen
+        let whenValueThen (pred: bool) onTrue (inputGen: LoopGen<_,_>) =
+            whenFuncThen (fun _ -> pred) onTrue inputGen
 
         /// When the given predicate is true, the input gen is evaluated with an empty state.
         let whenValueThenReset (pred: bool) (inputGen: LoopGen<_,_>) =
@@ -95,11 +95,8 @@ module Lib =
         let whenValueThenStop (pred: bool) (inputGen: LoopGen<_,_>) =
             whenValueThen pred stopFuncForMapValue inputGen
 
-        let whenThen (pred: LoopGen<_,_>) onFalse (inputGen: LoopGen<_,_>) =
-            loop {
-                let! pred = pred
-                return! whenValueThen pred onFalse inputGen
-            }
+        let whenThen (pred: LoopGen<_,_>) onTrue (inputGen: LoopGen<_,_>) =
+            pred |> Gen.bind (fun pred -> whenValueThen pred onTrue inputGen)
 
         let whenThenReset (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
             whenThen pred resetFuncForMapValue inputGen
@@ -119,10 +116,10 @@ module Lib =
         let inline repeatCount inclusiveStart increment inclusiveEnd =
             countTo inclusiveStart increment inclusiveEnd |> onStopThenReset
 
-        let onCountThen count onFalse (inputGen: LoopGen<_,_>) =
+        let onCountThen count onTrue (inputGen: LoopGen<_,_>) =
             loop {
                 let! c = repeatCount 0 1 (count - 1)
-                return! whenValueThen (c = count) onFalse inputGen
+                return! whenValueThen (c = count) onTrue inputGen
             }
 
         let onCountThenReset count (inputGen: LoopGen<_,_>) =
