@@ -140,32 +140,6 @@ let [<TestCase>] ``Binds + skip (feed)`` () =
     |> equals [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
     
 
-let [<TestCase>] ``Stop (loop)`` () =
-    loop {
-        let! v = count 0 1
-        if v < 5 then
-            yield v
-        else
-            return Loop.Stop
-    }
-    |> Gen.toList
-    |> equals [ 0 .. 4 ]
-
-
-let [<TestCase>] ``Stop (feed)`` () =
-    feed {
-        let! v = Init 0
-        let nextValue = v + 1
-        if v < 5 then
-            yield v, nextValue
-        else
-            return Feed.Stop
-    }
-    |> Gen.toList
-    |> equals [ 0 .. 4 ]
-
-
-
 
 
 

@@ -22,4 +22,15 @@ open NUnit.Framework
 //    }
 //    |> Gen.toListn 10
 //    |> equals [0;10]
-    
+
+let [<TestCase>] ``Feed.Stop`` () =
+    feed {
+        let! v = Init 0
+        let nextValue = v + 1
+        if v < 5 then
+            yield v, nextValue
+        else
+            return Feed.Stop
+    }
+    |> Gen.toList
+    |> equals [ 0 .. 4 ]
