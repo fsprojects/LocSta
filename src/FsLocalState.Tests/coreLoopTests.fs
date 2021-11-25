@@ -12,13 +12,13 @@ open FsLocalState.Lib.Gen
 open NUnit.Framework
 
 
-let [<TestCase>] ``Repeating single value with 'yield'`` () =
+let [<TestCase>] ``yield (repeating single value)`` () =
     loop { 5 }
     |> Gen.toListn 10
     |> equals [ 5; 5; 5; 5; 5; 5; 5; 5; 5; 5 ]
 
 
-let [<TestCase>] ``Repeating single value with 'Loop.Emit'`` () =
+let [<TestCase>] ``Loop.Emit (repeating single value)`` () =
     loop {
         return Loop.Emit 5
     }
@@ -26,7 +26,7 @@ let [<TestCase>] ``Repeating single value with 'Loop.Emit'`` () =
     |> equals [ 5; 5; 5; 5; 5; 5; 5; 5; 5; 5 ]
 
 
-let [<TestCase>] ``Repeating many values in sequence with 'yield!'`` () =
+let [<TestCase>] ``yield! (repeating many values in sequence)`` () =
     loop {
         yield! [5;6]
     }
@@ -34,15 +34,15 @@ let [<TestCase>] ``Repeating many values in sequence with 'yield!'`` () =
     |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
 
 
-let [<TestCase>] ``Repeating many values in sequence with 'Loop.EmitMany'`` () =
+let [<TestCase>] ``Loop.EmitMany (repeating many values in sequence)`` () =
     loop {
         return Loop.EmitMany [5;6]
     }
     |> Gen.toListn 10
     |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
-    
 
-let [<TestCase>] ``One-time value with 'Loop.EmitAndStop'`` () =
+
+let [<TestCase>] ``Loop.EmitAndStop (one-time value)`` () =
     loop {
         return Loop.EmitAndStop 5
     }
@@ -50,7 +50,7 @@ let [<TestCase>] ``One-time value with 'Loop.EmitAndStop'`` () =
     |> equals [ 5 ]
 
 
-let [<TestCase>] ``One-time values with 'Loop.EmitManyAndStop'`` () =
+let [<TestCase>] ``Loop.EmitManyAndStop (collected list of one-time values)`` () =
     loop {
         return Loop.EmitManyAndStop [5;6]
     }
@@ -58,7 +58,7 @@ let [<TestCase>] ``One-time values with 'Loop.EmitManyAndStop'`` () =
     |> equals [ 5; 6 ]
 
 
-let [<TestCase>] ``No value with 'Loop.Stop'`` () =
+let [<TestCase>] ``Loop.Stop (no value / empty result)`` () =
     loop {
         return Loop.Stop
     }
@@ -67,6 +67,7 @@ let [<TestCase>] ``No value with 'Loop.Stop'`` () =
 
 
 // TODO: Combine scenarios with Loop.EmitAndReset and other reset functions
+
 
 let [<TestCase>] ``Loop.EmitAndReset`` () =
     loop {
@@ -114,9 +115,29 @@ let [<TestCase>] ``Loop.SkipAndReset`` () =
             0; 1; 2
             0; 1; 2
         ]
+
+
+let [<TestCase>] ``Loop.Skip`` () =
+    loop {
+        let! c = count 0 1
+        match c <> 5 with
+        | true -> c
+        | false -> return Loop.Skip
+    }
+    |> Gen.toListn 10
+    |> equals [ 0; 1; 2; 3; 4; (* skip 5 *) 6; 7; 8; 9; 10 ]
+
+
+let [<TestCase>] ``Zero (implicit skip)`` () =
+    loop {
+        let! c = count 0 1
+        if c <> 5 then c
+    }
+    |> Gen.toListn 10
+    |> equals [ 0; 1; 2; 3; 4; (* skip 5 *) 6; 7; 8; 9; 10 ]
     
 
-let [<TestCase>] ``Combine constant values with 3 'yield's`` () =
+let [<TestCase>] ``Combine: yield, yield, yield`` () =
     loop {
         yield 5
         yield 6
@@ -126,7 +147,7 @@ let [<TestCase>] ``Combine constant values with 3 'yield's`` () =
     |> equals [ 5; 6; 7;   5; 6; 7;   5; 6; 7 ]
 
 
-let [<TestCase>] ``Combine computed values with 3 'yield's`` () =
+let [<TestCase>] ``Combine: let!, let! yield, let!, let! yield, let!, let! yield`` () =
     loop {
         let! c11 = count 0 1
         let! c12 = count 5 1
@@ -144,7 +165,7 @@ let [<TestCase>] ``Combine computed values with 3 'yield's`` () =
     |> equals [ 5; 25; 45;   7; 27; 47;   9; 29; 49 ]
 
 
-let [<TestCase>] ``Combine computed values with 'yield's and 'Loop.Stop'`` () =
+let [<TestCase>] ``Combine: let!, yield, let!, yield, Loop.Stop, yield`` () =
     loop {
         let! c = count 0 1
         yield c
@@ -160,27 +181,6 @@ let [<TestCase>] ``Combine computed values with 'yield's and 'Loop.Stop'`` () =
     |> equals [ 0; 10 ]
 
 
-let [<TestCase>] ``Skip (explicit) with 'Loop.Skip'`` () =
-    loop {
-        let! c = count 0 1
-        if c <> 5 then
-            c
-        else
-            return Loop.Skip
-    }
-    |> Gen.toListn 10
-    |> equals [ 0; 1; 2; 3; 4; (* skip 5 *) 6; 7; 8; 9; 10 ]
-
-
-let [<TestCase>] ``Skip (implicit) with 'Zero'`` () =
-    loop {
-        let! c = count 0 1
-        if c <> 5 then c
-    }
-    |> Gen.toListn 10
-    |> equals [ 0; 1; 2; 3; 4; (* skip 5 *) 6; 7; 8; 9; 10 ]
-
-
 let [<TestCase>] ``For`` () =
     loop {
         for v in [ 0; 1; 2; 3 ] do
@@ -190,7 +190,7 @@ let [<TestCase>] ``For`` () =
     |> equals [ 0; 1; 2; 3;   0; 1; 2; 3; ]
 
 
-let [<TestCase>] ``For + let! + For`` () =
+let [<TestCase>] ``Combine: For, let!, For`` () =
     loop {
         for v in [ 0; 1; 2; 3 ] do
             yield v
@@ -203,7 +203,7 @@ let [<TestCase>] ``For + let! + For`` () =
     |> equals [ 0; 1; 2; 3;   16; 17; 18; 19;   0; 1; 2; 3;   26; 27; 28; 29 ]
 
 
-let [<TestCase>] ``For and Skip + let! + For and Skip`` () =
+let [<TestCase>] ``Combine: For, Zero, let!, For, Zero`` () =
     loop {
         for v in [ 0; 1; 2; 3 ] do
             if v % 2 = 0 then
