@@ -13,7 +13,7 @@ open FsLocalState.Lib.Gen
 open NUnit.Framework
 
 
-let [<TestCase>] ``Reset by current`` () =
+let [<TestCase>] ``Function: whenFuncThenReset`` () =
     count 0 1
     |> whenFuncThenReset (fun v -> v = 5)
     |> Gen.toListn (5 * 3)
@@ -25,7 +25,7 @@ let [<TestCase>] ``Reset by current`` () =
         ]
 
 
-let [<TestCase>] ``Reset on stop`` () =
+let [<TestCase>] ``Function: onStopThenReset`` () =
     [0..2]
     |> Gen.ofListOneByOne
     |> onStopThenReset
@@ -38,14 +38,14 @@ let [<TestCase>] ``Reset on stop`` () =
         ]
 
 
-let [<TestCase>] ``Count 0 1`` () =
+let [<TestCase>] ``Function: count`` () =
     count 0 1
     |> Gen.toListn 5
     |> equals [0..4]
 
 
-let [<TestCase>] ``Count until repeat`` () =
-    repeatCount 0 1 3
+let [<TestCase>] ``Function: countToCyclic`` () =
+    countToCyclic 0 1 3
     |> Gen.toListn 12
     |> equals
         [
@@ -55,7 +55,7 @@ let [<TestCase>] ``Count until repeat`` () =
         ]
 
 
-let [<TestCase>] ``ofListOneByOne`` () =
+let [<TestCase>] ``Function: ofListOneByOne`` () =
     loop {
         yield 0
         yield 1
@@ -76,7 +76,7 @@ let [<TestCase>] ``ofListOneByOne`` () =
         ]
 
 
-let [<TestCase>] ``ofListAllAtOnce`` () =
+let [<TestCase>] ``Function: ofListAllAtOnce`` () =
     loop {
         yield 0
         yield 1
@@ -95,8 +95,8 @@ let [<TestCase>] ``ofListAllAtOnce`` () =
         ]
 
 
-let [<TestCase>] ``Singleton`` () =
-    Gen.singleton 42
+let [<TestCase>] ``Function: ofOneTimeValue`` () =
+    Gen.ofOneTimeValue 42
     |> Gen.toList
     |> equals [42]
 
@@ -136,7 +136,7 @@ let [<TestCase>] ``GetSlice`` () =
 //        ]
 
 
-let [<TestCase>] ``Default on Stop`` () =
+let [<TestCase>] ``Function: onStopThenDefault`` () =
     let defaultValue = 42
     loop {
         let g = [0..3] |> Gen.ofListOneByOne
@@ -151,7 +151,7 @@ let [<TestCase>] ``Default on Stop`` () =
         ]
 
 
-let [<TestCase>] ``Skip and Take`` () =
+let [<TestCase>] ``Functions: Skip and Take`` () =
     Gen.ofListOneByOne [ 0.. 10 ]
     |> skip 2 
     |> take 4

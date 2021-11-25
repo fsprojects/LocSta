@@ -6,10 +6,8 @@ module Lib =
     // TODO: document each one of those
     module Gen =
 
-
-
         // ----------
-        // reset / stop / count / ...
+        // reset / stop
         // ----------
 
         let private resetFuncForMapValue = fun gen values s -> Gen.run gen None
@@ -20,12 +18,14 @@ module Lib =
         /// It resurns the value and a bool indicating is a reset did happen.
         let whenFuncThen (pred: _ -> bool) onTrue (inputGen: LoopGen<_,_>) =
             fun state ->
-                match Gen.run inputGen state with
-                | Res.Continue (values, LoopState s) ->
+                let continueWith values state =
                     let valuesUntilPred = values |> List.takeWhile (fun v -> not (pred v))
                     match valuesUntilPred.Length = values.Length with
-                    | true -> Res.Continue (values, LoopState s)
-                    | false -> onTrue inputGen valuesUntilPred s
+                    | true -> Res.Continue (values, LoopState state)
+                    | false -> onTrue inputGen valuesUntilPred state
+                match Gen.run inputGen state with
+                | Res.Continue (values, LoopState s) -> continueWith values s
+                | Res.ResetDescendants values -> continueWith values None
                 | Res.Stop values -> Res.Stop values
             |> Gen.createGen
 
@@ -68,7 +68,7 @@ module Lib =
 
         let onCountThen count onTrue (inputGen: LoopGen<_,_>) =
             loop {
-                let! c = repeatCount 0 1 (count - 1)
+                let! c = Gen.countToCyclic 0 1 (count - 1)
                 return! whenValueThen (c = count) onTrue inputGen
             }
 
@@ -112,7 +112,7 @@ module Lib =
 
         let accumulateOnePart partLength currentValue =
             loop {
-                let! c = count 0 1
+                let! c = Gen.count 0 1
                 let! acc = accumulate currentValue
                 if c = partLength - 1 then
                     // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
@@ -212,7 +212,7 @@ module Lib =
         let skip n g =
             loop {
                 let! v = g
-                let! c = count 0 1
+                let! c = Gen.count 0 1
                 if c >= n then
                     yield v
             }
@@ -221,7 +221,7 @@ module Lib =
         let take n g =
             loop {
                 let! v = g
-                let! c = count 0 1
+                let! c = Gen.count 0 1
                 if c < n then
                     yield v
                 else
