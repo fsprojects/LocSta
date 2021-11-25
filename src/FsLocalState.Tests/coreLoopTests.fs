@@ -13,6 +13,28 @@ open NUnit.Framework
 
 
 // TODO: ResetDescendants
+//let [<TestCase>] ``Function: countToCyclic`` () =
+//    countToCyclic 0 1 3
+//    ////loop {
+//    ////    let inclusiveStart = 0
+//    ////    let increment = 1
+//    ////    let inclusiveEnd = 3
+//    ////    let! c = feed {
+//    ////        let! curr = Init inclusiveStart
+//    ////        yield curr, curr + increment
+//    ////    }
+//    ////    match c <= inclusiveEnd with
+//    ////    | true -> yield c
+//    ////    | false -> return! (Gen.returnResetDescendants [])
+//    ////}
+//    |> Gen.toListn 12
+//    |> equals
+//        [
+//            yield! [0..3]
+//            yield! [0..3]
+//            yield! [0..3]
+//        ]
+
 
 
 let [<TestCase>] ``Repeating single value with 'yield'`` () =
