@@ -7,53 +7,6 @@ module Lib =
     module Gen =
 
 
-        // --------
-        // map / apply / transformation
-        // --------
-
-        let map2 (proj: 'v -> 's option -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-            fun state ->
-                let mapValues values state = [ for v in values do proj v state ]
-                match Gen.run inputGen state with
-                | Res.Continue (values, LoopState s) ->
-                    Res.Continue (mapValues values s, LoopState s)
-                | Res.Stop values -> Res.Stop (mapValues values None)
-            |> Gen.createGen
-
-        let map proj (inputGen: LoopGen<_,_>) =
-            map2 (fun v _ -> proj v) inputGen
-
-        let apply xGen fGen =
-            loop {
-                let! l' = xGen
-                let! f' = fGen
-                let result = f' l'
-                yield result
-            }
-
-        /// Transforms a generator function to an effect function.    
-        let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
-            fun () -> gen
-
-
-        // -------
-        // count (that seems to be an important building block)
-        // -------
-
-        let inline count inclFrom step =
-            feed {
-                let! curr = Init inclFrom
-                yield curr, curr + step
-            }
-
-        let inline countTo incFrom step inclusiveEnd =
-            loop {
-                let! c = count incFrom step
-                match c <= inclusiveEnd with
-                | true -> yield c
-                | false -> return Loop.Stop
-            }
-
 
         // ----------
         // reset / stop / count / ...
@@ -113,9 +66,6 @@ module Lib =
                 | x -> x
             |> Gen.createLoop
 
-        let inline repeatCount inclusiveStart increment inclusiveEnd =
-            countTo inclusiveStart increment inclusiveEnd |> onStopThenReset
-
         let onCountThen count onTrue (inputGen: LoopGen<_,_>) =
             loop {
                 let! c = repeatCount 0 1 (count - 1)
@@ -130,7 +80,7 @@ module Lib =
     
         // TODO: Test / Docu
         let includeState (inputGen: LoopGen<_,_>) =
-            map2 (fun v s -> v,s) inputGen
+            Gen.map2 (fun v s -> v,s) inputGen
 
         //// TODO: Test / Docu
         //let originalResult inputGen =

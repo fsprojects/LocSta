@@ -20,8 +20,7 @@ type Gen<'o,'s> = Gen of ('s option -> 'o)
 type Res<'v,'s> =
     | Continue of 'v list * 's
     | Stop of 'v list
-    // TODO
-    //| ResetDescendants
+    | ResetDescendants of 'v list
 
 type LoopState<'s> = LoopState of 's option
 type LoopRes<'o,'s> = Res<'o, LoopState<'s>>
@@ -58,6 +57,7 @@ module Loop =
     type [<Struct>] CollectyAndStop<'value> = CollectAndStop of 'value list
     type [<Struct>] Skip = Skip
     type [<Struct>] Stop = Stop
+    type [<Struct>] ResetDescendants = ResetDescendants
 
 /// Vocabulary for Return of feed computations.
 module Feed =
@@ -182,7 +182,7 @@ module Gen =
 
 
     // --------
-    // returns
+    // create of values
     // --------
 
     let internal returnLoopRes res =
@@ -196,6 +196,8 @@ module Gen =
         returnLoopRes (Res.Continue (values, LoopState None))
     let internal returnStop<'v,'s> values : LoopGen<'v,'s> =
         returnLoopRes (Res.Stop values)
+    let internal returnResetDescendants<'v,'s> values : LoopGen<'v,'s> =
+        returnLoopRes (Res.ResetDescendants values)
     
     let internal returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
         returnFeedRes (Res.Continue (values, feedback))
@@ -215,11 +217,11 @@ module Gen =
 
 
     // --------
-    // seq / list
+    // create of seq / list
     // --------
 
     // TODO: think about dropping ofSeq support completely
-    let ofSeq (s: seq<_>) =
+    let ofSeqOneByOne (s: seq<_>) =
         fun enumerator ->
             let enumerator = enumerator |> Option.defaultWith (fun () -> s.GetEnumerator())
             match enumerator.MoveNext() with
@@ -245,30 +247,6 @@ module Gen =
             | [] -> Res.Stop []
             | l -> Res.Continue (l, LoopState None)
         |> createLoop
-
-    type OnStopThenState<'s> =
-        | RunInput of 's option
-        | UseDefault
-
-    let inline internal onStopThenValues defaultValues (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-        fun state ->
-            let state = state |> Option.defaultValue (RunInput None)
-            match state with
-            | UseDefault ->
-                Res.Continue (defaultValues, LoopState (Some UseDefault))
-            | RunInput state ->
-                match run inputGen state with
-                | Res.Continue (values, LoopState state) ->
-                    Res.Continue (values, LoopState (Some (RunInput state)))
-                | Res.Stop values ->
-                    Res.Continue (values, LoopState (Some UseDefault))
-        |> createGen
-        
-    let inline onStopThenDefault defaultValue (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-        onStopThenValues [defaultValue] inputGen
-
-    let inline onStopThenSkip (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
-        onStopThenValues [] inputGen
 
 
     // --------
@@ -322,7 +300,7 @@ module Gen =
 
 
     // -------
-    // Evaluation
+    // evaluation / transform to other domains
     // -------
     
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
@@ -368,6 +346,9 @@ module Gen =
     let toListFx fx input =
         input |> toSeqFx fx |> Seq.toList
 
+    let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
+        fun () -> gen
+
 
     // --------
     // Builder
@@ -395,6 +376,7 @@ module Gen =
         member _.Return(Loop.CollectAndStop values) = returnStop values
         member _.Return(Loop.Skip) = returnContinueValues []
         member _.Return(Loop.Stop) = returnStop []
+        member _.Return(Loop.ResetDescendants) = returnStop []
         
     type FeedBuilder() =
         inherit BaseBuilder()
@@ -425,7 +407,7 @@ module Gen =
 
 
     // -------
-    // Kleisli
+    // Kleisli composition
     // -------
 
     let pipe (g: Fx<_,_,_>) (f: Gen<_,_>) : Gen<_,_> =
@@ -439,6 +421,87 @@ module Gen =
             let! f' = f x
             return! g f' 
         }
+
+    
+    // --------
+    // map / apply / transformation
+    // --------
+
+    let map2 (proj: 'v -> 's option -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        fun state ->
+            let mapValues values state = [ for v in values do proj v state ]
+            match run inputGen state with
+            | Res.Continue (values, LoopState s) ->
+                Res.Continue (mapValues values s, LoopState s)
+            | Res.Stop values -> Res.Stop (mapValues values None)
+        |> createGen
+
+    let map proj (inputGen: LoopGen<_,_>) =
+        map2 (fun v _ -> proj v) inputGen
+
+    let apply xGen fGen =
+        loop {
+            let! l' = xGen
+            let! f' = fGen
+            let result = f' l'
+            yield result
+        }
+
+    
+    // -------
+    // count
+    // -------
+    
+    let inline count inclusiveStart increment =
+        feed {
+            let! curr = Init inclusiveStart
+            yield curr, curr + increment
+        }
+    
+    let inline countTo inclusiveStart increment inclusiveEnd =
+        loop {
+            let! c = count inclusiveStart increment
+            match c <= inclusiveEnd with
+            | true -> yield c
+            | false -> return Loop.Stop
+        }
+    
+    let inline countToCyclic inclusiveStart increment inclusiveEnd =
+        loop {
+            let! c = count inclusiveStart increment
+            match c <= inclusiveEnd with
+            | true -> yield c
+            | false -> return Loop.Stop
+        }
+
+
+    // --------
+    // onStop trigger
+    // --------
+
+    type OnStopThenState<'s> =
+        | RunInput of 's option
+        | UseDefault
+
+    let inline internal onStopThenValues defaultValues (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        fun state ->
+            let state = state |> Option.defaultValue (RunInput None)
+            match state with
+            | UseDefault ->
+                Res.Continue (defaultValues, LoopState (Some UseDefault))
+            | RunInput state ->
+                match run inputGen state with
+                | Res.Continue (values, LoopState state) ->
+                    Res.Continue (values, LoopState (Some (RunInput state)))
+                | Res.Stop values ->
+                    Res.Continue (values, LoopState (Some UseDefault))
+        |> createGen
+        
+    let inline onStopThenDefault defaultValue (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        onStopThenValues [defaultValue] inputGen
+
+    let inline onStopThenSkip (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+        onStopThenValues [] inputGen
 
 
 [<RequireQualifiedAccess>]
