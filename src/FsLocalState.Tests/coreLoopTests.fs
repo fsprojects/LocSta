@@ -12,31 +12,6 @@ open FsLocalState.Lib.Gen
 open NUnit.Framework
 
 
-// TODO: ResetDescendants
-//let [<TestCase>] ``Function: countToCyclic`` () =
-//    countToCyclic 0 1 3
-//    ////loop {
-//    ////    let inclusiveStart = 0
-//    ////    let increment = 1
-//    ////    let inclusiveEnd = 3
-//    ////    let! c = feed {
-//    ////        let! curr = Init inclusiveStart
-//    ////        yield curr, curr + increment
-//    ////    }
-//    ////    match c <= inclusiveEnd with
-//    ////    | true -> yield c
-//    ////    | false -> return! (Gen.returnResetDescendants [])
-//    ////}
-//    |> Gen.toListn 12
-//    |> equals
-//        [
-//            yield! [0..3]
-//            yield! [0..3]
-//            yield! [0..3]
-//        ]
-
-
-
 let [<TestCase>] ``Repeating single value with 'yield'`` () =
     loop { 5 }
     |> Gen.toListn 10
@@ -59,9 +34,9 @@ let [<TestCase>] ``Repeating many values in sequence with 'yield!'`` () =
     |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
 
 
-let [<TestCase>] ``Repeating many values in sequence with 'Loop.Collect'`` () =
+let [<TestCase>] ``Repeating many values in sequence with 'Loop.EmitMany'`` () =
     loop {
-        return Loop.Collect [5;6]
+        return Loop.EmitMany [5;6]
     }
     |> Gen.toListn 10
     |> equals [ 5; 6; 5; 6; 5; 6; 5; 6; 5; 6 ]
@@ -75,9 +50,9 @@ let [<TestCase>] ``One-time value with 'Loop.EmitAndStop'`` () =
     |> equals [ 5 ]
 
 
-let [<TestCase>] ``One-time values with 'Loop.CollectAndStop'`` () =
+let [<TestCase>] ``One-time values with 'Loop.EmitManyAndStop'`` () =
     loop {
-        return Loop.CollectAndStop [5;6]
+        return Loop.EmitManyAndStop [5;6]
     }
     |> Gen.toListn 10
     |> equals [ 5; 6 ]
@@ -90,6 +65,40 @@ let [<TestCase>] ``No value with 'Loop.Stop'`` () =
     |> Gen.toListn 10
     |> equals []
 
+
+// TODO: Combine scenarios with Loop.EmitAndReset and other reset functions
+
+let [<TestCase>] ``Loop.EmitAndReset`` () =
+    loop {
+        let! c = count 0 1
+        match c = 3 with
+        | true -> return Loop.EmitAndReset c
+        | false -> yield c
+    }
+    |> Gen.toListn 12
+    |> equals
+        [
+            0; 1; 2; 3
+            0; 1; 2; 3
+            0; 1; 2; 3
+        ]
+
+    
+let [<TestCase>] ``Loop.SkipAndReset`` () =
+    loop {
+        let! c = count 0 1
+        match c = 3 with
+        | true -> return Loop.SkipAndReset
+        | false -> yield c
+    }
+    |> Gen.toListn 9
+    |> equals
+        [
+            0; 1; 2
+            0; 1; 2
+            0; 1; 2
+        ]
+    
 
 let [<TestCase>] ``Combine constant values with 3 'yield's`` () =
     loop {

@@ -52,23 +52,26 @@ type BindState<'sm, 'sk, 'm> =
 /// Vocabulary for Return of loop computations.
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
-    type [<Struct>] Collect<'value> = Collect of 'value list
+    type [<Struct>] EmitAndReset<'value> = EmitAndReset of 'value
     type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
-    type [<Struct>] CollectyAndStop<'value> = CollectAndStop of 'value list
+    type [<Struct>] EmitMany<'value> = EmitMany of 'value list
+    type [<Struct>] EmitManyAndReset<'value> = EmitManyAndReset of 'value list
+    type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
     type [<Struct>] Skip = Skip
+    type [<Struct>] SkipAndReset = SkipAndReset
     type [<Struct>] Stop = Stop
-    type [<Struct>] ResetDescendants = ResetDescendants
 
 /// Vocabulary for Return of feed computations.
 module Feed =
     type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
-    type [<Struct>] Collect<'value, 'feedback> = Collect of 'value list * 'feedback
+    type [<Struct>] EmitMany<'value, 'feedback> = EmitMany of 'value list * 'feedback
     type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
-    type [<Struct>] CollectAndStop<'value> = CollectAndStop of 'value list
+    type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
     type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
     type [<Struct>] Stop = Stop
     // TODO: Will man Reset wirklich als Teil der Builder-Abstraktion?
     // TODO: 'value list oder 'value
+    // TODO: So strukturieren wie bei Loop
     type [<Struct>] ResetMe = ResetMe
     type [<Struct>] ResetMeAndDescendants = ResetMeAndDescendants
 
@@ -402,14 +405,17 @@ module Gen =
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
         // returns
+        // TODO: Die müssen alle in coreLoopTests abgetestet sein
         member _.Yield(value) : LoopGen<_,_> = returnContinueValues [value]
         member _.Return(Loop.Emit value) = returnContinueValues [value]
-        member _.Return(Loop.Collect values) = returnContinueValues values
+        member _.Return(Loop.EmitAndReset value) = returnResetDescendants [value]
         member _.Return(Loop.EmitAndStop value) = returnStop [value]
-        member _.Return(Loop.CollectAndStop values) = returnStop values
+        member _.Return(Loop.EmitMany values) = returnContinueValues values
+        member _.Return(Loop.EmitManyAndReset values) = returnResetDescendants values
+        member _.Return(Loop.EmitManyAndStop values) = returnStop values
         member _.Return(Loop.Skip) = returnContinueValues []
+        member _.Return(Loop.SkipAndReset) = returnResetDescendants []
         member _.Return(Loop.Stop) = returnStop []
-        member _.Return(Loop.ResetDescendants) = returnStop []
         
     type FeedBuilder() =
         inherit BaseBuilder()
@@ -423,11 +429,12 @@ module Gen =
         member _.Combine(x, delayed) = combineLoop x delayed
         member _.Combine(x, delayed) = combineFeed x delayed
         // returns
+        // TODO: Die müssen alle in coreLoopTests abgetestet sein
         member _.Yield(value, feedback) = returnContinueValuesFeed [value] feedback
         member _.Return(Feed.Emit (value, feedback)) = returnContinueValuesFeed [value] feedback
-        member _.Return(Feed.Collect (values, feedback)) = returnContinueValuesFeed values feedback
+        member _.Return(Feed.EmitMany (values, feedback)) = returnContinueValuesFeed values feedback
         member _.Return(Feed.EmitAndStop value) = returnStopFeed [value]
-        member _.Return(Feed.CollectAndStop values) = returnStopFeed values
+        member _.Return(Feed.EmitManyAndStop values) = returnStopFeed values
         member _.Return(Feed.SkipWith feedback) = returnContinueValuesFeed [] feedback
         member _.Return(Feed.Stop) = returnStopFeed []
         // TODO (siehe Kommentar oben)
