@@ -97,18 +97,18 @@ module Gen =
         =
         fun state ->
             let evalk mval mstate mleftovers lastKState isStopped =
-                let continueWith kvalues kstate passthroughState =
+                let continueWith mstate kvalues kstate passthroughState =
                     let state = { mstate = mstate; kstate = kstate; mleftovers = mleftovers; isStopped = isStopped }
                     Res.Continue (kvalues, buildState state passthroughState)
                 match run (k mval) lastKState with
                 | Res.Continue (kvalues, ((State kstate) as passthroughState)) ->
-                    continueWith kvalues kstate (Some passthroughState)
+                    continueWith mstate kvalues kstate (Some passthroughState)
                 | Res.ResetDescendants kvalues ->
-                    continueWith kvalues None None
+                    continueWith None kvalues None None
                 | Res.Stop kvalues ->
                     Res.Stop kvalues
             let evalmres mres lastMState lastKState isStopped =
-                let continueWith mstate =
+                let continueWith mstate kstate =
                     let state = { mstate = mstate; kstate = lastKState; mleftovers = []; isStopped = isStopped }
                     // TODO: why "None" in case of Res.Continue?
                     Res.Continue ([], buildState state None)
@@ -116,11 +116,11 @@ module Gen =
                 | Res.Continue (mval :: mleftovers, LoopState mstate) ->
                     evalk mval mstate mleftovers lastKState isStopped
                 | Res.Continue ([], LoopState mstate) ->
-                    continueWith mstate
+                    continueWith mstate lastKState
                 | Res.ResetDescendants (mval :: mleftovers) ->
                     evalk mval None mleftovers lastKState isStopped
                 | Res.ResetDescendants [] ->
-                    continueWith None
+                    continueWith None None
                 | Res.Stop (mval :: mleftovers) ->
                     evalk mval lastMState mleftovers lastKState isStopped
                 | Res.Stop [] ->
@@ -207,20 +207,20 @@ module Gen =
     let inline internal returnFeedRes res =
         (fun _ -> res) |> createFeed
 
-    let inline internal returnContinue<'v, 's> values state : LoopGen<'v,'s> =
+    let inline returnContinue<'v, 's> values state : LoopGen<'v,'s> =
         returnLoopRes (Res.Continue (values, state))
-    let inline internal returnContinueValues<'v, 's> values : LoopGen<'v,'s> =
+    let inline returnContinueValues<'v, 's> values : LoopGen<'v,'s> =
         returnLoopRes (Res.Continue (values, LoopState None))
-    let inline internal returnStop<'v,'s> values : LoopGen<'v,'s> =
+    let inline returnStop<'v,'s> values : LoopGen<'v,'s> =
         returnLoopRes (Res.Stop values)
-    let inline internal returnResetDescendants<'v,'s> values : LoopGen<'v,'s> =
+    let inline returnResetDescendants<'v,'s> values : LoopGen<'v,'s> =
         returnLoopRes (Res.ResetDescendants values)
     
-    let inline internal returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
+    let inline returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
         returnFeedRes (Res.Continue (values, feedback))
-    let inline internal returnContinueValuesFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
+    let inline returnContinueValuesFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
         returnFeedRes (Res.Continue (values, FeedState (None, Some (UseThis feedback))))
-    let inline internal returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
+    let inline returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
         returnFeedRes (Res.Stop values)
 
     let ofRepeatingValues<'v, 's> values : LoopGen<'v,'s> =
