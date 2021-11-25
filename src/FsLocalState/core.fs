@@ -20,6 +20,8 @@ type Gen<'o,'s> = Gen of ('s option -> 'o)
 type Res<'v,'s> =
     | Continue of 'v list * 's
     | Stop of 'v list
+    // TODO
+    //| ResetDescendants
 
 type LoopState<'s> = LoopState of 's option
 type LoopRes<'o,'s> = Res<'o, LoopState<'s>>
@@ -29,8 +31,8 @@ type LoopGen<'o,'s> = Gen<LoopRes<'o,'s>, 's>
 type Feedback<'f> =
     | UseThis of 'f
     | UseLast
-    | ResetThis
-    | ResetTree
+    | ResetMe
+    | ResetMeAndDescendants
 
 type FeedState<'s,'f> = FeedState of 's option * Feedback<'f> option
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
@@ -67,8 +69,8 @@ module Feed =
     type [<Struct>] Stop = Stop
     // TODO: Will man Reset wirklich als Teil der Builder-Abstraktion?
     // TODO: 'value list oder 'value
-    type [<Struct>] ResetThis = ResetThis
-    type [<Struct>] ResetTree = ResetTree
+    type [<Struct>] ResetMe = ResetMe
+    type [<Struct>] ResetMeAndDescendants = ResetMeAndDescendants
 
 
 module Gen =
@@ -158,8 +160,8 @@ module Gen =
                         match feedback with
                         | UseThis feedback -> Some feedback, kstate
                         | UseLast -> Some lastFeed, kstate
-                        | ResetThis -> None, kstate
-                        | ResetTree -> None, None
+                        | ResetMe -> None, kstate
+                        | ResetMeAndDescendants -> None, None
                     let state = { mstate = feedback; kstate = kstate; mleftovers = []; isStopped = false }
                     Res.Continue (kvalues, LoopState (Some state))
                 | Res.Continue (kvalues, FeedState (kstate, None)) ->
@@ -414,9 +416,9 @@ module Gen =
         member _.Return(Feed.SkipWith feedback) = returnContinueValuesFeed [] feedback
         member _.Return(Feed.Stop) = returnStopFeed []
         // TODO (siehe Kommentar oben)
-        member _.Return(Feed.ResetThis) = returnContinueFeed [] (FeedState (None, Some ResetThis))
+        member _.Return(Feed.ResetMe) = returnContinueFeed [] (FeedState (None, Some ResetMe))
         // TODO (siehe Kommentar oben)
-        member _.Return(Feed.ResetTree) = returnContinueFeed [] (FeedState (None, Some ResetTree))
+        member _.Return(Feed.ResetMeAndDescendants) = returnContinueFeed [] (FeedState (None, Some ResetMeAndDescendants))
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()

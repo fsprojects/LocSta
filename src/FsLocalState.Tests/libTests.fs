@@ -55,6 +55,59 @@ let [<TestCase>] ``Count until repeat`` () =
         ]
 
 
+let [<TestCase>] ``ofListOneByOne`` () =
+    loop {
+        yield 0
+        yield 1
+        yield 2
+        return! Gen.ofListOneByOne [ 3; 4; 5 ]
+        yield 6
+        return! Gen.ofListOneByOne [ 7; 8; 9 ]
+        yield 10
+        yield 11
+    }
+    |> Gen.toList
+    |> equals
+        [
+            0; 1; 2; 3; 6; 7; 10; 11
+            0; 1; 2; 4; 6; 8; 10; 11
+            0; 1; 2; 5; 6; 9; 10; 11
+            0; 1; 2
+        ]
+
+
+let [<TestCase>] ``ofListAllAtOnce`` () =
+    loop {
+        yield 0
+        yield 1
+        yield 2
+        return! Gen.ofListAllAtOnce [ 3; 4; 5 ]
+        yield 6
+        return! Gen.ofListAllAtOnce [ 7; 8; 9 ]
+        yield 10
+        yield 11
+    }
+    |> Gen.toListn 24
+    |> equals
+        [
+            0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11
+            0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11
+        ]
+
+
+let [<TestCase>] ``Singleton`` () =
+    Gen.singleton 42
+    |> Gen.toList
+    |> equals [42]
+
+
+let [<TestCase>] ``GetSlice`` () =
+    [0..9]
+    |> Gen.ofListOneByOne
+    |> fun g -> g.[3..5]
+    |> Gen.toList
+    |> equals [3;4;5]
+
 //let [<TestCase>] ``Accumulate onc part`` () =
 //    loop {
 //        for x in [0..10] do

@@ -95,14 +95,14 @@ module Lib =
         let whenValueThenStop (pred: bool) (inputGen: LoopGen<_,_>) =
             whenValueThen pred stopFuncForMapValue inputGen
 
-        let whenThen (pred: LoopGen<_,_>) onTrue (inputGen: LoopGen<_,_>) =
+        let whenLoopThen (pred: LoopGen<_,_>) onTrue (inputGen: LoopGen<_,_>) =
             pred |> Gen.bind (fun pred -> whenValueThen pred onTrue inputGen)
 
-        let whenThenReset (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
-            whenThen pred resetFuncForMapValue inputGen
+        let whenLoopThenReset (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
+            whenLoopThen pred resetFuncForMapValue inputGen
 
-        let whenThenStop (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
-            whenThen pred stopFuncForMapValue inputGen
+        let whenLoopThenStop (pred: LoopGen<_,_>) (inputGen: LoopGen<_,_>) =
+            whenLoopThen pred stopFuncForMapValue inputGen
 
         // TODO: doOnStop?
 

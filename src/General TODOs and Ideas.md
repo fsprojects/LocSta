@@ -4,3 +4,4 @@
 * asEvaluable -> object or impure function that can be evaluated several times
 * asObservable
 * Gen and Lib.Gen - AutoOpen - was kommt wo rein?
+* Performance / struct / InlineIfLambda

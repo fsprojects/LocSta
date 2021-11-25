@@ -91,7 +91,7 @@ let [<TestCase>] ``Combine computed values with 3 'yield's`` () =
         yield c31 + c32
     }
     |> Gen.toListn 9
-    |> equals [ 5; 25; 45;  7; 27; 47;  9; 29; 49 ]
+    |> equals [ 5; 25; 45;   7; 27; 47;   9; 29; 49 ]
 
 
 let [<TestCase>] ``Combine computed values with 'yield's and 'Loop.Stop'`` () =
@@ -113,10 +113,10 @@ let [<TestCase>] ``Combine computed values with 'yield's and 'Loop.Stop'`` () =
 let [<TestCase>] ``Skip (explicit) with 'Loop.Skip'`` () =
     loop {
         let! c = count 0 1
-        if c = 5 then 
-            return Loop.Skip
-        else
+        if c <> 5 then
             c
+        else
+            return Loop.Skip
     }
     |> Gen.toListn 10
     |> equals [ 0; 1; 2; 3; 4; (* skip 5 *) 6; 7; 8; 9; 10 ]
@@ -137,28 +137,32 @@ let [<TestCase>] ``For`` () =
             yield v
     }
     |> Gen.toListn 8
-    |> equals [ 0; 1; 2; 3;  0; 1; 2; 3; ]
+    |> equals [ 0; 1; 2; 3;   0; 1; 2; 3; ]
 
 
-let [<TestCase>] ``For combined`` () =
+let [<TestCase>] ``For + let! + For`` () =
     loop {
         for v in [ 0; 1; 2; 3 ] do
             yield v
+
+        let! c = count 10 10
         for v in [ 6; 7; 8; 9 ] do
-            yield v
+            yield v + c
     }
     |> Gen.toListn 16
-    |> equals [ 0; 1; 2; 3;  6; 7; 8; 9;  0; 1; 2; 3;  6; 7; 8; 9 ]
+    |> equals [ 0; 1; 2; 3;   16; 17; 18; 19;   0; 1; 2; 3;   26; 27; 28; 29 ]
 
 
-let [<TestCase>] ``For and Skip combined`` () =
+let [<TestCase>] ``For and Skip + let! + For and Skip`` () =
     loop {
-        for v in [ 0; 1; 2; 3; 4 ] do
+        for v in [ 0; 1; 2; 3 ] do
             if v % 2 = 0 then
                 yield v
-        for v in [ 5; 6; 7; 8; 9 ] do
+
+        let! c = count 10 10
+        for v in [ 4; 5; 6; 7 ] do
             if v % 2 = 0 then
-                yield v
+                yield v + c
     }
-    |> Gen.toListn 10
-    |> equals [ 0; 2; 4; 6; 8;  0; 2; 4; 6; 8 ]
+    |> Gen.toListn 8
+    |> equals [ 0; 2;   14; 16;   0; 2;   24; 26 ]
