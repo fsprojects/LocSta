@@ -83,6 +83,22 @@ let [<TestCase>] ``Loop.EmitAndReset`` () =
             0; 1; 2; 3
         ]
 
+
+let [<TestCase>] ``Loop.EmitManyAndReset`` () =
+    loop {
+        let! c = count 0 1
+        match c = 3 with
+        | true -> return Loop.EmitManyAndReset [ 66; 77 ]
+        | false -> yield c
+    }
+    |> Gen.toListn 15
+    |> equals
+        [
+            0; 1; 2; 66; 77
+            0; 1; 2; 66; 77
+            0; 1; 2; 66; 77
+        ]
+
     
 let [<TestCase>] ``Loop.SkipAndReset`` () =
     loop {
