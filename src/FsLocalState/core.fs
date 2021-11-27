@@ -49,6 +49,22 @@ type BindState<'sm, 'sk, 'm> =
       mleftovers: 'm list
       isStopped: bool }
 
+/// Convenience for working directly with Gen funcs.
+module Res =
+    module Loop =
+        let emit value state = Res.Continue ([value], LoopState (Some state))
+        let emitStateless value = Res.Continue ([value], LoopState None)
+        let emitAndReset value = Res.ResetDescendants [value]
+        let emitAndStop value = Res.Stop [value]
+        let emitMany values state = Res.Continue (values, LoopState (Some state))
+        let emitManyStateless values = Res.Continue (values, LoopState None)
+        let emitManyAndReset values = Res.ResetDescendants values
+        let emitManyAndStop values = Res.Stop values
+        let skip state = Res.Continue ([], LoopState (Some state))
+        let skipStateless = Res.Continue ([], LoopState None)
+        let skipAndReset = Res.ResetDescendants []
+        let stop = Res.Stop []
+
 /// Vocabulary for Return of loop computations.
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
@@ -205,33 +221,34 @@ module Gen =
     // create of values
     // --------
 
-    let inline internal returnLoopRes res =
-        (fun _ -> res) |> createLoop
-    let inline internal returnFeedRes res =
-        (fun _ -> res) |> createFeed
+    module internal CreateInternal =
+        let inline internal returnLoopRes res =
+            (fun _ -> res) |> createLoop
+        let inline internal returnFeedRes res =
+            (fun _ -> res) |> createFeed
 
-    let inline returnContinue<'v, 's> values state : LoopGen<'v,'s> =
-        returnLoopRes (Res.Continue (values, state))
-    let inline returnContinueValues<'v, 's> values : LoopGen<'v,'s> =
-        returnLoopRes (Res.Continue (values, LoopState None))
-    let inline returnStop<'v,'s> values : LoopGen<'v,'s> =
-        returnLoopRes (Res.Stop values)
-    let inline returnResetDescendants<'v,'s> values : LoopGen<'v,'s> =
-        returnLoopRes (Res.ResetDescendants values)
+        let inline internal returnContinue<'v, 's> values state : LoopGen<'v,'s> =
+            returnLoopRes (Res.Continue (values, state))
+        let inline internal returnContinueValues<'v, 's> values : LoopGen<'v,'s> =
+            returnLoopRes (Res.Continue (values, LoopState None))
+        let inline internal returnStop<'v,'s> values : LoopGen<'v,'s> =
+            returnLoopRes (Res.Stop values)
+        let inline internal returnResetDescendants<'v,'s> values : LoopGen<'v,'s> =
+            returnLoopRes (Res.ResetDescendants values)
     
-    let inline returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
-        returnFeedRes (Res.Continue (values, feedback))
-    let inline returnContinueValuesFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
-        returnFeedRes (Res.Continue (values, FeedState (None, Some (UseThis feedback))))
-    let inline returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
-        returnFeedRes (Res.Stop values)
+        let inline internal returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
+            returnFeedRes (Res.Continue (values, feedback))
+        let inline internal returnContinueValuesFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
+            returnFeedRes (Res.Continue (values, FeedState (None, Some (UseThis feedback))))
+        let inline internal returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
+            returnFeedRes (Res.Stop values)
 
     let ofRepeatingValues<'v, 's> values : LoopGen<'v,'s> =
-        returnLoopRes (Res.Continue (values, LoopState None))
+        CreateInternal.returnLoopRes (Res.Continue (values, LoopState None))
     let ofRepeatingValue<'v, 's> value : LoopGen<'v,'s> =
         ofRepeatingValues [value]
     let ofOneTimeValues<'v, 's> values : LoopGen<'v,'s> =
-        returnLoopRes (Res.Stop values)
+        CreateInternal.returnLoopRes (Res.Stop values)
     let ofOneTimeValue<'v, 's> value : LoopGen<'v,'s> =
         ofOneTimeValues [value]
 
@@ -245,8 +262,8 @@ module Gen =
         fun enumerator ->
             let enumerator = enumerator |> Option.defaultWith (fun () -> s.GetEnumerator())
             match enumerator.MoveNext() with
-            | true -> Res.Continue ([enumerator.Current], LoopState (Some enumerator))
-            | false -> Res.Stop []
+            | true -> Res.Loop.emit enumerator.Current enumerator
+            | false -> Res.Loop.stop
         |> createLoop
 
     // TODO: Improve naming
@@ -256,16 +273,16 @@ module Gen =
         fun l ->
             let l = l |> Option.defaultValue list
             match l with
-            | x::xs -> Res.Continue ([x], LoopState (Some xs))
-            | [] -> Res.Stop []
+            | x::xs -> Res.Loop.emit x xs
+            | [] -> Res.Loop.stop
         |> createLoop
 
     /// Emits the complete list or stopps on an empty list.
     let ofListAllAtOnce (list: list<_>) =
         fun _ ->
             match list with
-            | [] -> Res.Stop []
-            | l -> Res.Continue (l, LoopState None)
+            | [] -> Res.Loop.stop
+            | l -> Res.Loop.emitManyStateless l
         |> createLoop
 
 
@@ -399,27 +416,27 @@ module Gen =
 
     type LoopBuilder() =
         inherit BaseBuilder()
-        member _.Zero() = returnContinue [] (LoopState None)
+        member _.Zero() = CreateInternal.returnContinue [] (LoopState None)
         member _.Bind(m, f) = bind f m
         // TODO
         //member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
         member _.Combine(x, delayed) = combineLoop x delayed
         // returns
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
-        member _.Yield(value) : LoopGen<_,_> = returnContinueValues [value]
-        member _.Return(Loop.Emit value) = returnContinueValues [value]
-        member _.Return(Loop.EmitAndReset value) = returnResetDescendants [value]
-        member _.Return(Loop.EmitAndStop value) = returnStop [value]
-        member _.Return(Loop.EmitMany values) = returnContinueValues values
-        member _.Return(Loop.EmitManyAndReset values) = returnResetDescendants values
-        member _.Return(Loop.EmitManyAndStop values) = returnStop values
-        member _.Return(Loop.Skip) = returnContinueValues []
-        member _.Return(Loop.SkipAndReset) = returnResetDescendants []
-        member _.Return(Loop.Stop) = returnStop []
+        member _.Yield(value) : LoopGen<_,_> = CreateInternal.returnContinueValues [value]
+        member _.Return(Loop.Emit value) = CreateInternal.returnContinueValues [value]
+        member _.Return(Loop.EmitAndReset value) = CreateInternal.returnResetDescendants [value]
+        member _.Return(Loop.EmitAndStop value) = CreateInternal.returnStop [value]
+        member _.Return(Loop.EmitMany values) = CreateInternal.returnContinueValues values
+        member _.Return(Loop.EmitManyAndReset values) = CreateInternal.returnResetDescendants values
+        member _.Return(Loop.EmitManyAndStop values) = CreateInternal.returnStop values
+        member _.Return(Loop.Skip) = CreateInternal.returnContinueValues []
+        member _.Return(Loop.SkipAndReset) = CreateInternal.returnResetDescendants []
+        member _.Return(Loop.Stop) = CreateInternal.returnStop []
         
     type FeedBuilder() =
         inherit BaseBuilder()
-        member _.Zero() = returnContinueFeed [] (FeedState (None,None))
+        member _.Zero() = CreateInternal.returnContinueFeed [] (FeedState (None,None))
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
@@ -430,17 +447,18 @@ module Gen =
         member _.Combine(x, delayed) = combineFeed x delayed
         // returns
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
-        member _.Yield(value, feedback) = returnContinueValuesFeed [value] feedback
-        member _.Return(Feed.Emit (value, feedback)) = returnContinueValuesFeed [value] feedback
-        member _.Return(Feed.EmitMany (values, feedback)) = returnContinueValuesFeed values feedback
-        member _.Return(Feed.EmitAndStop value) = returnStopFeed [value]
-        member _.Return(Feed.EmitManyAndStop values) = returnStopFeed values
-        member _.Return(Feed.SkipWith feedback) = returnContinueValuesFeed [] feedback
-        member _.Return(Feed.Stop) = returnStopFeed []
+        member _.Yield(value, feedback) = CreateInternal.returnContinueValuesFeed [value] feedback
+        member _.Return(Feed.Emit (value, feedback)) = CreateInternal.returnContinueValuesFeed [value] feedback
+        member _.Return(Feed.EmitMany (values, feedback)) = CreateInternal.returnContinueValuesFeed values feedback
+        member _.Return(Feed.EmitAndStop value) = CreateInternal.returnStopFeed [value]
+        member _.Return(Feed.EmitManyAndStop values) = CreateInternal.returnStopFeed values
+        member _.Return(Feed.SkipWith feedback) = CreateInternal.returnContinueValuesFeed [] feedback
+        member _.Return(Feed.Stop) = CreateInternal.returnStopFeed []
         // TODO (siehe Kommentar oben)
-        member _.Return(Feed.ResetMe) = returnContinueFeed [] (FeedState (None, Some ResetMe))
+        member _.Return(Feed.ResetMe) = CreateInternal.returnContinueFeed [] (FeedState (None, Some ResetMe))
         // TODO (siehe Kommentar oben)
-        member _.Return(Feed.ResetMeAndDescendants) = returnContinueFeed [] (FeedState (None, Some ResetMeAndDescendants))
+        member _.Return(Feed.ResetMeAndDescendants) =
+            CreateInternal.returnContinueFeed [] (FeedState (None, Some ResetMeAndDescendants))
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()
@@ -502,19 +520,19 @@ module Gen =
             yield curr, curr + increment
         }
 
-    let inline countToAndThen inclusiveStart increment inclusiveEnd andThen =
+    let inline countToAndThen inclusiveStart increment inclusiveEnd onEnd =
         loop {
             let! c = count inclusiveStart increment
             match c <= inclusiveEnd with
             | true -> yield c
-            | false -> return! andThen
+            | false -> return! onEnd
         }
 
     let inline countTo inclusiveStart increment inclusiveEnd =
-        countToAndThen inclusiveStart increment inclusiveEnd (returnStop [])
+        countToAndThen inclusiveStart increment inclusiveEnd (CreateInternal.returnStop [])
     
     let inline countToCyclic inclusiveStart increment inclusiveEnd =
-        countToAndThen inclusiveStart increment inclusiveEnd (returnResetDescendants [])
+        countToAndThen inclusiveStart increment inclusiveEnd (CreateInternal.returnResetDescendants [])
 
 
     // --------
@@ -532,15 +550,15 @@ module Gen =
             | UseDefault ->
                 Res.Continue (defaultValues, LoopState (Some UseDefault))
             | RunInput state ->
-                let continueWith values state = Res.Continue (values, LoopState (Some (RunInput state)))
+                let continueWith values state = Res.Loop.emitMany values (RunInput state)
                 match run inputGen state with
                 | Res.Continue (values, LoopState state) ->
                     continueWith values state
                 | Res.ResetDescendants values ->
                     continueWith values None
                 | Res.Stop values ->
-                    Res.Continue (values, LoopState (Some UseDefault))
-        |> createGen
+                    Res.Loop.emitMany values UseDefault
+        |> createLoop
         
     let inline onStopThenDefault defaultValue (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
         onStopThenValues [defaultValue] inputGen

@@ -5,3 +5,5 @@
 * asObservable
 * Gen and Lib.Gen - AutoOpen - was kommt wo rein?
 * Performance / struct / InlineIfLambda
+* Maybe fork is so important that it could be implemenmted as an own builder
+* "Store" counterpart for Init, and use the same API for feed as for loop

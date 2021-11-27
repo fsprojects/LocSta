@@ -27,7 +27,7 @@ module Lib =
                 | Res.Continue (values, LoopState s) -> continueWith values s
                 | Res.ResetDescendants values -> continueWith values None
                 | Res.Stop values -> Res.Stop values
-            |> Gen.createGen
+            |> Gen.createLoop
 
         /// Evluates the input gen and passes it's output to the predicate function:
         /// When that returns true, the input gen is evaluated once again with an empty state.
@@ -62,7 +62,7 @@ module Lib =
         let onStopThenReset (inputGen: LoopGen<_,_>) =
             fun state ->
                 match Gen.run inputGen state with
-                | Res.Stop values -> Res.Continue (values, LoopState None)
+                | Res.Stop values -> Res.Loop.emitManyStateless values
                 | x -> x
             |> Gen.createLoop
 
@@ -99,7 +99,7 @@ module Lib =
 
 
         // ----------
-        // accumulate, etc.
+        // accumulate
         // ----------
 
         let accumulate currentValue =
@@ -125,30 +125,32 @@ module Lib =
         let accumulateManyParts count currentValue =
             accumulateOnePart count currentValue |> onStopThenReset
 
-        //// TODO: Maybe fork is so important that it could be implemenmted as an own builder
-        //let fork (inputGen: Gen<_,_>) =
-        //    feed {
-        //        let! runningStates = Init []
-        //        let inputGen = Gen.run inputGen
-        //        // TODO: Performance
-        //        let forkResults =
-        //            runningStates @ [None]
-        //            |> List.map (fun forkState -> inputGen forkState |> Res.takeUntilStop)
-        //        let emits =
-        //            forkResults
-        //            |> List.collect (fun aggRes -> Res.emittedValues aggRes.results)
-        //        let newRunningStates =
-        //            forkResults
-        //            |> List.filter (fun res -> not res.isStopped)
-        //            |> List.map (fun res -> res.finalState)
-        //        if emits.Length = 0 then
-        //            return Feed.SkipWith newRunningStates // in any case, emit the new state
-        //        for e in emits do
-        //            // TODO: it would be really great to have an "Init" counterpart - a "Store"
-        //            // or something, so that the feedback state is set ONCE and not many times redundantly
-        //            // when yielding more than once
-        //            yield e, newRunningStates
-        //    }
+        
+        // ----------
+        // accumulate
+        // ----------
+
+        let fork (inputGen: Gen<_,_>) =
+            feed {
+                let! runningStates = Init []
+                let inputGen = Gen.run inputGen
+                // TODO: Performance / unclear code
+                let mutable resultValues = []
+                let newForkStates = [
+                    for forkState in None :: runningStates do
+                        match inputGen forkState with
+                        | Res.Continue (values, s) ->
+                            resultValues <- resultValues @ values
+                            yield Some s
+                        | Res.ResetDescendants values ->
+                            resultValues <- resultValues @ values
+                            yield Some None
+                        | Res.Stop values ->
+                            resultValues <- resultValues @ values
+                            yield None
+                    ]
+                return Feed.EmitMany (resultValues, newForkStates)
+            }
 
         //// TODO: Test / Docu
         //let windowed windowSize currentValue =
@@ -173,7 +175,7 @@ module Lib =
         //        match state with
         //        | None -> [ Res.SkipWith (None, value) ]
         //        | Some delayed -> [ Res.Emit (delayed, value) ]
-        //    |> Gen.createGen
+        //    |> Gen.createLoop
     
         /// Delays a given value by n cycle.
         let delayn n value =
