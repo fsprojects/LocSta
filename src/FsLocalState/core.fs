@@ -36,12 +36,7 @@ type FeedType<'f> =
     | ResetMe
     | ResetMeAndDescendants
 
-type FeedState<'s,'f> =
-    //| Update of 'f
-    //| KeepLast
-    //| ResetMe               - kein State
-    //| ResetMeAndDescendants - kein State
-    FeedState of 's option * FeedType<'f>
+type FeedState<'s,'f> = FeedState of 's option * FeedType<'f>
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
 type FeedGen<'o,'s,'f> = Gen<FeedRes<'o,'s,'f>, 's> 
 
