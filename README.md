@@ -24,14 +24,11 @@ What is stateless?
 * There is no persistence from one evaluation of a stateless computation to another.
 * No separation between *allocation* and *usage*, which is comfortable to write: A function can be used in the place where it should be used - there is no de-localization in code between state allocation and usage, because there is no such thing as state allocation.
 
-FsLocalState aims to providing comfort for compo a way for treating stateful computations like if they were stateless, giving 
+FsLocalState aims to providing comfort for compo a way for treating stateful computations like if they were stateless functions.
 
-FsLocalState is library designed to write and compose functions, where each of these functions inside of a computation
-preserves it's own state from one evaluation to the next.
+While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. 
 
-Composing 
-
-While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. Even though many concepts overlap with `seq`, there are significant differences in behaviour and usage, as well as in the fundamental ideas.
+Even though many concepts overlap with `seq`, there are significant differences in behaviour and usage, as well as in the fundamental ideas.
 
 ## Basic Examples
 
@@ -50,7 +47,7 @@ open FsLocalState.Lib.Gen
 ```fsharp
 loop {
     let! v1 = count 0 1     // count from 0, increment by 1
-    let! v2 = count 100 5   // count from 1000, increment by 5
+    let! v2 = count 100 5   // count from 100, increment by 5
     yield v1 + v2
 }
 |> Gen.toListn 4
