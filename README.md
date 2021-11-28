@@ -33,7 +33,9 @@ Even though many concepts overlap with `seq`, there are significant differences 
 ## Basic Examples
 
 ```fsharp
+// There's currently no NuGet package available, so reference the dll directly.
 #r "./src/FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
+
 open FsLocalState
 open FsLocalState.Lib.Gen
 ```
