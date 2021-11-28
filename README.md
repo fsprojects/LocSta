@@ -4,8 +4,34 @@
 
 ![build status](https://github.com/ronaldschlenker/FsLocalState/actions/workflows/build_onPushMaster_onPullrequest.yml/badge.svg?event=push) ![test status](https://github.com/ronaldschlenker/FsLocalState/actions/workflows/test_onPushMaster_onPullrequest.yml/badge.svg?event=push)
 
+FsLocalState is about
+
+> Composing 'state-aware' functions as if they were just normal functions.
+
+What is state(ful) - from a programmers perspective?
+
+* State is a value that changes over time, so it *mutates*, and without mutation, it's not called state.
+* Usually, (local) state is represented by an instance of an object or a closure that captures a mutable value.
+* State must then have an 'identity', which is represented by a persistent location in memory - a pointer.
+* In order to use state from a computation, it means: It has to be created *up-front*, and it can be used *afterwards* by it's pointer.
+* The separation between *allocation* and *usage* makes composition hard, or at least uncomfortable (besides other thinks that make compotion hard or uncomfortable).
+
+What is stateless?
+
+* It's the opposite of stateful, which means:
+* There is no mutation involved.
+* No need for objects, state capturing closures or pointers - there are just functions.
+* There is no persistence from one evaluation of a stateless computation to another.
+* No separation between *allocation* and *usage*, which is comfortable to write: A function can be used in the place where it should be used - there is no de-localization in code between state allocation and usage, because there is no such thing as state allocation.
+
+FsLocalState aims to providing comfort for compo a way for treating stateful computations like if they were stateless, giving 
+
 FsLocalState is library designed to write and compose functions, where each of these functions inside of a computation
-preserves it's own state from one evaluation to the next. While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. Even though many concepts overlap with `seq`, there are significant differences in behaviour and usage, as well as in the fundamental ideas.
+preserves it's own state from one evaluation to the next.
+
+Composing 
+
+While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. Even though many concepts overlap with `seq`, there are significant differences in behaviour and usage, as well as in the fundamental ideas.
 
 ## Basic Examples
 
