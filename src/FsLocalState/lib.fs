@@ -18,14 +18,12 @@ module Lib =
         /// It resurns the value and a bool indicating is a reset did happen.
         let whenFuncThen (pred: _ -> bool) onTrue (inputGen: LoopGen<_,_>) =
             fun state ->
-                let continueWith values state =
+                match Gen.run inputGen state with
+                | Res.Continue (values, state) ->
                     let valuesUntilPred = values |> List.takeWhile (fun v -> not (pred v))
                     match valuesUntilPred.Length = values.Length with
-                    | true -> Res.Continue (values, LoopState state)
+                    | true -> Res.Continue (values, state)
                     | false -> onTrue inputGen valuesUntilPred state
-                match Gen.run inputGen state with
-                | Res.Continue (values, LoopState s) -> continueWith values s
-                | Res.ResetDescendants values -> continueWith values None
                 | Res.Stop values -> Res.Stop values
             |> Gen.createLoop
 
@@ -62,7 +60,7 @@ module Lib =
         let onStopThenReset (inputGen: LoopGen<_,_>) =
             fun state ->
                 match Gen.run inputGen state with
-                | Res.Stop values -> Res.Loop.emitManyStateless values
+                | Res.Stop values -> Res.Continue (values, LoopState.ResetDescendants)
                 | x -> x
             |> Gen.createLoop
 
@@ -142,9 +140,6 @@ module Lib =
                         | Res.Continue (values, s) ->
                             resultValues <- resultValues @ values
                             yield Some s
-                        | Res.ResetDescendants values ->
-                            resultValues <- resultValues @ values
-                            yield Some None
                         | Res.Stop values ->
                             resultValues <- resultValues @ values
                             yield None
