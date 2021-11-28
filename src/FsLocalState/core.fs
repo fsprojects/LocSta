@@ -36,7 +36,12 @@ type FeedType<'f> =
     | ResetMe
     | ResetMeAndDescendants
 
-type FeedState<'s,'f> = FeedState of 's option * FeedType<'f> option
+type FeedState<'s,'f> =
+    //| Update of 'f
+    //| KeepLast
+    //| ResetMe               - kein State
+    //| ResetMeAndDescendants - kein State
+    FeedState of 's option * FeedType<'f>
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
 type FeedGen<'o,'s,'f> = Gen<FeedRes<'o,'s,'f>, 's> 
 
@@ -184,7 +189,7 @@ module Gen =
                 Res.Continue (kvalues, FeedState (Some state, feedState))
             | Res.Stop kvalues ->
                 Res.Stop kvalues
-        let buildSkip state = FeedState (Some state, None)
+        let buildSkip state = FeedState (Some state, FeedType.KeepLast)
         bindLoopWhateverGen evalk buildSkip createFeed m
 
     let internal bindInitFeedLoop
@@ -196,7 +201,7 @@ module Gen =
             let getInitial () = let (Init m) = m in m
             let evalk lastFeed lastKState =
                 match run (k lastFeed) lastKState with
-                | Res.Continue (kvalues, FeedState (kstate, Some feedback)) ->
+                | Res.Continue (kvalues, FeedState (kstate, feedback)) ->
                     let feedback,kstate =
                         match feedback with
                         | FeedType.Update feedback -> Some feedback, kstate
@@ -204,9 +209,6 @@ module Gen =
                         | FeedType.ResetMe -> None, kstate
                         | FeedType.ResetMeAndDescendants -> None, None
                     let state = { mstate = feedback; kstate = kstate; mleftovers = []; isStopped = false }
-                    Res.Continue (kvalues, LoopState.Update state)
-                | Res.Continue (kvalues, FeedState (kstate, None)) ->
-                    let state = { mstate = Some lastFeed; kstate = kstate; mleftovers = []; isStopped = false }
                     Res.Continue (kvalues, LoopState.Update state)
                 | Res.Stop kvalues ->
                     Res.Stop kvalues
@@ -244,7 +246,7 @@ module Gen =
         let inline internal returnContinueFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
             returnFeedRes (Res.Continue (values, feedback))
         let inline internal returnContinueValuesFeed<'v,'s,'f> values feedback : FeedGen<'v,'s,'f> =
-            returnFeedRes (Res.Continue (values, FeedState (None, Some (FeedType.Update feedback))))
+            returnFeedRes (Res.Continue (values, FeedState (None, FeedType.Update feedback)))
         let inline internal returnStopFeed<'v,'s,'f> values : FeedGen<'v,'s,'f> =
             returnFeedRes (Res.Stop values)
 
@@ -427,7 +429,7 @@ module Gen =
         
     type FeedBuilder() =
         inherit BaseBuilder()
-        member _.Zero() = CreateInternal.returnContinueFeed [] (FeedState (None,None))
+        member _.Zero() = CreateInternal.returnContinueFeed [] (FeedState (None, FeedType.KeepLast))
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
@@ -446,10 +448,10 @@ module Gen =
         member _.Return(Feed.SkipWith feedback) = CreateInternal.returnContinueValuesFeed [] feedback
         member _.Return(Feed.Stop) = CreateInternal.returnStopFeed []
         // TODO (siehe Kommentar oben)
-        member _.Return(Feed.ResetMe) = CreateInternal.returnContinueFeed [] (FeedState (None, Some FeedType.ResetMe))
+        member _.Return(Feed.ResetMe) = CreateInternal.returnContinueFeed [] (FeedState (None, FeedType.ResetMe))
         // TODO (siehe Kommentar oben)
         member _.Return(Feed.ResetMeAndDescendants) =
-            CreateInternal.returnContinueFeed [] (FeedState (None, Some FeedType.ResetMeAndDescendants))
+            CreateInternal.returnContinueFeed [] (FeedState (None, FeedType.ResetMeAndDescendants))
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()
