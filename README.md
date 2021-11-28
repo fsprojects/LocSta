@@ -24,7 +24,7 @@ What is stateless?
 * There is no persistence from one evaluation of a stateless computation to another.
 * No separation between *allocation* and *usage*, which is comfortable to write: A function can be used in the place where it should be used - there is no de-localization in code between state allocation and usage, because there is no such thing as state allocation.
 
-FsLocalState aims to providing comfort for compo a way for treating stateful computations like if they were stateless functions.
+**FsLocalState aims to providing coding comfort in a way that stateful computations can be treated and composed as if they were stateless functions.**
 
 While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. 
 
