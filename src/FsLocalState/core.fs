@@ -13,9 +13,7 @@ namespace FsLocalState
 
 type Gen<'o,'s> = Gen of ('s option -> 'o)
 
-// TODO: why is 's optional - what does it mean exactly? Could mean: Reset or UseLast.
-//       Is it important to specify that or will it defined by the library?
-// TODO: Is it really a good idea generaliziong Res instead of using disjoint results for Feed and Loop?
+// TODO: Is it really a good idea generalizing Res instead of using disjoint results for Feed and Loop?
 [<RequireQualifiedAccess>]
 type Res<'v,'s> =
     | Continue of 'v list * 's
@@ -69,7 +67,7 @@ module Res =
         let skipAndReset = Res.Continue ([], LoopState.Reset)
         let stop = Res.Stop []
 
-/// Vocabulary for Return of loop computations.
+/// Vocabulary for Return of loop CE.
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
     type [<Struct>] EmitAndReset<'value> = EmitAndReset of 'value
@@ -81,7 +79,7 @@ module Loop =
     type [<Struct>] SkipAndReset = SkipAndReset
     type [<Struct>] Stop = Stop
 
-/// Vocabulary for Return of feed computations.
+/// Vocabulary for Return of feed CE.
 module Feed =
     // TODO: Rework this and align with builder methods
     type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
