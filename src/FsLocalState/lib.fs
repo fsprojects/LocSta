@@ -10,8 +10,8 @@ module Lib =
         // reset / stop
         // ----------
 
-        let private resetFuncForMapValue = fun gen values s -> Gen.run gen None
-        let private stopFuncForMapValue = fun gen values s -> Res.Stop values
+        let private resetFuncForMapValue = fun gen _ _ -> Gen.run gen None
+        let private stopFuncForMapValue = fun _ values _ -> Res.Stop values
 
         /// Evluates the input gen and passes it's output to the predicate function:
         /// When that returns true, the input gen is evaluated once again with an empty state.
@@ -172,13 +172,12 @@ module Lib =
         //        | Some delayed -> [ Res.Emit (delayed, value) ]
         //    |> Gen.createLoop
     
-        /// Delays a given value by n cycle.
-        let delayn n value =
-            failwith "TODO"
-            //feed {
-            //    let! initialValue = Init value
-            //    return Feed.Feedback (initialValue, initialValue)
-            //}
+        ///// Delays a given value by n cycle.
+        //let delayn n value =
+        //    feed {
+        //        let! initialValue = Init value
+        //        return Feed.Feedback (initialValue, initialValue)
+        //    }
 
         // TODO: first (find)
         // TODO: Zip starting + current
