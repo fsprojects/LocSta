@@ -60,7 +60,7 @@ module Lib =
         let onStopThenReset (inputGen: LoopGen<_,_>) =
             fun state ->
                 match Gen.run inputGen state with
-                | Res.Stop values -> Res.Continue (values, LoopState.ResetDescendants)
+                | Res.Stop values -> Res.Continue (values, LoopState.Reset)
                 | x -> x
             |> Gen.createLoop
 

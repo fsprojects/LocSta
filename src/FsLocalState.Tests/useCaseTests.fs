@@ -152,7 +152,7 @@ let [<TestCase>] ``ResetThis + Combine`` () =
         let vf = state + c, state + 1
         if state = n then
             yield vf
-            return Feed.ResetMe
+            return Feed.ResetFeedback
         if state <> n then
             yield vf
     }
@@ -176,7 +176,7 @@ let [<TestCase>] ``Collect`` () =
         let vf = state + c, state + 1
         if state = 4 then
             yield vf
-            return Feed.ResetMe
+            return Feed.ResetFeedback
         if state <> 4 then
             yield vf
     }
