@@ -16,6 +16,11 @@
     <Version>0.0.9</Version>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <OtherFlags>$(OtherFlags) --warnon:1182</OtherFlags>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="core.fs" />
     <Compile Include="lib.fs" />

@@ -226,12 +226,12 @@ module Gen =
     // create of values
     // --------
 
-    let inline internal returnLoopRes res = createLoop (fun _ -> res)
+    let inline internal returnLoop res = createLoop (fun _ -> res)
     let inline internal returnFeedRes res = createFeed (fun _ -> res)
 
-    let ofRepeatingValues<'v, 's> values : LoopGen<'v,'s> = returnLoopRes (Res.Continue (values, LoopState.KeepLast))
+    let ofRepeatingValues<'v, 's> values : LoopGen<'v,'s> = returnLoop (Res.Continue (values, LoopState.KeepLast))
     let ofRepeatingValue<'v, 's> value : LoopGen<'v,'s> = ofRepeatingValues [value]
-    let ofOneTimeValues<'v, 's> values : LoopGen<'v,'s> = returnLoopRes (Res.Stop values)
+    let ofOneTimeValues<'v, 's> values : LoopGen<'v,'s> = returnLoop (Res.Stop values)
     let ofOneTimeValue<'v, 's> value : LoopGen<'v,'s> = ofOneTimeValues [value]
 
 
@@ -308,7 +308,7 @@ module Gen =
             let state =  state |> Option.defaultValue { astate = None; bstate = None }
             match run a state.astate with
             // TODO: document this: 'afeedback' is unused, which means: the last emitted feedback is used when combining
-            | Res.Continue (avalues, FeedState (astate, afeedback)) ->
+            | Res.Continue (avalues, FeedState (astate, _ (* nowarn for afeedback *) )) ->
                 match run (b()) state.bstate with
                 | Res.Continue (bvalues, FeedState (bstate, bfeedback)) ->
                     let state = { astate = astate; bstate = bstate }
@@ -385,23 +385,23 @@ module Gen =
 
     type LoopBuilder() =
         inherit BaseBuilder()
-        member _.Zero() = returnLoopRes Res.Loop.skipAndKeepLast
+        member _.Zero() = returnLoop Res.Loop.skipAndKeepLast
         member _.Bind(m, f) = bind f m
         member _.Combine(x, delayed) = combineLoop x delayed
         
         // returns
-        member _.Yield(value) : LoopGen<_,_> = returnLoopRes (Res.Loop.emitAndKeepLast value)
+        member _.Yield(value) : LoopGen<_,_> = returnLoop (Res.Loop.emitAndKeepLast value)
 
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
-        member _.Return(Loop.Emit value) = returnLoopRes (Res.Loop.emitAndKeepLast value)
-        member _.Return(Loop.EmitAndReset value) = returnLoopRes (Res.Loop.emitAndReset value)
-        member _.Return(Loop.EmitAndStop value) = returnLoopRes (Res.Loop.emitAndStop value)
-        member _.Return(Loop.EmitMany values) = returnLoopRes (Res.Loop.emitManyAndKeepLast values)
-        member _.Return(Loop.EmitManyAndReset values) = returnLoopRes (Res.Loop.emitManyAndReset values)
-        member _.Return(Loop.EmitManyAndStop values) = returnLoopRes (Res.Loop.emitManyAndStop values)
-        member _.Return(Loop.Skip) = returnLoopRes Res.Loop.skipAndKeepLast
-        member _.Return(Loop.SkipAndReset) = returnLoopRes Res.Loop.skipAndReset
-        member _.Return(Loop.Stop) = returnLoopRes Res.Loop.stop
+        member _.Return(Loop.Emit value) = returnLoop (Res.Loop.emitAndKeepLast value)
+        member _.Return(Loop.EmitAndReset value) = returnLoop (Res.Loop.emitAndReset value)
+        member _.Return(Loop.EmitAndStop value) = returnLoop (Res.Loop.emitAndStop value)
+        member _.Return(Loop.EmitMany values) = returnLoop (Res.Loop.emitManyAndKeepLast values)
+        member _.Return(Loop.EmitManyAndReset values) = returnLoop (Res.Loop.emitManyAndReset values)
+        member _.Return(Loop.EmitManyAndStop values) = returnLoop (Res.Loop.emitManyAndStop values)
+        member _.Return(Loop.Skip) = returnLoop Res.Loop.skipAndKeepLast
+        member _.Return(Loop.SkipAndReset) = returnLoop Res.Loop.skipAndReset
+        member _.Return(Loop.Stop) = returnLoop Res.Loop.stop
         
     type FeedBuilder() =
         inherit BaseBuilder()
@@ -413,7 +413,7 @@ module Gen =
         member _.Combine(x, delayed) = combineFeed x delayed
         
         // returns
-        member _.Yield(value, feedback) = returnFeedRes (Res.Continue ([value], FeedState (None, FeedType.KeepLast)))
+        member _.Yield(value, feedback) = returnFeedRes (Res.Continue ([value], FeedState (None, FeedType.Update feedback)))
         
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
         member _.Return(Feed.Emit (value, feedback)) = returnFeedRes (Res.Continue ([value], FeedState (None, FeedType.Update feedback)))
