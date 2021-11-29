@@ -134,7 +134,7 @@ let [<TestCase>] ``Binds + skip (feed)`` () =
         if currValue % 2 = 0 then
             yield currValue, nextValue
         else
-            return Feed.SkipWith nextValue
+            return Feed.Skip nextValue
     }
     |> Gen.toListn 4
     |> equals [ (0 + 0 + 0); (1 + 10 + 3); (2 + 20 + 6); (3 + 30 + 9) ]
@@ -152,7 +152,7 @@ let [<TestCase>] ``ResetThis + Combine`` () =
         let vf = state + c, state + 1
         if state = n then
             yield vf
-            return Feed.ResetFeedback
+            return Feed.SkipAndResetFeedback
         if state <> n then
             yield vf
     }
@@ -176,7 +176,7 @@ let [<TestCase>] ``Collect`` () =
         let vf = state + c, state + 1
         if state = 4 then
             yield vf
-            return Feed.ResetFeedback
+            return Feed.SkipAndResetFeedback
         if state <> 4 then
             yield vf
     }

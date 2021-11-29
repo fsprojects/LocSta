@@ -27,13 +27,13 @@ type LoopState<'s> =
 type LoopRes<'o,'s> = Res<'o, LoopState<'s>>
 type LoopGen<'o,'s> = Gen<LoopRes<'o,'s>, 's>
 
-[<Struct; RequireQualifiedAccess>]
+[<RequireQualifiedAccess>]
 type FeedType<'f> =
     | Update of 'f
     | KeepLast
     | Reset
     | ResetFeedback
-    | ResetDescendants
+    | ResetDescendants of 'f
 
 type FeedState<'s,'f> = FeedState of 's option * FeedType<'f>
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
@@ -54,45 +54,52 @@ type BindState<'sm, 'sk, 'm> =
 /// Convenience for working directly with Gen funcs.
 module Res =
     module Loop =
-        let emit value state = Res.Continue ([value], LoopState.Update state)
-        let emitAndKeepLast value = Res.Continue ([value], LoopState.KeepLast)
-        let emitAndReset value = Res.Continue ([value], LoopState.Reset)
-        let emitAndStop value = Res.Stop [value]
         let emitMany values state = Res.Continue (values, LoopState.Update state)
         let emitManyAndKeepLast values = Res.Continue (values, LoopState.KeepLast)
         let emitManyAndReset values = Res.Continue (values, LoopState.Reset)
         let emitManyAndStop values = Res.Stop values
-        let skip state = Res.Continue ([], LoopState.Update state)
-        let skipAndKeepLast = Res.Continue ([], LoopState.KeepLast)
-        let skipAndReset = Res.Continue ([], LoopState.Reset)
-        let stop = Res.Stop []
+        let emit value state = emitMany [value] state
+        let emitAndKeepLast value = emitManyAndKeepLast [value]
+        let emitAndReset value = emitManyAndReset [value]
+        let emitAndStop value = emitManyAndStop [value]
+        let skip state = emitMany [] state
+        let skipAndKeepLast<'v,'s> = emitManyAndKeepLast [] : Res<'v, LoopState<'s>>
+        let skipAndReset<'v,'s> = emitManyAndReset [] : Res<'v, LoopState<'s>>
+        let stop<'v,'s> = emitManyAndStop [] : Res<'v, LoopState<'s>>
 
 /// Vocabulary for Return of loop CE.
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
     type [<Struct>] EmitAndReset<'value> = EmitAndReset of 'value
     type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
+
     type [<Struct>] EmitMany<'value> = EmitMany of 'value list
     type [<Struct>] EmitManyAndReset<'value> = EmitManyAndReset of 'value list
     type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
+
     type [<Struct>] Skip = Skip
     type [<Struct>] SkipAndReset = SkipAndReset
     type [<Struct>] Stop = Stop
 
 /// Vocabulary for Return of feed CE.
 module Feed =
-    // TODO: Rework this and align with builder methods
     type [<Struct>] Emit<'value, 'feedback> = Emit of 'value * 'feedback
+    type [<Struct>] EmitAndReset<'value> = EmitAndReset of 'value
+    type [<Struct>] EmitAndResetFeedback<'value> = EmitAndResetFeedback of 'value
+    type [<Struct>] EmitAndResetDescendants<'value, 'feedback> = EmitAndResetDescendants of 'value * 'feedback
     type [<Struct>] EmitAndStop<'value> = EmitAndStop of 'value
+
     type [<Struct>] EmitMany<'value, 'feedback> = EmitMany of 'value list * 'feedback
+    type [<Struct>] EmitManyAndReset<'value> = EmitManyAndReset of 'value list
+    type [<Struct>] EmitManyAndResetFeedback<'value> = EmitManyAndResetFeedback of 'value list
+    type [<Struct>] EmitManyAndResetDescendants<'value, 'feedback> = EmitManyAndResetDescendants of 'value list * 'feedback
     type [<Struct>] EmitManyAndStop<'value> = EmitManyAndStop of 'value list
-    type [<Struct>] SkipWith<'feedback> = SkipWith of 'feedback
+
+    type [<Struct>] Skip<'feedback> = Skip of 'feedback
+    type [<Struct>] SkipAndReset = SkipAndReset
+    type [<Struct>] SkipAndResetFeedback = SkipAndResetFeedback
+    type [<Struct>] SkipAndResetDescendants<'feedback> = SkipAndResetDescendants of 'feedback
     type [<Struct>] Stop = Stop
-    // TODO: Will man Reset wirklich als Teil der Builder-Abstraktion?
-    // TODO: 'value list oder 'value
-    // TODO: So strukturieren wie bei Loop
-    type [<Struct>] ResetFeedback = ResetFeedback
-    type [<Struct>] ResetMeAndDescendants = ResetMeAndDescendants
 
 
 // TODO: make some things internal and expose them explicitly via Gen type
@@ -198,12 +205,12 @@ module Gen =
                 match run (k lastFeed) lastKState with
                 | Res.Continue (kvalues, FeedState (kstate, feedback)) ->
                     let feedback,kstate =
-                        match feedback with
+                        match feedback with                                                                                                                                                                                                                                             
                         | FeedType.Update feedback -> Some feedback, kstate
                         | FeedType.KeepLast -> Some lastFeed, kstate
                         | FeedType.Reset -> None, None
                         | FeedType.ResetFeedback -> None, kstate
-                        | FeedType.ResetDescendants -> Some lastFeed, None
+                        | FeedType.ResetDescendants feedback -> Some feedback, None
                     let state = { mstate = feedback; kstate = kstate; mleftovers = []; isStopped = false }
                     Res.Continue (kvalues, LoopState.Update state)
                 | Res.Stop kvalues ->
@@ -387,41 +394,55 @@ module Gen =
         member _.Bind(m, f) = bind f m
         member _.Combine(x, delayed) = combineLoop x delayed
         
-        // returns
         member _.Yield(value) : LoopGen<_,_> = returnLoop (Res.Loop.emitAndKeepLast value)
 
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
         member _.Return(Loop.Emit value) = returnLoop (Res.Loop.emitAndKeepLast value)
         member _.Return(Loop.EmitAndReset value) = returnLoop (Res.Loop.emitAndReset value)
         member _.Return(Loop.EmitAndStop value) = returnLoop (Res.Loop.emitAndStop value)
+
         member _.Return(Loop.EmitMany values) = returnLoop (Res.Loop.emitManyAndKeepLast values)
         member _.Return(Loop.EmitManyAndReset values) = returnLoop (Res.Loop.emitManyAndReset values)
         member _.Return(Loop.EmitManyAndStop values) = returnLoop (Res.Loop.emitManyAndStop values)
+
         member _.Return(Loop.Skip) = returnLoop Res.Loop.skipAndKeepLast
         member _.Return(Loop.SkipAndReset) = returnLoop Res.Loop.skipAndReset
         member _.Return(Loop.Stop) = returnLoop Res.Loop.stop
         
     type FeedBuilder() =
         inherit BaseBuilder()
-        member _.Zero() = returnFeedRes (Res.Continue ([], FeedState (None, FeedType.KeepLast)))
+        
+        let cont values feedType =
+            returnFeedRes (Res.Continue (values, FeedState (None, feedType)))
+        
+        member _.Zero() = cont [] FeedType.KeepLast
         member _.Bind(m, f) = bindInitFeedLoop f m
         member _.Bind(m, f) = bind f m
         member _.Bind(m, f) = bindLoopFeedFeed f m
         member _.Combine(x, delayed) = combineLoop x delayed
         member _.Combine(x, delayed) = combineFeed x delayed
         
-        // returns
-        member _.Yield(value, feedback) = returnFeedRes (Res.Continue ([value], FeedState (None, FeedType.Update feedback)))
-        
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
-        member _.Return(Feed.Emit (value, feedback)) = returnFeedRes (Res.Continue ([value], FeedState (None, FeedType.Update feedback)))
-        member _.Return(Feed.EmitMany (values, feedback)) = returnFeedRes (Res.Continue (values, FeedState (None, FeedType.Update feedback)))
+
+        member _.Yield(value, feedback) = cont [value] (FeedType.Update feedback)
+
+        member _.Return(Feed.Emit (value, feedback)) = cont [value] (FeedType.Update feedback)
+        member _.Return(Feed.EmitAndReset value) = cont [value] FeedType.Reset
+        member _.Return(Feed.EmitAndResetFeedback value) = cont [value] FeedType.ResetFeedback
+        member _.Return(Feed.EmitAndResetDescendants (value, feedback)) = cont [value] (FeedType.ResetDescendants feedback)
         member _.Return(Feed.EmitAndStop value) = returnFeedRes (Res.Stop [value])
+
+        member _.Return(Feed.EmitMany (values, feedback)) = cont values (FeedType.Update feedback)
+        member _.Return(Feed.EmitManyAndReset values) = cont values FeedType.Reset
+        member _.Return(Feed.EmitManyAndResetFeedback values) = cont values FeedType.ResetFeedback
+        member _.Return(Feed.EmitManyAndResetDescendants (values, feedback)) = cont values (FeedType.ResetDescendants feedback)
         member _.Return(Feed.EmitManyAndStop values) = returnFeedRes (Res.Stop values)
-        member _.Return(Feed.SkipWith feedback) = returnFeedRes (Res.Continue ([], FeedState (None, FeedType.Update feedback)))
+
+        member _.Return(Feed.Skip feedback) = cont [] (FeedType.Update feedback)
+        member _.Return(Feed.SkipAndReset) = cont [] FeedType.Reset
+        member _.Return(Feed.SkipAndResetFeedback) = cont [] FeedType.ResetFeedback
+        member _.Return(Feed.SkipAndResetDescendants feedback) = cont [] (FeedType.ResetDescendants feedback)
         member _.Return(Feed.Stop) = returnFeedRes (Res.Stop [])
-        member _.Return(Feed.ResetFeedback) = returnFeedRes (Res.Continue ([], FeedState (None, FeedType.ResetFeedback)))
-        member _.Return(Feed.ResetMeAndDescendants) = returnFeedRes (Res.Continue ([], FeedState (None, FeedType.Reset)))
     
     let loop = LoopBuilder()
     let feed = FeedBuilder()
