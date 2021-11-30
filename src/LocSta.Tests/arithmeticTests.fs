@@ -1,15 +1,15 @@
 #if INTERACTIVE
-#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
-open FsLocalState
+#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+open LocSta
 let equals (expected: 'a) (actual: 'a) = expected = actual
 #endif
 
-module FsLocalState.ArithmeticTests
+module LocSta.ArithmeticTests
 
 open TestHelper
 open FsUnit
-open FsLocalState
-open FsLocalState.Lib.Gen
+open LocSta
+open LocSta.Lib.Gen
 open NUnit.Framework
 
 let [<TestCase>] ``Operator == gen int`` () =

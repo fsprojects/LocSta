@@ -1,6 +1,6 @@
-﻿module FsLocalState.Dsp
+﻿module LocSta.Dsp
 
-open FsLocalState
+open LocSta
 open System
 
 module Const =

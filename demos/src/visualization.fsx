@@ -1,9 +1,9 @@
 ﻿
 #r "nuget: XPlot.Plotly"
-#r "../../src/FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../../src/LocSta/bin/Debug/netstandard2.0/LocSta.dll"
 
 open System
-open FsLocalState
+open LocSta
 open XPlot.Plotly
 
 

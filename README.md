@@ -1,10 +1,10 @@
 
-﻿FsLocalState
+LocSta
 ===
 
-![build status](https://github.com/ronaldschlenker/FsLocalState/actions/workflows/build_onPushMaster_onPullrequest.yml/badge.svg?event=push) ![test status](https://github.com/ronaldschlenker/FsLocalState/actions/workflows/test_onPushMaster_onPullrequest.yml/badge.svg?event=push)
+![build status](https://github.com/fsprojects/LocSta/actions/workflows/build_onPushMaster_onPullrequest.yml/badge.svg?event=push) ![test status](https://github.com/fsprojects/LocSta/actions/workflows/test_onPushMaster_onPullrequest.yml/badge.svg?event=push)
 
-FsLocalState is about
+LocSta is about
 
 > Composing 'state-aware' functions as if they were just normal functions.
 
@@ -24,7 +24,7 @@ What is stateless?
 * There is no persistence from one evaluation of a stateless computation to another.
 * No separation between *allocation* and *usage*, which is comfortable to write: A function can be used in the place where it should be used - there is no de-localization in code between state allocation and usage, because there is no such thing as state allocation.
 
-**FsLocalState aims to providing coding comfort in a way that stateful computations can be treated and composed as if they were stateless functions.**
+**LocSta aims to providing coding comfort in a way that stateful computations can be treated and composed as if they were stateless functions.**
 
 While this might sound like dealing with impure or internally mutable functions, it is based on a pure function approach. The focus lies on dealing with sequences of values. 
 
@@ -34,10 +34,10 @@ Even though many concepts overlap with `seq`, there are significant differences 
 
 ```fsharp
 // There's currently no NuGet package available, so reference the dll directly.
-#r "./src/FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "./src/LocSta/bin/Debug/netstandard2.0/LocSta.dll"
 
-open FsLocalState
-open FsLocalState.Lib.Gen
+open LocSta
+open LocSta.Lib.Gen
 ```
 
 
@@ -132,11 +132,11 @@ feed {
 
 **Tests**
 
-Please have a look at [the base tests](./src/FsLocalState.Tests) for getting an impression of how the library works and maybe what it could be good for.
+Please have a look at [the base tests](./src/LocSta.Tests) for getting an impression of how the library works and maybe what it could be good for.
 
 **Previous versions**
 
-https://github.com/ronaldschlenker/FsLocalState/tree/2360afbc45f646338e725b8059943dff3d41c5af
+https://github.com/fsprojects/LocSta/tree/2360afbc45f646338e725b8059943dff3d41c5af
 
 **F# Applied Challenge**
 

@@ -1,55 +1,41 @@
 ﻿
-#r "../../src/FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
+#r "../../src/LocSta/bin/Debug/netstandard2.0/LocSta.dll"
 
-open FsLocalState
+open LocSta
 
-let dummy1 =
+let withGenFunc =
     fun s ->
         let s = Option.defaultValue 0 s
         let v = s + 1
-        Some (v, v)
-    |> Gen.create
+        Res.Loop.emit v v
+    |> Gen.createLoop
 
-let dummy2 =
-    0
-    |> Gen.ofSeed (fun s ->
-        let v = s + 1
-        Some (v, v)
-    )
-
-let dummy3 =
-    0 => fun state -> gen {
+let withFeed =
+    feed {
+        let! state = Init 0
         let v = state + 1
-        return v, v
+        yield v, v
     }
 
-let test1 =
-    gen {
-        let! a = dummy1
-        let! b = dummy1
-        let! c = dummy1
-        return ()
+let testWithGenFunc =
+    loop {
+        let! a = withGenFunc
+        let! b = withGenFunc
+        let! c = withGenFunc
+        yield ()
     }
 
-let test2 =
-    gen {
-        let! a = dummy2
-        let! b = dummy2
-        let! c = dummy2
-        return ()
-    }
-
-let test3 =
-    gen {
-        let! a = dummy3
-        let! b = dummy3
-        let! c = dummy3
-        return ()
+let testWithFeed =
+    loop {
+        let! a = withFeed
+        let! b = withFeed
+        let! c = withFeed
+        yield ()
     }
 
 #time
 
 // evaluate pi
-let res1 = test1 |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last
-let res2 = test2 |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last
-let res3 = test3 |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last
+let evalTest f = f |> Gen.toSeq |> Seq.take 5_000_000 |> Seq.last
+let res1 = evalTest testWithGenFunc
+let res2 = evalTest testWithFeed

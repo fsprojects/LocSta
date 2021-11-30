@@ -1,6 +1,6 @@
 
-#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
-open FsLocalState
+#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+open LocSta
 
 type Gen.LoopBuilder with
     member _.For(sequence: list<'a>, body) =
