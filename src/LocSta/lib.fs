@@ -1,4 +1,4 @@
-﻿namespace FsLocalState
+﻿namespace LocSta
 
 [<AutoOpen>]
 module Lib =

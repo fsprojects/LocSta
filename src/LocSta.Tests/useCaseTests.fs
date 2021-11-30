@@ -1,14 +1,14 @@
 #if INTERACTIVE
-#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
-open FsLocalState
+#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+open LocSta
 #endif
 
 module ``Use Case Tests``
 
 open TestHelper
 open FsUnit
-open FsLocalState
-open FsLocalState.Lib.Gen
+open LocSta
+open LocSta.Lib.Gen
 open NUnit.Framework
 
 

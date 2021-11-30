@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\FsLocalState\FsLocalState.fsproj" />
+    <ProjectReference Include="..\LocSta\LocSta.fsproj" />
   </ItemGroup>
 
 </Project>

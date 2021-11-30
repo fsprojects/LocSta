@@ -9,7 +9,7 @@ For the API surface, names like 'value or 'state are used instead of chars.
 *)
 
 // TODO: InlineIfLambda, ValueOptions, Structs
-namespace FsLocalState
+namespace LocSta
 
 type Gen<'o,'s> = Gen of ('s option -> 'o)
 

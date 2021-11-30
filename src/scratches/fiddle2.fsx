@@ -1,7 +1,7 @@
 
-#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
-open FsLocalState
-open FsLocalState.Lib.Gen
+#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+open LocSta
+open LocSta.Lib.Gen
 
 loop {
     return! count 0 1

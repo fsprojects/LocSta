@@ -1,8 +1,8 @@
 
 fsi.PrintWidth <- 100
 
-#r "../FsLocalState/bin/Debug/netstandard2.0/FsLocalState.dll"
-open FsLocalState
+#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+open LocSta
 
 (*
 let bindTest f =
@@ -47,8 +47,8 @@ module Gen =
 let forValue res = match res with | Value (v,s) -> v,s | _ -> failwith "unexpected"
 let run g state = state |> Gen.run g |> forValue
 
-open FsLocalState
-open FsLocalState.Gen
+open LocSta
+open LocSta.Gen
 
 
 

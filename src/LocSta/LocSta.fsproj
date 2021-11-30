@@ -2,16 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageId>SchlenkR.FsLocalState</PackageId>
+    <PackageId>LocSta</PackageId>
     <Authors>Ronald Schlenker</Authors>
-    <Title>SchlenkR.FsLocalState</Title>
-    <Description>A F# library for composing stateful functions</Description>
+    <Title>LocSta</Title>
+    <Description>State aware function composition in F#</Description>
     <Copyright>Ronald Schlenker</Copyright>
-    <PackageProjectUrl>https://github.com/ronaldschlenker/FsLocalState</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/ronaldschlenker/FsLocalState</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/fsprojects/LocSta</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/fsprojects/LocSta</RepositoryUrl>
     <PackageTags>f#</PackageTags>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <Product>SchlenkR.FsLocalState</Product>
+    <Product>LocSta</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Version>0.0.9</Version>
   </PropertyGroup>
