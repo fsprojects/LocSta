@@ -53,21 +53,21 @@ let [<TestCase>] ``Combine ofListOneByOne (loop)`` () =
         ]
 
 
-let [<TestCase>] ``Combine + ofListOneByOne + onStopThenReset (loop)`` () =
-    loop {
-        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListOneByOne |> Gen.onStopThenReset
-        yield v1
-        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListOneByOne |> Gen.onStopThenReset
-        yield v2.ToString()
-        yield "X"
-    }
-    |> Gen.toListn 24
-    |> equals 
-        [
-            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
-             (* repeat due to 'onStopThenReset' *)
-            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
-        ]
+//let [<TestCase>] ``Combine + ofListOneByOne + onStopThenReset (loop)`` () =
+//    loop {
+//        let! v1 = [ "a"; "b"; "c"; "d" ] |> Gen.ofListOneByOne |> Gen.onStopThenReset
+//        yield v1
+//        let! v2 = [  1 ;  2 ;  3 ;  4  ] |> Gen.ofListOneByOne |> Gen.onStopThenReset
+//        yield v2.ToString()
+//        yield "X"
+//    }
+//    |> Gen.toListn 24
+//    |> equals 
+//        [
+//            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
+//             (* repeat due to 'onStopThenReset' *)
+//            "a"; "1"; "X"; "b"; "2"; "X"; "c"; "3"; "X"; "d"; "4"; "X"
+//        ]
 
 
 // TODO
@@ -167,18 +167,19 @@ let [<TestCase>] ``ResetThis + Combine`` () =
 // TODO: ResetTree
 
 
- //TODO: Document "if" behaviour (also in combination with combine)
+// TODO: Document "if" behaviour (also in combination with combine)
+// TODO: This is an important "combine" test for feed (see comment in combineFeed)
 let [<TestCase>] ``Collect`` () =
     feed {
         let! state = Init 1
         let! c = count 10 10
 
-        let vf = state + c, state + 1
-        if state = 4 then
-            yield vf
+        let valueAndFeedback = state + c, state + 1
+        if state = 3 then
+            yield valueAndFeedback
             return Feed.SkipAndResetFeedback
-        if state <> 4 then
-            yield vf
+        if state <> 3 then
+            yield valueAndFeedback
     }
     |> Gen.toListn 9
     |> equals

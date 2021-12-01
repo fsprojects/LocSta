@@ -69,6 +69,8 @@ module Res =
         let skipAndReset<'v,'s> = emitManyAndReset [] : Res<'v, LoopState<'s>>
         let stop<'v,'s> = emitManyAndStop [] : Res<'v, LoopState<'s>>
 
+        let zero<'v,'s> = skipAndKeepLast<'v,'s>
+
     module Feed =
         let inline private cont values feedType = Res.Continue (values, FeedState (None, feedType))
         
@@ -92,6 +94,8 @@ module Res =
         let skipAndResetFeedback<'v,'s,'f> = emitManyAndResetFeedback [] : Res<'v, FeedState<'s,'f>>
         let skipAndResetDescendants feedback = emitManyAndResetDescendants [] feedback
         let stop<'v,'s,'f> = emitManyAndStop [] : Res<'v, FeedState<'s,'f>>
+
+        let zero<'v,'s,'f> = skipAndKeepLast<'v,'s,'f>
 
 /// Vocabulary for Return of loop CE.
 module Loop =
@@ -340,11 +344,14 @@ module Gen =
             let state =  state |> Option.defaultValue { astate = None; bstate = None }
             match run a state.astate with
             // TODO: document this: 'afeedback' is unused, which means: the last emitted feedback is used when combining
-            | Res.Continue (avalues, FeedState (astate, _ (* nowarn for afeedback *) )) ->
+            | Res.Continue (avalues, FeedState (astate, afeedback))->
                 match run (b()) state.bstate with
-                | Res.Continue (bvalues, FeedState (bstate, bfeedback)) ->
+                | Res.Continue (bvalues, FeedState (bstate, bfeedback)) as b ->
+                    let finalFeedback =
+                        // why? we can have multiple 'if-no-else(zero)'s combined together
+                        if b = Res.Feed.zero then afeedback else bfeedback
                     let state = { astate = astate; bstate = bstate }
-                    Res.Continue (avalues @ bvalues, FeedState (Some state, bfeedback))
+                    Res.Continue (avalues @ bvalues, FeedState (Some state, finalFeedback))
                 | Res.Stop bvalues ->
                     Res.Stop (avalues @ bvalues)
             | Res.Stop avalues ->
@@ -420,7 +427,7 @@ module Gen =
         member _.Bind(m, f) = bind f m
         member _.Combine(x, delayed) = combineLoop x delayed
         
-        member _.Zero() = returnLoopRes Res.Loop.skipAndKeepLast
+        member _.Zero() = returnLoopRes Res.Loop.zero
 
         member _.Yield(value) : LoopGen<_,_> = returnLoopRes (Res.Loop.emitAndKeepLast value)
 
@@ -449,7 +456,7 @@ module Gen =
         
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
 
-        member _.Zero() = returnFeedRes Res.Feed.skipAndKeepLast
+        member _.Zero() = returnFeedRes Res.Feed.zero
 
         member _.Yield(value, feedback) = returnFeedRes (Res.Feed.emit value feedback)
 
