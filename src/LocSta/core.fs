@@ -51,6 +51,7 @@ type BindState<'sm, 'sk, 'm> =
       mleftovers: 'm list
       isStopped: bool }
 
+
 /// Convenience for working directly with Gen funcs.
 module Res =
     module Loop =
@@ -97,6 +98,7 @@ module Res =
 
         let zero<'v,'s,'f> = skipAndKeepLast<'v,'s,'f>
 
+
 /// Vocabulary for Return of loop CE.
 module Loop =
     type [<Struct>] Emit<'value> = Emit of 'value
@@ -110,6 +112,7 @@ module Loop =
     type [<Struct>] Skip = Skip
     type [<Struct>] SkipAndReset = SkipAndReset
     type [<Struct>] Stop = Stop
+
 
 /// Vocabulary for Return of feed CE.
 module Feed =
@@ -327,9 +330,9 @@ module Gen =
                 let bres = run (b()) state.bstate
                 match bres with
                 | Res.Continue (bvalues, LoopStateToOption state.bstate bstate) ->
-                    Res.Continue (avalues @ bvalues, LoopState.Update { astate = astate; bstate = bstate })
+                    Res.Loop.emitMany (avalues @ bvalues) { astate = astate; bstate = bstate }
                 | Res.Stop bvalues ->
-                    Res.Stop (avalues @ bvalues)
+                    Res.Loop.emitManyAndStop (avalues @ bvalues)
             | Res.Stop avalues ->
                 Res.Stop avalues
         |> createLoop
@@ -513,7 +516,7 @@ module Gen =
             | Res.Continue (values, state) ->
                 Res.Continue (mapValues values (Some state), state)
             | Res.Stop values ->
-                Res.Stop (mapValues values None)
+                Res.Loop.emitManyAndStop (mapValues values None)
         |> createLoop
 
     let map proj (inputGen: LoopGen<_,_>) =
@@ -561,7 +564,7 @@ module Gen =
         | RunInput of 's option
         | UseDefault
 
-    let inline internal onStopThenValues defaultValues (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+    let inline onStopThenValues defaultValues (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
         fun state ->
             let state = state |> Option.defaultValue (RunInput None)
             match state with
