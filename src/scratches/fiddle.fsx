@@ -1,5 +1,6 @@
 
-#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+#load "../LocSta/core.fs"
+#load "../LocSta/lib.fs"
 open LocSta
 
 let getFeedback seed =

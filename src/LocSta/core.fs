@@ -39,8 +39,10 @@ type FeedState<'s,'f> = FeedState of 's option * FeedType<'f>
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
 type FeedGen<'o,'s,'f> = Gen<FeedRes<'o,'s,'f>, 's> 
 
-[<Struct>]
-type Init<'f> = Init of 'f
+// TODO: document both cases
+type Init<'f> =
+    | Init of 'f
+    | InitWith of (unit -> 'f)
 
 type Fx<'i,'o,'s> = 'i -> Gen<'o,'s>
 
@@ -236,7 +238,10 @@ module Gen =
         : LoopGen<_,_>
         =
         fun state ->
-            let getInitial () = let (Init m) = m in m
+            let getInitial () =
+                match m with
+                | Init m -> m
+                | InitWith f -> f()
             let evalk lastFeed lastKState =
                 match run (k lastFeed) lastKState with
                 | Res.Continue (kvalues, FeedState (kstate, feedback)) ->
@@ -367,6 +372,32 @@ module Gen =
     // -------
     
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
+
+    type Evaluable<'a>(f: unit -> 'a) =
+        member _.GetNext() = f()
+
+    let toEvaluable (g: LoopGen<_,'s>) =
+        let f = run g
+        let mutable state = None
+        let mutable resume = true
+        let mutable remainingValues = []
+        let rec getNext() =
+            match remainingValues, resume with
+            | x :: xs, _ ->
+                remainingValues <- xs
+                Some x
+            | [], true ->
+                match f state with
+                | Res.Continue (values, LoopStateToOption state fstate) ->
+                    state <- fstate
+                    remainingValues <- values
+                    getNext()
+                | Res.Stop values ->
+                    resume <- false
+                    remainingValues <- values
+                    getNext()
+            | _ -> None
+        Evaluable(getNext)
 
     let toSeq (g: LoopGen<_,'s>) : seq<_> =
         let f = run g

@@ -1,7 +1,17 @@
 
-#r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
+#if INTERACTIVE
+#load "../../../LocSta/core.fs"
+#load "../../../LocSta/lib.fs"
+#endif
+
 open LocSta
 open LocSta.Lib.Gen
+
+
+
+
+
+
 
 let html elemName = [
     $"<{elemName}>"

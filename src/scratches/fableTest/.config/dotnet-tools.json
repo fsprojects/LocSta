@@ -2,16 +2,16 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "fake-cli": {
-      "version": "5.20.0",
-      "commands": [
-        "fake"
-      ]
-    },
     "fable": {
-      "version": "3.6.3",
+      "version": "3.2.9",
       "commands": [
         "fable"
+      ]
+    },
+    "femto": {
+      "version": "0.12.0",
+      "commands": [
+        "femto"
       ]
     }
   }
