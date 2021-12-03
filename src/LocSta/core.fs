@@ -39,7 +39,7 @@ type FeedState<'s,'f> = FeedState of 's option * FeedType<'f>
 type FeedRes<'o,'s,'f> = Res<'o, FeedState<'s,'f>>
 type FeedGen<'o,'s,'f> = Gen<FeedRes<'o,'s,'f>, 's> 
 
-// TODO: document both cases
+// TODO: document both cases, BUT: Init is lazy anyway
 type Init<'f> =
     | Init of 'f
     | InitWith of (unit -> 'f)
@@ -374,7 +374,7 @@ module Gen =
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
     type Evaluable<'a>(f: unit -> 'a) =
-        member _.GetNext() = f()
+        member _.Evaluate() = f()
 
     let toEvaluable (g: LoopGen<_,'s>) =
         let f = run g
@@ -399,6 +399,7 @@ module Gen =
             | _ -> None
         Evaluable(getNext)
 
+    // TODO: use toEvaluable
     let toSeq (g: LoopGen<_,'s>) : seq<_> =
         let f = run g
         let mutable state = None
@@ -415,6 +416,7 @@ module Gen =
         }
 
     // TODO: quite redundant with toSeq, but wrapping it's 'g' seems inefficient
+    // TODO: use toEvaluable
     let toSeqFx (fx: 'i -> LoopGen<'o,'s>) : seq<'i> -> seq<'o> =
         let mutable state = None
         let mutable resume = true

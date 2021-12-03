@@ -689,15 +689,15 @@ export function Gen_bindLoopWhateverGen(evalk, buildSkip, createWhatever, m) {
                 }
             }
             else if (isEmpty(mres.fields[0])) {
-                const activePatternResult28900 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
-                const mstate_1 = activePatternResult28900;
+                const activePatternResult76166 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                const mstate_1 = activePatternResult76166;
                 const state_1 = new BindState$3(mstate_1, lastKState, empty(), isStopped);
                 return new Res$2(0, empty(), buildSkip(state_1));
             }
             else {
-                const activePatternResult28899 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                const activePatternResult76165 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
                 const mleftovers = tail(mres.fields[0]);
-                const mstate = activePatternResult28899;
+                const mstate = activePatternResult76165;
                 const mval = head(mres.fields[0]);
                 return evalk(mval, mstate, mleftovers, lastKState, isStopped);
             }
@@ -941,7 +941,7 @@ export function Gen_Evaluable$1_$ctor_9CB17FF(f) {
     return new Gen_Evaluable$1(f);
 }
 
-export function Gen_Evaluable$1__GetNext(_) {
+export function Gen_Evaluable$1__Evaluate(_) {
     return _.f();
 }
 
