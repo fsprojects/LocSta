@@ -7,7 +7,7 @@ module ``Core Tests (Feed)``
 
 open TestHelper
 open LocSta
-open LocSta.Lib.Gen
+open LocSta.Lib
 open NUnit.Framework
 
 

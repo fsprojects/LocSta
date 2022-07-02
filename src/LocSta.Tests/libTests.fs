@@ -9,7 +9,7 @@ module ``Lib Tests``
 open TestHelper
 open FsUnit
 open LocSta
-open LocSta.Lib.Gen
+open LocSta.Lib
 open NUnit.Framework
 
 

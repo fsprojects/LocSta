@@ -1,15 +1,13 @@
 #if INTERACTIVE
 #r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
-open LocSta
-open LocSta.Lib.Gen
-#endif
-
+#else
 module ``Core Tests (Loop)``
 
-open TestHelper
-open LocSta
-open LocSta.Lib.Gen
 open NUnit.Framework
+open TestHelper
+#endif
+
+open LocSta
 
 
 let [<TestCase>] ``yield (repeating single value)`` () =

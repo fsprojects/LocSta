@@ -11,6 +11,7 @@ For the API surface, names like 'value or 'state are used instead of chars.
 // TODO: InlineIfLambda, ValueOptions, Structs
 namespace LocSta
 
+// TODO: Maybe spare of arithmetics and use func only + [<InlineIfLambda>] ?
 type Gen<'o,'s> = Gen of ('s option -> 'o)
 
 // TODO: Is it really a good idea generalizing Res instead of using disjoint results for Feed and Loop?
@@ -19,6 +20,7 @@ type Res<'v,'s> =
     | Continue of 'v list * 's
     | Stop of 'v list
 
+// TODO: Make: FeedType/FeedState and also LoopType/LoopState
 [<RequireQualifiedAccess>]
 type LoopState<'s> =
     | Update of 's
@@ -54,6 +56,7 @@ type BindState<'sm, 'sk, 'm> =
       isStopped: bool }
 
 
+// TODO: Should this be private?
 /// Convenience for working directly with Gen funcs.
 module Res =
     module Loop =
@@ -141,7 +144,6 @@ module Feed =
 
 
 // TODO: make some things internal and expose them explicitly via Gen type
-[<AutoOpen>]
 module Gen =
 
     let run (gen: Gen<_,_>) = let (Gen b) = gen in b
@@ -151,9 +153,9 @@ module Gen =
     // Gen creation
     // --------
 
-    let createGen f = Gen f
-    let createLoop f : LoopGen<_,_> = Gen f
-    let createFeed f : FeedGen<_,_,_> = Gen f
+    let inline createGen ([<InlineIfLambda>] f) = Gen f
+    let inline createLoop ([<InlineIfLambda>] f) : LoopGen<_,_> = Gen f
+    let inline createFeed ([<InlineIfLambda>] f) : FeedGen<_,_,_> = Gen f
 
     
     // --------
@@ -171,7 +173,12 @@ module Gen =
     // --------
 
     // TODO: Bräuchte buildState nicht auch den lastState? Und as TODO von unten - welche Rolle spielt das?
-    let internal bindLoopWhateverGen evalk buildSkip createWhatever m =
+    let inline internal bindLoopWhateverGen 
+        ([<InlineIfLambda>] evalk)
+        ([<InlineIfLambda>] buildSkip)
+        ([<InlineIfLambda>] createWhatever)
+        m
+        =
         fun state ->
             let evalmres mres lastMState lastKState isStopped =
                 match mres with
@@ -196,8 +203,8 @@ module Gen =
                 evalmres (run m None) None None false
         |> createWhatever
 
-    let bind
-        (k: 'o1 -> LoopGen<'o2,'s2>)
+    let inline bind
+        ([<InlineIfLambda>] k: 'o1 -> LoopGen<'o2,'s2>)
         (m: LoopGen<'o1,'s1>)
         : LoopGen<'o2, BindState<'s1,'s2,'o1>>
         =
@@ -217,8 +224,8 @@ module Gen =
         let buildSkip state = LoopState.Update state
         bindLoopWhateverGen evalk buildSkip createLoop m
 
-    let internal bindLoopFeedFeed
-        (k: 'o1 -> FeedGen<'o2,'s2,'f>)
+    let inline internal bindLoopFeedFeed
+        ([<InlineIfLambda>] k: 'o1 -> FeedGen<'o2,'s2,'f>)
         (m: LoopGen<'o1,'s1>)
         : FeedGen<'o2,_,'f> // TODO: _
         =
@@ -232,8 +239,8 @@ module Gen =
         let buildSkip state = FeedState (Some state, FeedType.KeepLast)
         bindLoopWhateverGen evalk buildSkip createFeed m
 
-    let internal bindInitFeedLoop
-        (k: 'f -> FeedGen<'o,'s,'f>)
+    let inline internal bindInitFeedLoop
+        ([<InlineIfLambda>] k: 'f -> FeedGen<'o,'s,'f>)
         (m: Init<'f>)
         : LoopGen<_,_>
         =
@@ -322,9 +329,9 @@ module Gen =
         { astate: 'sa option
           bstate: 'sb option }
 
-    let internal combineLoop
+    let inline internal combineLoop
         (a: LoopGen<'o, 'sa>)
-        (b: unit -> LoopGen<'o, 'sb>)
+        ([<InlineIfLambda>] b: unit -> LoopGen<'o, 'sb>)
         : LoopGen<'o, CombineInfo<'sa,'sb>>
         =
         fun state ->
@@ -343,9 +350,9 @@ module Gen =
         |> createLoop
 
     // Wie genau verhält es sich, wenn ich 2 feeds combine (und 'fa, 'fb, 'fc)?
-    let internal combineFeed
+    let inline internal combineFeed
         (a: FeedGen<'o, 'sa, 'f>)
-        (b: unit -> FeedGen<'o, 'sb, 'f>)
+        ([<InlineIfLambda>] b: unit -> FeedGen<'o, 'sb, 'f>)
         : FeedGen<'o, CombineInfo<'sa,'sb>, 'f>
         =
         fun state ->
@@ -373,7 +380,7 @@ module Gen =
     
     // TODO: same pattern (resumeOrStart, etc.) as in Gen also for Fx
 
-    type Evaluable<'a>(f: unit -> 'a) =
+    type Evaluable<'a>([<InlineIfLambda>] f: unit -> 'a) =
         member _.Evaluate() = f()
 
     let toEvaluable (g: LoopGen<_,'s>) =
@@ -417,7 +424,10 @@ module Gen =
 
     // TODO: quite redundant with toSeq, but wrapping it's 'g' seems inefficient
     // TODO: use toEvaluable
-    let toSeqFx (fx: 'i -> LoopGen<'o,'s>) : seq<'i> -> seq<'o> =
+    let inline toSeqFx
+        ([<InlineIfLambda>] fx: 'i -> LoopGen<'o,'s>)
+        : seq<'i> -> seq<'o>
+        =
         let mutable state = None
         let mutable resume = true
         fun inputValues ->
@@ -436,10 +446,10 @@ module Gen =
     let toList gen =
         toSeq gen |> Seq.toList
 
-    let toListn count gen =
-        toSeq gen |> Seq.truncate count |> Seq.toList
+    let toListn numOfElements gen =
+        toSeq gen |> Seq.truncate numOfElements |> Seq.toList
 
-    let toListFx fx input =
+    let inline toListFx ([<InlineIfLambda>] fx) input =
         input |> toSeqFx fx |> Seq.toList
 
     let toFx (gen: Gen<'s, 'o>) : Fx<unit, 's, 'o> =
@@ -454,13 +464,14 @@ module Gen =
         member _.ReturnFrom(x) = x
         member _.YieldFrom(x) = ofListAllAtOnce x
         member _.Delay(delayed) = delayed
-        member _.Run(delayed) = delayed ()
+        member inline _.Run([<InlineIfLambda>] delayed) = delayed ()
         member _.For(list: list<_>, body) = list |> toListFx body |> ofListAllAtOnce
         // TODO: member _.For(sequence: seq<'a>, body) = ofSeq sequence |> onStopThenSkip |> bind body
 
     type LoopBuilder() =
         inherit BaseBuilder()
-        member _.Bind(m, f) = bind f m
+
+        member inline _.Bind(m, [<InlineIfLambda>] f) = bind f m
         member _.Combine(x, delayed) = combineLoop x delayed
         
         member _.Zero() = returnLoopRes Res.Loop.zero
@@ -483,12 +494,12 @@ module Gen =
     type FeedBuilder() =
         inherit BaseBuilder()
                
-        member _.Bind(m, f) = bindInitFeedLoop f m
-        member _.Bind(m, f) = bind f m
-        member _.Bind(m, f) = bindLoopFeedFeed f m
+        member inline _.Bind(m, [<InlineIfLambda>] f) = bindInitFeedLoop f m
+        member inline _.Bind(m, [<InlineIfLambda>] f) = bind f m
+        member inline _.Bind(m, [<InlineIfLambda>] f) = bindLoopFeedFeed f m
 
-        member _.Combine(x, delayed) = combineLoop x delayed
-        member _.Combine(x, delayed) = combineFeed x delayed
+        member inline _.Combine(x, [<InlineIfLambda>] delayed) = combineLoop x delayed
+        member inline _.Combine(x, [<InlineIfLambda>] delayed) = combineFeed x delayed
         
         // TODO: Die müssen alle in coreLoopTests abgetestet sein
 
@@ -525,13 +536,13 @@ module Gen =
     // Kleisli composition
     // -------
 
-    let pipe (g: Fx<_,_,_>) (f: Gen<_,_>) : Gen<_,_> =
+    let inline pipe ([<InlineIfLambda>] g: Fx<_,_,_>) (f: Gen<_,_>) : Gen<_,_> =
         loop {
             let! f' = f
             return! g f' 
         }
 
-    let pipeFx (g: Fx<_,_,_>) (f: Fx<_,_,_>): Fx<_,_,_> =
+    let inline pipeFx ([<InlineIfLambda>] g: Fx<_,_,_>) (f: Fx<_,_,_>): Fx<_,_,_> =
         fun x -> loop {
             let! f' = f x
             return! g f' 
@@ -542,7 +553,11 @@ module Gen =
     // map / apply / transformation
     // --------
 
-    let map2 (proj: 'v -> LoopState<'s> option -> 'o) (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
+    let inline mapValueAndState 
+        ([<InlineIfLambda>] proj: 'v -> LoopState<'s> option -> 'o) 
+        (inputGen: LoopGen<_,_>) 
+        : LoopGen<_,_> 
+        =
         fun state ->
             let mapValues values state = [ for v in values do proj v state ]
             match run inputGen state with
@@ -552,8 +567,11 @@ module Gen =
                 Res.Loop.emitManyAndStop (mapValues values None)
         |> createLoop
 
-    let map proj (inputGen: LoopGen<_,_>) =
-        map2 (fun v _ -> proj v) inputGen
+    let inline map 
+        ([<InlineIfLambda>] proj) 
+        (inputGen: LoopGen<_,_>) 
+        =
+        mapValueAndState (fun v _ -> proj v) inputGen
 
     let apply xGen fGen =
         loop {
@@ -562,31 +580,6 @@ module Gen =
             let result = f' l'
             yield result
         }
-
-    
-    // -------
-    // count
-    // -------
-    
-    let inline count inclusiveStart increment =
-        feed {
-            let! curr = Init inclusiveStart
-            yield curr, curr + increment
-        }
-
-    let inline countToAndThen inclusiveStart increment inclusiveEnd onEnd =
-        loop {
-            let! c = count inclusiveStart increment
-            match c <= inclusiveEnd with
-            | true -> yield c
-            | false -> return! (createLoop (fun _ -> onEnd))
-        }
-
-    let inline countTo inclusiveStart increment inclusiveEnd =
-        countToAndThen inclusiveStart increment inclusiveEnd Res.Loop.stop
-    
-    let inline countToCyclic inclusiveStart increment inclusiveEnd =
-        countToAndThen inclusiveStart increment inclusiveEnd Res.Loop.skipAndReset
 
 
     // --------
@@ -619,24 +612,39 @@ module Gen =
         onStopThenValues [] inputGen
 
 
+[<AutoOpen>]
+module TopLevelOperators =
+    /// Kleisli operator (fx >> fx)
+    let inline (>=>) ([<InlineIfLambda>] f) ([<InlineIfLambda>] g) = Gen.pipeFx g f
+
+    /// Kleisli "pipe" operator (gen >> fx)
+    let inline (|=>) f ([<InlineIfLambda>] g) = Gen.pipe g f
+
+    /// Bind operator
+    let inline (>>=) m ([<InlineIfLambda>] f) = Gen.bind f m
+
+    let loop = Gen.loop
+    let feed = Gen.feed
+
+
 [<RequireQualifiedAccess>]
 module Arithmetic =
     let inline binOpBoth left right f =
-        Gen.loop {
+        loop {
             let! l = left
             let! r = right
             yield f l r
         }
     
     let inline binOpLeft left right f =
-        Gen.loop {
+        loop {
             let l = left
             let! r = right
             yield f l r
         }
     
     let inline binOpRight left right f =
-        Gen.loop {
+        loop {
             let! l = left
             let r = right
             yield f l r
@@ -669,19 +677,3 @@ type Gen<'o,'s> with
     static member inline (/) (left, right) = Arithmetic.binOpBoth left right (/)
     static member inline (%) (left, right) = Arithmetic.binOpBoth left right (%)
     static member inline (==) (left, right) = Arithmetic.binOpBoth left right (=)
-
-
-[<AutoOpen>]
-module TopLevelOperators =
-
-    /// Kleisli operator (fx >> fx)
-    let (>=>) f g = Gen.pipeFx g f
-
-    /// Kleisli "pipe" operator (gen >> fx)
-    let (|=>) f g = Gen.pipe g f
-
-    /// Bind operator
-    let (>>=) m f = Gen.bind f m
-
-    let loop = Gen.loop
-    let feed = Gen.feed
