@@ -69,7 +69,7 @@ let [<TestCase>] ``Loop.Stop (no value / empty result)`` () =
 
 let [<TestCase>] ``Loop.EmitAndReset`` () =
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         match c = 3 with
         | true -> return Loop.EmitAndReset c
         | false -> yield c
@@ -85,7 +85,7 @@ let [<TestCase>] ``Loop.EmitAndReset`` () =
 
 let [<TestCase>] ``Loop.EmitManyAndReset`` () =
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         match c = 3 with
         | true -> return Loop.EmitManyAndReset [ 66; 77 ]
         | false -> yield c
@@ -101,7 +101,7 @@ let [<TestCase>] ``Loop.EmitManyAndReset`` () =
     
 let [<TestCase>] ``Loop.SkipAndReset`` () =
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         match c = 3 with
         | true -> return Loop.SkipAndReset
         | false -> yield c
@@ -117,7 +117,7 @@ let [<TestCase>] ``Loop.SkipAndReset`` () =
 
 let [<TestCase>] ``Loop.Skip`` () =
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         match c <> 5 with
         | true -> c
         | false -> return Loop.Skip
@@ -128,7 +128,7 @@ let [<TestCase>] ``Loop.Skip`` () =
 
 let [<TestCase>] ``Zero (implicit skip)`` () =
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         if c <> 5 then c
     }
     |> Gen.toListn 10
@@ -147,16 +147,16 @@ let [<TestCase>] ``Combine: yield, yield, yield`` () =
 
 let [<TestCase>] ``Combine: let!, let! yield, let!, let! yield, let!, let! yield`` () =
     loop {
-        let! c11 = count 0 1
-        let! c12 = count 5 1
+        let! c11 = Gen.count 0 1
+        let! c12 = Gen.count 5 1
         yield c11 + c12
 
-        let! c21 = count 10 1
-        let! c22 = count 15 1
+        let! c21 = Gen.count 10 1
+        let! c22 = Gen.count 15 1
         yield c21 + c22
 
-        let! c31 = count 20 1
-        let! c32 = count 25 1
+        let! c31 = Gen.count 20 1
+        let! c32 = Gen.count 25 1
         yield c31 + c32
     }
     |> Gen.toListn 9
@@ -165,10 +165,10 @@ let [<TestCase>] ``Combine: let!, let! yield, let!, let! yield, let!, let! yield
 
 let [<TestCase>] ``Combine: let!, yield, let!, yield, Loop.Stop, yield`` () =
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         yield c
 
-        let! c = count 10 1
+        let! c = Gen.count 10 1
         yield c
 
         return Loop.Stop
@@ -193,7 +193,7 @@ let [<TestCase>] ``Combine: For, let!, For`` () =
         for v in [ 0; 1; 2; 3 ] do
             yield v
 
-        let! c = count 10 10
+        let! c = Gen.count 10 10
         for v in [ 6; 7; 8; 9 ] do
             yield v + c
     }
@@ -207,7 +207,7 @@ let [<TestCase>] ``Combine: For, Zero, let!, For, Zero`` () =
             if v % 2 = 0 then
                 yield v
 
-        let! c = count 10 10
+        let! c = Gen.count 10 10
         for v in [ 4; 5; 6; 7 ] do
             if v % 2 = 0 then
                 yield v + c

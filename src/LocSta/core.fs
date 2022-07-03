@@ -162,12 +162,16 @@ module Gen =
     // Active Recognizers
     // --------
 
+    open System.ComponentModel
+
+    [<EditorBrowsable(EditorBrowsableState.Never)>]
     let (|LoopStateToOption|) defaultState currState =
         match currState with
         | LoopState.Update s -> Some s
         | LoopState.KeepLast -> defaultState
         | LoopState.Reset -> None
-    
+
+
     // --------
     // bind
     // --------
@@ -580,6 +584,10 @@ module Gen =
             let result = f' l'
             yield result
         }
+    
+    // TODO: Test / Docu
+    let withState (inputGen: LoopGen<_,_>) =
+        mapValueAndState (fun v s -> v,s) inputGen
 
 
     // --------
@@ -610,6 +618,152 @@ module Gen =
 
     let inline onStopThenSkip (inputGen: LoopGen<_,_>) : LoopGen<_,_> =
         onStopThenValues [] inputGen
+
+    
+    // -------
+    // count
+    // -------
+
+    let inline count inclusiveStart increment =
+        feed {
+            let! curr = Init inclusiveStart
+            yield curr, curr + increment
+        }
+
+    let inline countToAndDo inclusiveStart increment inclusiveEnd action =
+        loop {
+            let! c = count inclusiveStart increment
+            match c <= inclusiveEnd with
+            | true -> yield c
+            | false -> return! createLoop (fun _ -> action)
+        }
+
+    let inline countTo inclusiveStart increment inclusiveEnd =
+        countToAndDo inclusiveStart increment inclusiveEnd Res.Loop.stop
+
+    let inline countToAndRepeat inclusiveStart increment inclusiveEnd =
+        countToAndDo inclusiveStart increment inclusiveEnd Res.Loop.skipAndReset
+
+    // ----------
+    // control: reset / stop
+    // ----------
+
+    /// Evluates the input gen and passes it's output to the predicate function:
+    /// When that returns true, the input gen is evaluated once again with an empty state.
+    /// It returns the value and a bool indicating if a reset did happen.
+    let inline doWhen ([<InlineIfLambda>] pred: _ -> bool) action (inputGen: LoopGen<_,_>) =
+        loop {
+            let! value,state = withState inputGen
+            if pred value then
+                do action value state
+            yield value
+        }
+
+    /// Evluates the input gen and passes it's output to the predicate function:
+    /// When that returns true, the input gen is evaluated once again with an empty state.
+    let inline resetWhen ([<InlineIfLambda>] pred: _ -> bool) (inputGen: LoopGen<_,_>) =
+        loop {
+            let! value = inputGen
+            if pred value
+                then return Loop.EmitAndReset value
+                else return Loop.Emit value
+        }
+    
+    let inline stopWhen ([<InlineIfLambda>] pred: _ -> bool) (inputGen: LoopGen<_,_>) =
+        loop {
+            let! value = inputGen
+            if pred value
+                then return Loop.Stop
+                else return Loop.Emit value
+        }
+
+    // TODO: doOnStop?
+
+    let resetWhenStop (inputGen: LoopGen<_,_>) =
+        fun state ->
+            match run inputGen state with
+            | Res.Stop values -> Res.Loop.emitManyAndReset values
+            | x -> x
+        |> createLoop
+
+
+    // ----------
+    // accumulate
+    // ----------
+    
+    /// Accumulates each value in a list. 
+    let accumulate value =
+        feed {
+            let! elements = Init []
+            // TODO: Performance
+            let newElements = elements @ [value]
+            yield newElements, newElements
+        }
+    
+    let accumulateOnePart partLength value =
+        loop {
+            let! c = count 0 1
+            let! acc = accumulate value
+            if c = partLength - 1 then
+                // TODO Docu: Interessant - das "Stop" bedeutet nicht, dass die ganze Sequenz beendet wird, sondern
+                // es bedeutet: Wenn irgendwann diese Stelle nochmal evaluiert wird, DANN (und nicht vorher) wird gestoppt.
+                yield acc
+            else if c = partLength then
+                return Loop.Stop
+        }
+    
+    let accumulateManyParts count currentValue =
+        accumulateOnePart count currentValue |> resetWhenStop
+    
+            
+    // ----------
+    // fork
+    // ----------
+    
+    let fork (inputGen: Gen<_,_>) =
+        feed {
+            let! runningStates = Init []
+            let inputGen = run inputGen
+            // TODO: Performance / unclear code
+            let mutable resultValues = []
+            let newForkStates = [
+                for forkState in None :: runningStates do
+                    match inputGen forkState with
+                    | Res.Continue (values, s) ->
+                        resultValues <- resultValues @ values
+                        yield Some s
+                    | Res.Stop values ->
+                        resultValues <- resultValues @ values
+                        yield None
+                ]
+            return Feed.EmitMany (resultValues, newForkStates)
+        }
+    
+
+    // ----------
+    // other seq-like functions
+    // ----------
+
+    let head g = g |> toListn 1 |> List.exactlyOne
+
+    let skip n g =
+        loop {
+            let! v = g
+            let! c = count 0 1
+            if c >= n then
+                yield v
+        }
+
+    // TODO: has "truncate" behaviour
+    let take n g =
+        loop {
+            let! v = g
+            let! c = count 0 1
+            if c < n then
+                yield v
+            else
+                return Loop.Stop
+        }
 
 
 [<AutoOpen>]
@@ -677,3 +831,23 @@ type Gen<'o,'s> with
     static member inline (/) (left, right) = Arithmetic.binOpBoth left right (/)
     static member inline (%) (left, right) = Arithmetic.binOpBoth left right (%)
     static member inline (==) (left, right) = Arithmetic.binOpBoth left right (=)
+
+
+open System.Runtime.CompilerServices
+
+[<Extension>]
+type Extensions() =
+
+    [<Extension>]
+    static member GetSlice(inputGen: LoopGen<'o, 's>, inclStartIdx, inclEndIdx) =
+        let s = max 0 (defaultArg inclStartIdx 0)
+        loop {
+            let! i = Gen.count 0 1
+            let! value = inputGen
+            if i >= s then
+                match inclEndIdx with
+                | Some e when i > e ->
+                    return Loop.Stop
+                | _ ->
+                    yield value
+        }

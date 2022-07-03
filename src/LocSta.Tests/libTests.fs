@@ -1,21 +1,18 @@
 #if INTERACTIVE
 #r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
-open LocSta
-open LocSta.Lib.Gen
-#endif
-
+#else
 module ``Lib Tests``
 
-open TestHelper
-open FsUnit
-open LocSta
-open LocSta.Lib
 open NUnit.Framework
+open TestHelper
+#endif
+
+open LocSta
 
 
-let [<TestCase>] ``Function: whenFuncThenReset`` () =
-    count 0 1
-    |> whenFuncThenReset (fun v -> v = 5)
+let [<TestCase>] ``resetWhen`` () =
+    Gen.count 0 1
+    |> Gen.resetWhen (fun v -> v = 4)
     |> Gen.toListn (5 * 3)
     |> equals
         [ 
@@ -25,10 +22,10 @@ let [<TestCase>] ``Function: whenFuncThenReset`` () =
         ]
 
 
-let [<TestCase>] ``Function: onStopThenReset`` () =
+let [<TestCase>] ``resetWhenStop`` () =
     [0..2]
     |> Gen.ofListOneByOne
-    |> onStopThenReset
+    |> Gen.resetWhenStop
     |> Gen.toListn 9
     |> equals
         [ 
@@ -38,14 +35,14 @@ let [<TestCase>] ``Function: onStopThenReset`` () =
         ]
 
 
-let [<TestCase>] ``Function: count`` () =
-    count 0 1
+let [<TestCase>] ``count`` () =
+    Gen.count 0 1
     |> Gen.toListn 5
     |> equals [0..4]
 
 
 let [<TestCase>] ``Function: countToCyclic`` () =
-    countToCyclic 0 1 3
+    Gen.countToAndRepeat 0 1 3
     |> Gen.toListn 12
     |> equals
         [
@@ -153,8 +150,8 @@ let [<TestCase>] ``Function: onStopThenDefault`` () =
 
 let [<TestCase>] ``Functions: Skip and Take`` () =
     Gen.ofListOneByOne [ 0.. 10 ]
-    |> skip 2 
-    |> take 4
+    |> Gen.skip 2 
+    |> Gen.take 4
     |> Gen.toList
     |> equals [2..5]
 

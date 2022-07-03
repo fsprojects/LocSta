@@ -1,15 +1,13 @@
 #if INTERACTIVE
 #r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
-open LocSta
-#endif
-
+#else
 module ``Use Case Tests``
 
-open TestHelper
-open FsUnit
-open LocSta
-open LocSta.Lib
 open NUnit.Framework
+open TestHelper
+#endif
+
+open LocSta
 
 
 // TODO: More systematic testing
@@ -114,7 +112,7 @@ let [<TestCase>] ``Combine + for (loop)`` () =
 let [<TestCase>] ``Stop after Emit (loop)`` () =
     let expect = 3
     loop {
-        let! c = count 0 1
+        let! c = Gen.count 0 1
         if c = expect then
             yield c
             return Loop.Stop
@@ -127,8 +125,8 @@ let [<TestCase>] ``Stop after Emit (loop)`` () =
 let [<TestCase>] ``Binds + skip (feed)`` () =
     feed {
         let! state = Init 0
-        let! c1 = count 0 10
-        let! c2 = count 0 3
+        let! c1 = Gen.count 0 10
+        let! c2 = Gen.count 0 3
         let currValue = state + c1 + c2
         let nextValue = state + 1
         if currValue % 2 = 0 then
@@ -148,7 +146,7 @@ let [<TestCase>] ``ResetThis + Combine`` () =
     let n = 3
     feed {
         let! state = Init 1
-        let! c = count 10 10
+        let! c = Gen.count 10 10
         let vf = state + c, state + 1
         if state = n then
             yield vf
@@ -172,7 +170,7 @@ let [<TestCase>] ``ResetThis + Combine`` () =
 let [<TestCase>] ``Collect`` () =
     feed {
         let! state = Init 1
-        let! c = count 10 10
+        let! c = Gen.count 10 10
 
         let valueAndFeedback = state + c, state + 1
         if state = 3 then

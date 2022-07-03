@@ -1,14 +1,13 @@
 #if INTERACTIVE
 #r "../LocSta/bin/Debug/netstandard2.0/LocSta.dll"
-open LocSta
-#endif
-
+#else
 module ``Core Tests (Feed)``
 
-open TestHelper
-open LocSta
-open LocSta.Lib
 open NUnit.Framework
+open TestHelper
+#endif
+
+open LocSta
 
 
 // TODO: how model combine on feed?
