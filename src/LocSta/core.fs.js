@@ -1,9 +1,9 @@
 import { Record, Union } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Types.js";
 import { class_type, record_type, bool_type, unit_type, list_type, union_type, lambda_type, option_type } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Reflection.js";
-import { append, head, tail, isEmpty, empty, singleton } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/List.js";
-import { defaultArg, defaultArgWith, value as value_1, some } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Option.js";
-import { equals, getEnumerator } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Util.js";
-import { map, truncate, toList, enumerateWhile, delay } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Seq.js";
+import { exactlyOne, cons, append, head, tail, isEmpty, empty, singleton } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/List.js";
+import { defaultArg, defaultArgWith, some } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Option.js";
+import { comparePrimitives, max, getEnumerator } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Util.js";
+import { singleton as singleton_1, collect, map, truncate, toList, enumerateWhile, delay } from "../scratches/fableTest/src/.fable/fable-library.3.2.9/Seq.js";
 
 export class Gen$2 extends Union {
     constructor(tag, ...fields) {
@@ -647,18 +647,6 @@ export function Gen_run(gen) {
     return b;
 }
 
-export function Gen_createGen(f) {
-    return new Gen$2(0, f);
-}
-
-export function Gen_createLoop(f) {
-    return new Gen$2(0, f);
-}
-
-export function Gen_createFeed(f) {
-    return new Gen$2(0, f);
-}
-
 export function Gen_$007CLoopStateToOption$007C(defaultState, currState) {
     switch (currState.tag) {
         case 1: {
@@ -674,145 +662,8 @@ export function Gen_$007CLoopStateToOption$007C(defaultState, currState) {
     }
 }
 
-export function Gen_bindLoopWhateverGen(evalk, buildSkip, createWhatever, m) {
-    return createWhatever((state) => {
-        let kstate, lastMState_2, isStopped_1, lastKState_1, lastMState_1, x, xs;
-        const evalmres = (mres, lastMState, lastKState, isStopped) => {
-            if (mres.tag === 1) {
-                if (isEmpty(mres.fields[0])) {
-                    return new Res$2(1, empty());
-                }
-                else {
-                    const mleftovers_1 = tail(mres.fields[0]);
-                    const mval_1 = head(mres.fields[0]);
-                    return evalk(mval_1, lastMState, mleftovers_1, lastKState, isStopped);
-                }
-            }
-            else if (isEmpty(mres.fields[0])) {
-                const activePatternResult76166 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
-                const mstate_1 = activePatternResult76166;
-                const state_1 = new BindState$3(mstate_1, lastKState, empty(), isStopped);
-                return new Res$2(0, empty(), buildSkip(state_1));
-            }
-            else {
-                const activePatternResult76165 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
-                const mleftovers = tail(mres.fields[0]);
-                const mstate = activePatternResult76165;
-                const mval = head(mres.fields[0]);
-                return evalk(mval, mstate, mleftovers, lastKState, isStopped);
-            }
-        };
-        return (state == null) ? evalmres(Gen_run(m)(void 0), void 0, void 0, false) : (isEmpty(state.mleftovers) ? (state.isStopped ? (new Res$2(1, empty())) : ((kstate = state.kstate, (lastMState_2 = state.mstate, evalmres(Gen_run(m)(lastMState_2), lastMState_2, kstate, false))))) : ((isStopped_1 = state.isStopped, (lastKState_1 = state.kstate, (lastMState_1 = state.mstate, (x = head(state.mleftovers), (xs = tail(state.mleftovers), evalk(x, lastMState_1, xs, lastKState_1, isStopped_1))))))));
-    });
-}
-
-export function Gen_bind(k, m) {
-    const evalk = (mval, mstate, mleftovers, lastKState, isStopped) => {
-        const matchValue = Gen_run(k(mval))(lastKState);
-        if (matchValue.tag === 1) {
-            const kvalues_1 = matchValue.fields[0];
-            return new Res$2(1, kvalues_1);
-        }
-        else {
-            const kvalues = matchValue.fields[0];
-            const kstate = matchValue.fields[1];
-            const newState = (kstate_1) => (new BindState$3(mstate, kstate_1, mleftovers, isStopped));
-            switch (kstate.tag) {
-                case 1: {
-                    return new Res$2(0, kvalues, new LoopState$1(0, newState(lastKState)));
-                }
-                case 2: {
-                    return new Res$2(0, kvalues, new LoopState$1(2));
-                }
-                default: {
-                    const kstate_2 = kstate.fields[0];
-                    return new Res$2(0, kvalues, new LoopState$1(0, newState(some(kstate_2))));
-                }
-            }
-        }
-    };
-    const buildSkip = (state) => (new LoopState$1(0, state));
-    return Gen_bindLoopWhateverGen(evalk, buildSkip, (f) => Gen_createLoop(f), m);
-}
-
-export function Gen_bindLoopFeedFeed(k, m) {
-    const evalk = (mval, mstate, mleftovers, lastKState, isStopped) => {
-        const matchValue = Gen_run(k(mval))(lastKState);
-        if (matchValue.tag === 1) {
-            const kvalues_1 = matchValue.fields[0];
-            return new Res$2(1, kvalues_1);
-        }
-        else {
-            const kvalues = matchValue.fields[0];
-            const kstate = matchValue.fields[1].fields[0];
-            const feedState = matchValue.fields[1].fields[1];
-            const state = new BindState$3(mstate, kstate, mleftovers, isStopped);
-            return new Res$2(0, kvalues, new FeedState$2(0, state, feedState));
-        }
-    };
-    const buildSkip = (state_1) => (new FeedState$2(0, some(state_1), new FeedType$1(1)));
-    return Gen_bindLoopWhateverGen(evalk, buildSkip, (f) => Gen_createFeed(f), m);
-}
-
-export function Gen_bindInitFeedLoop(k, m) {
-    return Gen_createLoop((state) => {
-        let feedback_4, kstate_3, kstate_2;
-        const getInitial = () => {
-            if (m.tag === 1) {
-                const f = m.fields[0];
-                return f();
-            }
-            else {
-                const m_1 = m.fields[0];
-                return m_1;
-            }
-        };
-        const evalk = (lastFeed, lastKState) => {
-            const matchValue = Gen_run(k(lastFeed))(lastKState);
-            if (matchValue.tag === 1) {
-                const kvalues_1 = matchValue.fields[0];
-                return new Res$2(1, kvalues_1);
-            }
-            else {
-                const kvalues = matchValue.fields[0];
-                const kstate = matchValue.fields[1].fields[0];
-                const feedback = matchValue.fields[1].fields[1];
-                let patternInput;
-                switch (feedback.tag) {
-                    case 1: {
-                        patternInput = [some(lastFeed), kstate];
-                        break;
-                    }
-                    case 2: {
-                        patternInput = [void 0, void 0];
-                        break;
-                    }
-                    case 3: {
-                        patternInput = [void 0, kstate];
-                        break;
-                    }
-                    case 4: {
-                        const feedback_2 = feedback.fields[0];
-                        patternInput = [some(feedback_2), void 0];
-                        break;
-                    }
-                    default: {
-                        const feedback_1 = feedback.fields[0];
-                        patternInput = [some(feedback_1), kstate];
-                    }
-                }
-                const kstate_1 = patternInput[1];
-                const feedback_3 = patternInput[0];
-                const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
-                return new Res$2(0, kvalues, new LoopState$1(0, state_1));
-            }
-        };
-        return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = value_1(state.mstate), (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
-    });
-}
-
 export function Gen_ofRepeatingValues(values) {
-    return Gen_createLoop((_arg1) => (new Res$2(0, values, new LoopState$1(1))));
+    return new Gen$2(0, (_arg1) => (new Res$2(0, values, new LoopState$1(1))));
 }
 
 export function Gen_ofRepeatingValue(value) {
@@ -820,7 +671,7 @@ export function Gen_ofRepeatingValue(value) {
 }
 
 export function Gen_ofOneTimeValues(values) {
-    return Gen_createLoop((_arg1) => (new Res$2(1, values)));
+    return new Gen$2(0, (_arg1) => (new Res$2(1, values)));
 }
 
 export function Gen_ofOneTimeValue(value) {
@@ -828,14 +679,14 @@ export function Gen_ofOneTimeValue(value) {
 }
 
 export function Gen_ofSeqOneByOne(s) {
-    return Gen_createLoop((enumerator) => {
+    return new Gen$2(0, (enumerator) => {
         const enumerator_1 = defaultArgWith(enumerator, () => getEnumerator(s));
         return enumerator_1["System.Collections.IEnumerator.MoveNext"]() ? Res_Loop_emit(enumerator_1["System.Collections.Generic.IEnumerator`1.get_Current"](), enumerator_1) : Res_Loop_stop();
     });
 }
 
 export function Gen_ofListOneByOne(list) {
-    return Gen_createLoop((l) => {
+    return new Gen$2(0, (l) => {
         const l_1 = defaultArg(l, list);
         if (isEmpty(l_1)) {
             return Res_Loop_stop();
@@ -849,7 +700,7 @@ export function Gen_ofListOneByOne(list) {
 }
 
 export function Gen_ofListAllAtOnce(list) {
-    return Gen_createLoop((_arg1) => {
+    return new Gen$2(0, (_arg1) => {
         if (isEmpty(list)) {
             return Res_Loop_stop();
         }
@@ -870,61 +721,6 @@ export class Gen_CombineInfo$2 extends Record {
 
 export function Gen_CombineInfo$2$reflection(gen0, gen1) {
     return record_type("LocSta.Gen.CombineInfo`2", [gen0, gen1], Gen_CombineInfo$2, () => [["astate", option_type(gen0)], ["bstate", option_type(gen1)]]);
-}
-
-export function Gen_combineLoop(a, b) {
-    return Gen_createLoop((state) => {
-        const state_1 = defaultArg(state, new Gen_CombineInfo$2(void 0, void 0));
-        const ares = Gen_run(a)(state_1.astate);
-        if (ares.tag === 1) {
-            const avalues_1 = ares.fields[0];
-            return new Res$2(1, avalues_1);
-        }
-        else {
-            const avalues = ares.fields[0];
-            const astate = Gen_$007CLoopStateToOption$007C(state_1.astate, ares.fields[1]);
-            const bres = Gen_run(b())(state_1.bstate);
-            if (bres.tag === 1) {
-                const bvalues_1 = bres.fields[0];
-                return Res_Loop_emitManyAndStop(append(avalues, bvalues_1));
-            }
-            else {
-                const bvalues = bres.fields[0];
-                const bstate = Gen_$007CLoopStateToOption$007C(state_1.bstate, bres.fields[1]);
-                return Res_Loop_emitMany(append(avalues, bvalues), new Gen_CombineInfo$2(astate, bstate));
-            }
-        }
-    });
-}
-
-export function Gen_combineFeed(a, b) {
-    return Gen_createFeed((state) => {
-        const state_1 = defaultArg(state, new Gen_CombineInfo$2(void 0, void 0));
-        const matchValue = Gen_run(a)(state_1.astate);
-        if (matchValue.tag === 1) {
-            const avalues_1 = matchValue.fields[0];
-            return new Res$2(1, avalues_1);
-        }
-        else {
-            const avalues = matchValue.fields[0];
-            const astate = matchValue.fields[1].fields[0];
-            const afeedback = matchValue.fields[1].fields[1];
-            const matchValue_1 = Gen_run(b())(state_1.bstate);
-            if (matchValue_1.tag === 1) {
-                const bvalues_1 = matchValue_1.fields[0];
-                return new Res$2(1, append(avalues, bvalues_1));
-            }
-            else {
-                const bvalues = matchValue_1.fields[0];
-                const bstate = matchValue_1.fields[1].fields[0];
-                const bfeedback = matchValue_1.fields[1].fields[1];
-                const b_1 = matchValue_1;
-                const finalFeedback = equals(b_1, Res_Feed_zero()) ? afeedback : bfeedback;
-                const state_2 = new Gen_CombineInfo$2(astate, bstate);
-                return new Res$2(0, append(avalues, bvalues), new FeedState$2(0, state_2, finalFeedback));
-            }
-        }
-    });
 }
 
 export class Gen_Evaluable$1 {
@@ -1003,38 +799,12 @@ export function Gen_toSeq(g) {
     })));
 }
 
-export function Gen_toSeqFx(fx) {
-    let state = void 0;
-    let resume = true;
-    return (inputValues) => {
-        const enumerator = getEnumerator(inputValues);
-        return delay(() => enumerateWhile(() => (resume ? enumerator["System.Collections.IEnumerator.MoveNext"]() : false), delay(() => {
-            const matchValue = Gen_run(fx(enumerator["System.Collections.Generic.IEnumerator`1.get_Current"]()))(state);
-            if (matchValue.tag === 1) {
-                const values_1 = matchValue.fields[0];
-                resume = false;
-                return values_1;
-            }
-            else {
-                const values = matchValue.fields[0];
-                const fstate = Gen_$007CLoopStateToOption$007C(state, matchValue.fields[1]);
-                state = fstate;
-                return values;
-            }
-        })));
-    };
-}
-
 export function Gen_toList(gen) {
     return toList(Gen_toSeq(gen));
 }
 
-export function Gen_toListn(count, gen) {
-    return toList(truncate(count, Gen_toSeq(gen)));
-}
-
-export function Gen_toListFx(fx, input) {
-    return toList(Gen_toSeqFx(fx)(input));
+export function Gen_toListn(numOfElements, gen) {
+    return toList(truncate(numOfElements, Gen_toSeq(gen)));
 }
 
 export function Gen_toFx(gen, unitVar0) {
@@ -1066,12 +836,22 @@ export function Gen_BaseBuilder__Delay_1505(_, delayed) {
     return delayed;
 }
 
-export function Gen_BaseBuilder__Run_FCFD9EF(_, delayed) {
-    return delayed();
-}
-
 export function Gen_BaseBuilder__For_Z48B64FBB(_, list, body) {
-    return Gen_ofListAllAtOnce(Gen_toListFx(body, list));
+    let state, resume, enumerator;
+    return Gen_ofListAllAtOnce(toList((state = (void 0), (resume = true, (enumerator = getEnumerator(list), delay(() => enumerateWhile(() => (resume ? enumerator["System.Collections.IEnumerator.MoveNext"]() : false), delay(() => {
+        const matchValue = Gen_run(body(enumerator["System.Collections.Generic.IEnumerator`1.get_Current"]()))(state);
+        if (matchValue.tag === 1) {
+            const values_1 = matchValue.fields[0];
+            resume = false;
+            return values_1;
+        }
+        else {
+            const values = matchValue.fields[0];
+            const fstate = Gen_$007CLoopStateToOption$007C(state, matchValue.fields[1]);
+            state = fstate;
+            return values;
+        }
+    }))))))));
 }
 
 export class Gen_LoopBuilder extends Gen_BaseBuilder {
@@ -1088,73 +868,90 @@ export function Gen_LoopBuilder_$ctor() {
     return new Gen_LoopBuilder();
 }
 
-export function Gen_LoopBuilder__Bind_Z7EFF1A0D(_, m, f) {
-    return Gen_bind(f, m);
-}
-
 export function Gen_LoopBuilder__Combine_463FDD0A(_, x, delayed) {
-    return Gen_combineLoop(x, delayed);
+    return new Gen$2(0, (state) => {
+        const state_1 = defaultArg(state, new Gen_CombineInfo$2(void 0, void 0));
+        const ares = Gen_run(x)(state_1.astate);
+        if (ares.tag === 1) {
+            const avalues_1 = ares.fields[0];
+            return new Res$2(1, avalues_1);
+        }
+        else {
+            const avalues = ares.fields[0];
+            const astate = Gen_$007CLoopStateToOption$007C(state_1.astate, ares.fields[1]);
+            const bres = Gen_run(delayed())(state_1.bstate);
+            if (bres.tag === 1) {
+                const bvalues_1 = bres.fields[0];
+                return Res_Loop_emitManyAndStop(append(avalues, bvalues_1));
+            }
+            else {
+                const bvalues = bres.fields[0];
+                const bstate = Gen_$007CLoopStateToOption$007C(state_1.bstate, bres.fields[1]);
+                return Res_Loop_emitMany(append(avalues, bvalues), new Gen_CombineInfo$2(astate, bstate));
+            }
+        }
+    });
 }
 
 export function Gen_LoopBuilder__Zero(_) {
     const res = Res_Loop_zero();
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Yield_1505(_, value) {
     const res = Res_Loop_emitAndKeepLast(value);
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_Z531701A5(_, _arg1) {
     const value = _arg1.fields[0];
     const res = Res_Loop_emitAndKeepLast(value);
-    return Gen_createLoop((_arg1_1) => res);
+    return new Gen$2(0, (_arg1_1) => res);
 }
 
 export function Gen_LoopBuilder__Return_Z3449CE5B(_, _arg2) {
     const value = _arg2.fields[0];
     const res = Res_Loop_emitAndReset(value);
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_ZAE17398(_, _arg3) {
     const value = _arg3.fields[0];
     const res = Res_Loop_emitAndStop(value);
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_Z7BD98500(_, _arg4) {
     const values = _arg4.fields[0];
     const res = Res_Loop_emitManyAndKeepLast(values);
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_Z48160702(_, _arg5) {
     const values = _arg5.fields[0];
     const res = Res_Loop_emitManyAndReset(values);
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_26201B93(_, _arg6) {
     const values = _arg6.fields[0];
     const res = Res_Loop_emitManyAndStop(values);
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_2CC912DE(_, _arg7) {
     const res = Res_Loop_skipAndKeepLast();
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_3CCCF4A0(_, _arg8) {
     const res = Res_Loop_skipAndReset();
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_LoopBuilder__Return_2CC951C7(_, _arg9) {
     const res = Res_Loop_stop();
-    return Gen_createLoop((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export class Gen_FeedBuilder extends Gen_BaseBuilder {
@@ -1171,167 +968,246 @@ export function Gen_FeedBuilder_$ctor() {
     return new Gen_FeedBuilder();
 }
 
-export function Gen_FeedBuilder__Bind_Z7B4A5563(_, m, f) {
-    return Gen_bindInitFeedLoop(f, m);
-}
-
-export function Gen_FeedBuilder__Bind_Z7EFF1A0D(_, m, f) {
-    return Gen_bind(f, m);
-}
-
-export function Gen_FeedBuilder__Bind_3CE93C44(_, m, f) {
-    return Gen_bindLoopFeedFeed(f, m);
-}
-
-export function Gen_FeedBuilder__Combine_463FDD0A(_, x, delayed) {
-    return Gen_combineLoop(x, delayed);
-}
-
-export function Gen_FeedBuilder__Combine_2B1CB22A(_, x, delayed) {
-    return Gen_combineFeed(x, delayed);
-}
-
 export function Gen_FeedBuilder__Zero(_) {
     const res = Res_Feed_zero();
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Yield_2A0A0(_, value, feedback) {
     const res = Res_Feed_emit(value, feedback);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z2DCF3B94(_, _arg1) {
     const value = _arg1.fields[0];
     const feedback = _arg1.fields[1];
     const res = Res_Feed_emit(value, feedback);
-    return Gen_createFeed((_arg1_1) => res);
+    return new Gen$2(0, (_arg1_1) => res);
 }
 
 export function Gen_FeedBuilder__Return_16BB62BF(_, _arg2) {
     const value = _arg2.fields[0];
     const res = Res_Feed_emitAndKeepLast(value);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z73E685(_, _arg3) {
     const value = _arg3.fields[0];
     const res = Res_Feed_emitAndReset(value);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_52CCB8D2(_, _arg4) {
     const value = _arg4.fields[0];
     const res = Res_Feed_emitAndResetFeedback(value);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_7C29FB64(_, _arg5) {
     const value = _arg5.fields[0];
     const feedback = _arg5.fields[1];
     const res = Res_Feed_emitAndResetDescendants(value, feedback);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z5BEBAC8A(_, _arg6) {
     const value = _arg6.fields[0];
     const res = Res_Feed_emitAndStop(value);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z6686A729(_, _arg7) {
     const values = _arg7.fields[0];
     const feedback = _arg7.fields[1];
     const res = Res_Feed_emitMany(values, feedback);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_12885A84(_, _arg8) {
     const values = _arg8.fields[0];
     const res = Res_Feed_emitManyAndKeepLast(values);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z2ED10DE0(_, _arg9) {
     const values = _arg9.fields[0];
     const res = Res_Feed_emitManyAndReset(values);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z5D1E60B7(_, _arg10) {
     const values = _arg10.fields[0];
     const res = Res_Feed_emitManyAndResetFeedback(values);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z57703541(_, _arg11) {
     const values = _arg11.fields[0];
     const feedback = _arg11.fields[1];
     const res = Res_Feed_emitManyAndResetDescendants(values, feedback);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_3C05DB8D(_, _arg12) {
     const values = _arg12.fields[0];
     const res = Res_Feed_emitManyAndStop(values);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z46B6E02F(_, _arg13) {
     const feedback = _arg13.fields[0];
     const res = Res_Feed_skip(feedback);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_1F197D3A(_, _arg14) {
     const res = Res_Feed_skipAndKeepLast();
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_435D107E(_, _arg15) {
     const res = Res_Feed_skipAndReset();
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z2C47D729(_, _arg16) {
     const res = Res_Feed_skipAndResetFeedback();
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_18629FD9(_, _arg17) {
     const feedback = _arg17.fields[0];
     const res = Res_Feed_skipAndResetDescendants(feedback);
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export function Gen_FeedBuilder__Return_Z3B1223E7(_, _arg18) {
     const res = Res_Feed_stop();
-    return Gen_createFeed((_arg1) => res);
+    return new Gen$2(0, (_arg1) => res);
 }
 
 export const Gen_loop = Gen_LoopBuilder_$ctor();
 
 export const Gen_feed = Gen_FeedBuilder_$ctor();
 
-export function Gen_pipe(g, f) {
+export function Gen_apply(xGen, fGen) {
     const builder$0040 = Gen_loop;
-    return Gen_BaseBuilder__Run_FCFD9EF(builder$0040, Gen_BaseBuilder__Delay_1505(builder$0040, () => Gen_LoopBuilder__Bind_Z7EFF1A0D(builder$0040, f, (_arg1) => {
-        const f$0027 = _arg1;
-        return Gen_BaseBuilder__ReturnFrom_1505(builder$0040, g(f$0027));
-    })));
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const evalk_2 = (mval_3, mstate_3, mleftovers_3, lastKState_3, isStopped_3) => {
+            let l$0027, evalk, buildSkip, evalk_1, m_2;
+            const matchValue_1 = Gen_run((l$0027 = mval_3, (evalk = ((mval, mstate, mleftovers, lastKState, isStopped) => {
+                let f$0027, result;
+                const matchValue = Gen_run((f$0027 = mval, (result = f$0027(l$0027), Gen_LoopBuilder__Yield_1505(builder$0040, result))))(lastKState);
+                if (matchValue.tag === 1) {
+                    const kvalues_1 = matchValue.fields[0];
+                    return new Res$2(1, kvalues_1);
+                }
+                else {
+                    const kvalues = matchValue.fields[0];
+                    const kstate = matchValue.fields[1];
+                    const newState = (kstate_1) => (new BindState$3(mstate, kstate_1, mleftovers, isStopped));
+                    switch (kstate.tag) {
+                        case 1: {
+                            return new Res$2(0, kvalues, new LoopState$1(0, newState(lastKState)));
+                        }
+                        case 2: {
+                            return new Res$2(0, kvalues, new LoopState$1(2));
+                        }
+                        default: {
+                            const kstate_2 = kstate.fields[0];
+                            return new Res$2(0, kvalues, new LoopState$1(0, newState(some(kstate_2))));
+                        }
+                    }
+                }
+            }), (buildSkip = ((state) => (new LoopState$1(0, state))), (evalk_1 = evalk, (m_2 = fGen, new Gen$2(0, (state_1) => {
+                let kstate_3, lastMState_2, isStopped_2, lastKState_2, lastMState_1, x, xs;
+                const evalmres = (mres, lastMState, lastKState_1, isStopped_1) => {
+                    if (mres.tag === 1) {
+                        if (isEmpty(mres.fields[0])) {
+                            return new Res$2(1, empty());
+                        }
+                        else {
+                            const mleftovers_2 = tail(mres.fields[0]);
+                            const mval_2 = head(mres.fields[0]);
+                            return evalk_1(mval_2, lastMState, mleftovers_2, lastKState_1, isStopped_1);
+                        }
+                    }
+                    else if (isEmpty(mres.fields[0])) {
+                        const activePatternResult854 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mstate_2 = activePatternResult854;
+                        const state_2 = new BindState$3(mstate_2, lastKState_1, empty(), isStopped_1);
+                        return new Res$2(0, empty(), buildSkip(state_2));
+                    }
+                    else {
+                        const activePatternResult853 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mleftovers_1 = tail(mres.fields[0]);
+                        const mstate_1 = activePatternResult853;
+                        const mval_1 = head(mres.fields[0]);
+                        return evalk_1(mval_1, mstate_1, mleftovers_1, lastKState_1, isStopped_1);
+                    }
+                };
+                return (state_1 == null) ? evalmres(Gen_run(m_2)(void 0), void 0, void 0, false) : (isEmpty(state_1.mleftovers) ? (state_1.isStopped ? (new Res$2(1, empty())) : ((kstate_3 = state_1.kstate, (lastMState_2 = state_1.mstate, evalmres(Gen_run(m_2)(lastMState_2), lastMState_2, kstate_3, false))))) : ((isStopped_2 = state_1.isStopped, (lastKState_2 = state_1.kstate, (lastMState_1 = state_1.mstate, (x = head(state_1.mleftovers), (xs = tail(state_1.mleftovers), evalk_1(x, lastMState_1, xs, lastKState_2, isStopped_2))))))));
+            })))))))(lastKState_3);
+            if (matchValue_1.tag === 1) {
+                const kvalues_3 = matchValue_1.fields[0];
+                return new Res$2(1, kvalues_3);
+            }
+            else {
+                const kvalues_2 = matchValue_1.fields[0];
+                const kstate_4 = matchValue_1.fields[1];
+                const newState_1 = (kstate_5) => (new BindState$3(mstate_3, kstate_5, mleftovers_3, isStopped_3));
+                switch (kstate_4.tag) {
+                    case 1: {
+                        return new Res$2(0, kvalues_2, new LoopState$1(0, newState_1(lastKState_3)));
+                    }
+                    case 2: {
+                        return new Res$2(0, kvalues_2, new LoopState$1(2));
+                    }
+                    default: {
+                        const kstate_6 = kstate_4.fields[0];
+                        return new Res$2(0, kvalues_2, new LoopState$1(0, newState_1(kstate_6)));
+                    }
+                }
+            }
+        };
+        const buildSkip_2 = (state_3) => (new LoopState$1(0, state_3));
+        const evalk_3 = evalk_2;
+        const m_5 = xGen;
+        return new Gen$2(0, (state_4) => {
+            let kstate_7, lastMState_5, isStopped_5, lastKState_5, lastMState_4, x_1, xs_1;
+            const evalmres_1 = (mres_1, lastMState_3, lastKState_4, isStopped_4) => {
+                if (mres_1.tag === 1) {
+                    if (isEmpty(mres_1.fields[0])) {
+                        return new Res$2(1, empty());
+                    }
+                    else {
+                        const mleftovers_5 = tail(mres_1.fields[0]);
+                        const mval_5 = head(mres_1.fields[0]);
+                        return evalk_3(mval_5, lastMState_3, mleftovers_5, lastKState_4, isStopped_4);
+                    }
+                }
+                else if (isEmpty(mres_1.fields[0])) {
+                    const activePatternResult854_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mstate_5 = activePatternResult854_1;
+                    const state_5 = new BindState$3(mstate_5, lastKState_4, empty(), isStopped_4);
+                    return new Res$2(0, empty(), buildSkip_2(state_5));
+                }
+                else {
+                    const activePatternResult853_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mleftovers_4 = tail(mres_1.fields[0]);
+                    const mstate_4 = activePatternResult853_1;
+                    const mval_4 = head(mres_1.fields[0]);
+                    return evalk_3(mval_4, mstate_4, mleftovers_4, lastKState_4, isStopped_4);
+                }
+            };
+            return (state_4 == null) ? evalmres_1(Gen_run(m_5)(void 0), void 0, void 0, false) : (isEmpty(state_4.mleftovers) ? (state_4.isStopped ? (new Res$2(1, empty())) : ((kstate_7 = state_4.kstate, (lastMState_5 = state_4.mstate, evalmres_1(Gen_run(m_5)(lastMState_5), lastMState_5, kstate_7, false))))) : ((isStopped_5 = state_4.isStopped, (lastKState_5 = state_4.kstate, (lastMState_4 = state_4.mstate, (x_1 = head(state_4.mleftovers), (xs_1 = tail(state_4.mleftovers), evalk_3(x_1, lastMState_4, xs_1, lastKState_5, isStopped_5))))))));
+        });
+    })();
 }
 
-export function Gen_pipeFx(g, f, x) {
-    const builder$0040 = Gen_loop;
-    return Gen_BaseBuilder__Run_FCFD9EF(builder$0040, Gen_BaseBuilder__Delay_1505(builder$0040, () => Gen_LoopBuilder__Bind_Z7EFF1A0D(builder$0040, f(x), (_arg1) => {
-        const f$0027 = _arg1;
-        return Gen_BaseBuilder__ReturnFrom_1505(builder$0040, g(f$0027));
-    })));
-}
-
-export function Gen_map2(proj, inputGen) {
-    return Gen_createLoop((state) => {
-        const mapValues = (values, state_1) => toList(delay(() => map((v) => proj(v, state_1), values)));
+export function Gen_withState(inputGen) {
+    return new Gen$2(0, (state) => {
+        const mapValues = (values, state_1) => toList(delay(() => map((v_1) => [v_1, state_1], values)));
         const matchValue = Gen_run(inputGen)(state);
         if (matchValue.tag === 1) {
             const values_2 = matchValue.fields[0];
@@ -1343,22 +1219,6 @@ export function Gen_map2(proj, inputGen) {
             return new Res$2(0, mapValues(values_1, state_2), state_2);
         }
     });
-}
-
-export function Gen_map(proj, inputGen) {
-    return Gen_map2((v, _arg1) => proj(v), inputGen);
-}
-
-export function Gen_apply(xGen, fGen) {
-    const builder$0040 = Gen_loop;
-    return Gen_BaseBuilder__Run_FCFD9EF(builder$0040, Gen_BaseBuilder__Delay_1505(builder$0040, () => Gen_LoopBuilder__Bind_Z7EFF1A0D(builder$0040, xGen, (_arg1) => {
-        const l$0027 = _arg1;
-        return Gen_LoopBuilder__Bind_Z7EFF1A0D(builder$0040, fGen, (_arg2) => {
-            const f$0027 = _arg2;
-            const result = f$0027(l$0027);
-            return Gen_LoopBuilder__Yield_1505(builder$0040, result);
-        });
-    })));
 }
 
 export class Gen_OnStopThenState$1 extends Union {
@@ -1376,19 +1236,872 @@ export function Gen_OnStopThenState$1$reflection(gen0) {
     return union_type("LocSta.Gen.OnStopThenState`1", [gen0], Gen_OnStopThenState$1, () => [[["Item", option_type(gen0)]], []]);
 }
 
-export function TopLevelOperators_op_GreaterEqualsGreater(f, g) {
-    return (x) => Gen_pipeFx(g, f, x);
+export function Gen_resetWhenStop(inputGen) {
+    return new Gen$2(0, (state) => {
+        const matchValue = Gen_run(inputGen)(state);
+        if (matchValue.tag === 1) {
+            const values = matchValue.fields[0];
+            return Res_Loop_emitManyAndReset(values);
+        }
+        else {
+            const x = matchValue;
+            return x;
+        }
+    });
 }
 
-export function TopLevelOperators_op_BarEqualsGreater(f, g) {
-    return Gen_pipe(g, f);
+export function Gen_accumulate(value) {
+    const builder$0040 = Gen_feed;
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const m_1 = new Init$1(0, empty());
+        return new Gen$2(0, (state) => {
+            let feedback_4, kstate_3, kstate_2;
+            const getInitial = () => {
+                if (m_1.tag === 1) {
+                    const f_1 = m_1.fields[0];
+                    return f_1();
+                }
+                else {
+                    const m_2 = m_1.fields[0];
+                    return m_2;
+                }
+            };
+            const evalk = (lastFeed, lastKState) => {
+                let elements, newElements, tupledArg;
+                const matchValue = Gen_run((elements = lastFeed, (newElements = append(elements, singleton(value)), (tupledArg = [newElements, newElements], Gen_FeedBuilder__Yield_2A0A0(builder$0040, tupledArg[0], tupledArg[1])))))(lastKState);
+                if (matchValue.tag === 1) {
+                    const kvalues_1 = matchValue.fields[0];
+                    return new Res$2(1, kvalues_1);
+                }
+                else {
+                    const kvalues = matchValue.fields[0];
+                    const kstate = matchValue.fields[1].fields[0];
+                    const feedback = matchValue.fields[1].fields[1];
+                    let patternInput;
+                    switch (feedback.tag) {
+                        case 1: {
+                            patternInput = [lastFeed, kstate];
+                            break;
+                        }
+                        case 2: {
+                            patternInput = [void 0, void 0];
+                            break;
+                        }
+                        case 3: {
+                            patternInput = [void 0, kstate];
+                            break;
+                        }
+                        case 4: {
+                            const feedback_2 = feedback.fields[0];
+                            patternInput = [feedback_2, void 0];
+                            break;
+                        }
+                        default: {
+                            const feedback_1 = feedback.fields[0];
+                            patternInput = [feedback_1, kstate];
+                        }
+                    }
+                    const kstate_1 = patternInput[1];
+                    const feedback_3 = patternInput[0];
+                    const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
+                    return new Res$2(0, kvalues, new LoopState$1(0, state_1));
+                }
+            };
+            return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = state.mstate, (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
+        });
+    })();
 }
 
-export function TopLevelOperators_op_GreaterGreaterEquals(m, f) {
-    return Gen_bind(f, m);
+export function Gen_accumulateOnePart(partLength, value) {
+    const builder$0040 = Gen_loop;
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const evalk_3 = (mval_3, mstate_3, mleftovers_3, lastKState_4, isStopped_3) => {
+            let c, evalk_1, buildSkip, evalk_2, m_5;
+            const matchValue_2 = Gen_run((c = (mval_3 | 0), (evalk_1 = ((mval, mstate, mleftovers, lastKState_1, isStopped) => {
+                let acc;
+                const matchValue_1 = Gen_run((acc = mval, (c === (partLength - 1)) ? Gen_LoopBuilder__Yield_1505(builder$0040, acc) : ((c === partLength) ? Gen_LoopBuilder__Return_2CC951C7(builder$0040, new Loop_Stop(0)) : Gen_LoopBuilder__Zero(builder$0040))))(lastKState_1);
+                if (matchValue_1.tag === 1) {
+                    const kvalues_3 = matchValue_1.fields[0];
+                    return new Res$2(1, kvalues_3);
+                }
+                else {
+                    const kvalues_2 = matchValue_1.fields[0];
+                    const kstate_4 = matchValue_1.fields[1];
+                    const newState = (kstate_5) => (new BindState$3(mstate, kstate_5, mleftovers, isStopped));
+                    switch (kstate_4.tag) {
+                        case 1: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(lastKState_1)));
+                        }
+                        case 2: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(2));
+                        }
+                        default: {
+                            const kstate_6 = kstate_4.fields[0];
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(some(kstate_6))));
+                        }
+                    }
+                }
+            }), (buildSkip = ((state_2) => (new LoopState$1(0, state_2))), (evalk_2 = evalk_1, (m_5 = Gen_accumulate(value), new Gen$2(0, (state_3) => {
+                let kstate_7, lastMState_2, isStopped_2, lastKState_3, lastMState_1, x, xs;
+                const evalmres = (mres, lastMState, lastKState_2, isStopped_1) => {
+                    if (mres.tag === 1) {
+                        if (isEmpty(mres.fields[0])) {
+                            return new Res$2(1, empty());
+                        }
+                        else {
+                            const mleftovers_2 = tail(mres.fields[0]);
+                            const mval_2 = head(mres.fields[0]);
+                            return evalk_2(mval_2, lastMState, mleftovers_2, lastKState_2, isStopped_1);
+                        }
+                    }
+                    else if (isEmpty(mres.fields[0])) {
+                        const activePatternResult854 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mstate_2 = activePatternResult854;
+                        const state_4 = new BindState$3(mstate_2, lastKState_2, empty(), isStopped_1);
+                        return new Res$2(0, empty(), buildSkip(state_4));
+                    }
+                    else {
+                        const activePatternResult853 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mleftovers_1 = tail(mres.fields[0]);
+                        const mstate_1 = activePatternResult853;
+                        const mval_1 = head(mres.fields[0]);
+                        return evalk_2(mval_1, mstate_1, mleftovers_1, lastKState_2, isStopped_1);
+                    }
+                };
+                return (state_3 == null) ? evalmres(Gen_run(m_5)(void 0), void 0, void 0, false) : (isEmpty(state_3.mleftovers) ? (state_3.isStopped ? (new Res$2(1, empty())) : ((kstate_7 = state_3.kstate, (lastMState_2 = state_3.mstate, evalmres(Gen_run(m_5)(lastMState_2), lastMState_2, kstate_7, false))))) : ((isStopped_2 = state_3.isStopped, (lastKState_3 = state_3.kstate, (lastMState_1 = state_3.mstate, (x = head(state_3.mleftovers), (xs = tail(state_3.mleftovers), evalk_2(x, lastMState_1, xs, lastKState_3, isStopped_2))))))));
+            })))))))(lastKState_4);
+            if (matchValue_2.tag === 1) {
+                const kvalues_5 = matchValue_2.fields[0];
+                return new Res$2(1, kvalues_5);
+            }
+            else {
+                const kvalues_4 = matchValue_2.fields[0];
+                const kstate_8 = matchValue_2.fields[1];
+                const newState_1 = (kstate_9) => (new BindState$3(mstate_3, kstate_9, mleftovers_3, isStopped_3));
+                switch (kstate_8.tag) {
+                    case 1: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(lastKState_4)));
+                    }
+                    case 2: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(2));
+                    }
+                    default: {
+                        const kstate_10 = kstate_8.fields[0];
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(kstate_10)));
+                    }
+                }
+            }
+        };
+        const buildSkip_2 = (state_5) => (new LoopState$1(0, state_5));
+        const evalk_4 = evalk_3;
+        let m_8;
+        const builder$0040_1 = Gen_feed;
+        m_8 = Gen_BaseBuilder__Delay_1505(builder$0040_1, () => {
+            const m_1 = new Init$1(0, 0);
+            return new Gen$2(0, (state) => {
+                let feedback_4, kstate_3, kstate_2;
+                const getInitial = () => {
+                    if (m_1.tag === 1) {
+                        const f_1 = m_1.fields[0];
+                        return f_1() | 0;
+                    }
+                    else {
+                        const m_2 = m_1.fields[0];
+                        return m_2 | 0;
+                    }
+                };
+                const evalk = (lastFeed, lastKState) => {
+                    let curr, tupledArg;
+                    const matchValue = Gen_run((curr = (lastFeed | 0), (tupledArg = [curr, curr + 1], Gen_FeedBuilder__Yield_2A0A0(builder$0040_1, tupledArg[0], tupledArg[1]))))(lastKState);
+                    if (matchValue.tag === 1) {
+                        const kvalues_1 = matchValue.fields[0];
+                        return new Res$2(1, kvalues_1);
+                    }
+                    else {
+                        const kvalues = matchValue.fields[0];
+                        const kstate = matchValue.fields[1].fields[0];
+                        const feedback = matchValue.fields[1].fields[1];
+                        let patternInput;
+                        switch (feedback.tag) {
+                            case 1: {
+                                patternInput = [lastFeed, kstate];
+                                break;
+                            }
+                            case 2: {
+                                patternInput = [void 0, void 0];
+                                break;
+                            }
+                            case 3: {
+                                patternInput = [void 0, kstate];
+                                break;
+                            }
+                            case 4: {
+                                const feedback_2 = feedback.fields[0];
+                                patternInput = [feedback_2, void 0];
+                                break;
+                            }
+                            default: {
+                                const feedback_1 = feedback.fields[0];
+                                patternInput = [feedback_1, kstate];
+                            }
+                        }
+                        const kstate_1 = patternInput[1];
+                        const feedback_3 = patternInput[0];
+                        const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
+                        return new Res$2(0, kvalues, new LoopState$1(0, state_1));
+                    }
+                };
+                return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = (state.mstate | 0), (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
+            });
+        })();
+        return new Gen$2(0, (state_6) => {
+            let kstate_11, lastMState_5, isStopped_5, lastKState_6, lastMState_4, x_1, xs_1;
+            const evalmres_1 = (mres_1, lastMState_3, lastKState_5, isStopped_4) => {
+                if (mres_1.tag === 1) {
+                    if (isEmpty(mres_1.fields[0])) {
+                        return new Res$2(1, empty());
+                    }
+                    else {
+                        const mleftovers_5 = tail(mres_1.fields[0]);
+                        const mval_5 = head(mres_1.fields[0]) | 0;
+                        return evalk_4(mval_5, lastMState_3, mleftovers_5, lastKState_5, isStopped_4);
+                    }
+                }
+                else if (isEmpty(mres_1.fields[0])) {
+                    const activePatternResult854_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mstate_5 = activePatternResult854_1;
+                    const state_7 = new BindState$3(mstate_5, lastKState_5, empty(), isStopped_4);
+                    return new Res$2(0, empty(), buildSkip_2(state_7));
+                }
+                else {
+                    const activePatternResult853_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mleftovers_4 = tail(mres_1.fields[0]);
+                    const mstate_4 = activePatternResult853_1;
+                    const mval_4 = head(mres_1.fields[0]) | 0;
+                    return evalk_4(mval_4, mstate_4, mleftovers_4, lastKState_5, isStopped_4);
+                }
+            };
+            return (state_6 == null) ? evalmres_1(Gen_run(m_8)(void 0), void 0, void 0, false) : (isEmpty(state_6.mleftovers) ? (state_6.isStopped ? (new Res$2(1, empty())) : ((kstate_11 = state_6.kstate, (lastMState_5 = state_6.mstate, evalmres_1(Gen_run(m_8)(lastMState_5), lastMState_5, kstate_11, false))))) : ((isStopped_5 = state_6.isStopped, (lastKState_6 = state_6.kstate, (lastMState_4 = state_6.mstate, (x_1 = (head(state_6.mleftovers) | 0), (xs_1 = tail(state_6.mleftovers), evalk_4(x_1, lastMState_4, xs_1, lastKState_6, isStopped_5))))))));
+        });
+    })();
+}
+
+export function Gen_accumulateManyParts(count, currentValue) {
+    return Gen_resetWhenStop(Gen_accumulateOnePart(count, currentValue));
+}
+
+export function Gen_fork(inputGen) {
+    const builder$0040 = Gen_feed;
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const m_1 = new Init$1(0, empty());
+        return new Gen$2(0, (state) => {
+            let feedback_4, kstate_3, kstate_2;
+            const getInitial = () => {
+                if (m_1.tag === 1) {
+                    const f_1 = m_1.fields[0];
+                    return f_1();
+                }
+                else {
+                    const m_2 = m_1.fields[0];
+                    return m_2;
+                }
+            };
+            const evalk = (lastFeed, lastKState) => {
+                let runningStates, inputGen_1, resultValues, newForkStates;
+                const matchValue_1 = Gen_run((runningStates = lastFeed, (inputGen_1 = Gen_run(inputGen), (resultValues = empty(), (newForkStates = toList(delay(() => collect((forkState) => {
+                    const matchValue = inputGen_1(forkState);
+                    if (matchValue.tag === 1) {
+                        const values_1 = matchValue.fields[0];
+                        resultValues = append(resultValues, values_1);
+                        return singleton_1(void 0);
+                    }
+                    else {
+                        const values = matchValue.fields[0];
+                        const s = matchValue.fields[1];
+                        resultValues = append(resultValues, values);
+                        return singleton_1(some(s));
+                    }
+                }, cons(void 0, runningStates)))), Gen_FeedBuilder__Return_Z6686A729(builder$0040, new Feed_EmitMany$2(0, resultValues, newForkStates)))))))(lastKState);
+                if (matchValue_1.tag === 1) {
+                    const kvalues_1 = matchValue_1.fields[0];
+                    return new Res$2(1, kvalues_1);
+                }
+                else {
+                    const kvalues = matchValue_1.fields[0];
+                    const kstate = matchValue_1.fields[1].fields[0];
+                    const feedback = matchValue_1.fields[1].fields[1];
+                    let patternInput;
+                    switch (feedback.tag) {
+                        case 1: {
+                            patternInput = [lastFeed, kstate];
+                            break;
+                        }
+                        case 2: {
+                            patternInput = [void 0, void 0];
+                            break;
+                        }
+                        case 3: {
+                            patternInput = [void 0, kstate];
+                            break;
+                        }
+                        case 4: {
+                            const feedback_2 = feedback.fields[0];
+                            patternInput = [feedback_2, void 0];
+                            break;
+                        }
+                        default: {
+                            const feedback_1 = feedback.fields[0];
+                            patternInput = [feedback_1, kstate];
+                        }
+                    }
+                    const kstate_1 = patternInput[1];
+                    const feedback_3 = patternInput[0];
+                    const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
+                    return new Res$2(0, kvalues, new LoopState$1(0, state_1));
+                }
+            };
+            return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = state.mstate, (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
+        });
+    })();
+}
+
+export function Gen_head(g) {
+    return exactlyOne(Gen_toListn(1, g));
+}
+
+export function Gen_skip(n, g) {
+    const builder$0040 = Gen_loop;
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const evalk_3 = (mval_3, mstate_3, mleftovers_3, lastKState_4, isStopped_3) => {
+            let v, evalk_1, buildSkip, evalk_2, m_5, builder$0040_1;
+            const matchValue_2 = Gen_run((v = mval_3, (evalk_1 = ((mval, mstate, mleftovers, lastKState_1, isStopped) => {
+                let c;
+                const matchValue_1 = Gen_run((c = (mval | 0), (c >= n) ? Gen_LoopBuilder__Yield_1505(builder$0040, v) : Gen_LoopBuilder__Zero(builder$0040)))(lastKState_1);
+                if (matchValue_1.tag === 1) {
+                    const kvalues_3 = matchValue_1.fields[0];
+                    return new Res$2(1, kvalues_3);
+                }
+                else {
+                    const kvalues_2 = matchValue_1.fields[0];
+                    const kstate_4 = matchValue_1.fields[1];
+                    const newState = (kstate_5) => (new BindState$3(mstate, kstate_5, mleftovers, isStopped));
+                    switch (kstate_4.tag) {
+                        case 1: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(lastKState_1)));
+                        }
+                        case 2: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(2));
+                        }
+                        default: {
+                            const kstate_6 = kstate_4.fields[0];
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(some(kstate_6))));
+                        }
+                    }
+                }
+            }), (buildSkip = ((state_2) => (new LoopState$1(0, state_2))), (evalk_2 = evalk_1, (m_5 = ((builder$0040_1 = Gen_feed, Gen_BaseBuilder__Delay_1505(builder$0040_1, () => {
+                const m_1 = new Init$1(0, 0);
+                return new Gen$2(0, (state) => {
+                    let feedback_4, kstate_3, kstate_2;
+                    const getInitial = () => {
+                        if (m_1.tag === 1) {
+                            const f_1 = m_1.fields[0];
+                            return f_1() | 0;
+                        }
+                        else {
+                            const m_2 = m_1.fields[0];
+                            return m_2 | 0;
+                        }
+                    };
+                    const evalk = (lastFeed, lastKState) => {
+                        let curr, tupledArg;
+                        const matchValue = Gen_run((curr = (lastFeed | 0), (tupledArg = [curr, curr + 1], Gen_FeedBuilder__Yield_2A0A0(builder$0040_1, tupledArg[0], tupledArg[1]))))(lastKState);
+                        if (matchValue.tag === 1) {
+                            const kvalues_1 = matchValue.fields[0];
+                            return new Res$2(1, kvalues_1);
+                        }
+                        else {
+                            const kvalues = matchValue.fields[0];
+                            const kstate = matchValue.fields[1].fields[0];
+                            const feedback = matchValue.fields[1].fields[1];
+                            let patternInput;
+                            switch (feedback.tag) {
+                                case 1: {
+                                    patternInput = [lastFeed, kstate];
+                                    break;
+                                }
+                                case 2: {
+                                    patternInput = [void 0, void 0];
+                                    break;
+                                }
+                                case 3: {
+                                    patternInput = [void 0, kstate];
+                                    break;
+                                }
+                                case 4: {
+                                    const feedback_2 = feedback.fields[0];
+                                    patternInput = [feedback_2, void 0];
+                                    break;
+                                }
+                                default: {
+                                    const feedback_1 = feedback.fields[0];
+                                    patternInput = [feedback_1, kstate];
+                                }
+                            }
+                            const kstate_1 = patternInput[1];
+                            const feedback_3 = patternInput[0];
+                            const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
+                            return new Res$2(0, kvalues, new LoopState$1(0, state_1));
+                        }
+                    };
+                    return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = (state.mstate | 0), (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
+                });
+            })())), new Gen$2(0, (state_3) => {
+                let kstate_7, lastMState_2, isStopped_2, lastKState_3, lastMState_1, x, xs;
+                const evalmres = (mres, lastMState, lastKState_2, isStopped_1) => {
+                    if (mres.tag === 1) {
+                        if (isEmpty(mres.fields[0])) {
+                            return new Res$2(1, empty());
+                        }
+                        else {
+                            const mleftovers_2 = tail(mres.fields[0]);
+                            const mval_2 = head(mres.fields[0]) | 0;
+                            return evalk_2(mval_2, lastMState, mleftovers_2, lastKState_2, isStopped_1);
+                        }
+                    }
+                    else if (isEmpty(mres.fields[0])) {
+                        const activePatternResult854 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mstate_2 = activePatternResult854;
+                        const state_4 = new BindState$3(mstate_2, lastKState_2, empty(), isStopped_1);
+                        return new Res$2(0, empty(), buildSkip(state_4));
+                    }
+                    else {
+                        const activePatternResult853 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mleftovers_1 = tail(mres.fields[0]);
+                        const mstate_1 = activePatternResult853;
+                        const mval_1 = head(mres.fields[0]) | 0;
+                        return evalk_2(mval_1, mstate_1, mleftovers_1, lastKState_2, isStopped_1);
+                    }
+                };
+                return (state_3 == null) ? evalmres(Gen_run(m_5)(void 0), void 0, void 0, false) : (isEmpty(state_3.mleftovers) ? (state_3.isStopped ? (new Res$2(1, empty())) : ((kstate_7 = state_3.kstate, (lastMState_2 = state_3.mstate, evalmres(Gen_run(m_5)(lastMState_2), lastMState_2, kstate_7, false))))) : ((isStopped_2 = state_3.isStopped, (lastKState_3 = state_3.kstate, (lastMState_1 = state_3.mstate, (x = (head(state_3.mleftovers) | 0), (xs = tail(state_3.mleftovers), evalk_2(x, lastMState_1, xs, lastKState_3, isStopped_2))))))));
+            })))))))(lastKState_4);
+            if (matchValue_2.tag === 1) {
+                const kvalues_5 = matchValue_2.fields[0];
+                return new Res$2(1, kvalues_5);
+            }
+            else {
+                const kvalues_4 = matchValue_2.fields[0];
+                const kstate_8 = matchValue_2.fields[1];
+                const newState_1 = (kstate_9) => (new BindState$3(mstate_3, kstate_9, mleftovers_3, isStopped_3));
+                switch (kstate_8.tag) {
+                    case 1: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(lastKState_4)));
+                    }
+                    case 2: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(2));
+                    }
+                    default: {
+                        const kstate_10 = kstate_8.fields[0];
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(kstate_10)));
+                    }
+                }
+            }
+        };
+        const buildSkip_2 = (state_5) => (new LoopState$1(0, state_5));
+        const evalk_4 = evalk_3;
+        const m_8 = g;
+        return new Gen$2(0, (state_6) => {
+            let kstate_11, lastMState_5, isStopped_5, lastKState_6, lastMState_4, x_1, xs_1;
+            const evalmres_1 = (mres_1, lastMState_3, lastKState_5, isStopped_4) => {
+                if (mres_1.tag === 1) {
+                    if (isEmpty(mres_1.fields[0])) {
+                        return new Res$2(1, empty());
+                    }
+                    else {
+                        const mleftovers_5 = tail(mres_1.fields[0]);
+                        const mval_5 = head(mres_1.fields[0]);
+                        return evalk_4(mval_5, lastMState_3, mleftovers_5, lastKState_5, isStopped_4);
+                    }
+                }
+                else if (isEmpty(mres_1.fields[0])) {
+                    const activePatternResult854_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mstate_5 = activePatternResult854_1;
+                    const state_7 = new BindState$3(mstate_5, lastKState_5, empty(), isStopped_4);
+                    return new Res$2(0, empty(), buildSkip_2(state_7));
+                }
+                else {
+                    const activePatternResult853_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mleftovers_4 = tail(mres_1.fields[0]);
+                    const mstate_4 = activePatternResult853_1;
+                    const mval_4 = head(mres_1.fields[0]);
+                    return evalk_4(mval_4, mstate_4, mleftovers_4, lastKState_5, isStopped_4);
+                }
+            };
+            return (state_6 == null) ? evalmres_1(Gen_run(m_8)(void 0), void 0, void 0, false) : (isEmpty(state_6.mleftovers) ? (state_6.isStopped ? (new Res$2(1, empty())) : ((kstate_11 = state_6.kstate, (lastMState_5 = state_6.mstate, evalmres_1(Gen_run(m_8)(lastMState_5), lastMState_5, kstate_11, false))))) : ((isStopped_5 = state_6.isStopped, (lastKState_6 = state_6.kstate, (lastMState_4 = state_6.mstate, (x_1 = head(state_6.mleftovers), (xs_1 = tail(state_6.mleftovers), evalk_4(x_1, lastMState_4, xs_1, lastKState_6, isStopped_5))))))));
+        });
+    })();
+}
+
+export function Gen_take(n, g) {
+    const builder$0040 = Gen_loop;
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const evalk_3 = (mval_3, mstate_3, mleftovers_3, lastKState_4, isStopped_3) => {
+            let v, evalk_1, buildSkip, evalk_2, m_5, builder$0040_1;
+            const matchValue_2 = Gen_run((v = mval_3, (evalk_1 = ((mval, mstate, mleftovers, lastKState_1, isStopped) => {
+                let c;
+                const matchValue_1 = Gen_run((c = (mval | 0), (c < n) ? Gen_LoopBuilder__Yield_1505(builder$0040, v) : Gen_LoopBuilder__Return_2CC951C7(builder$0040, new Loop_Stop(0))))(lastKState_1);
+                if (matchValue_1.tag === 1) {
+                    const kvalues_3 = matchValue_1.fields[0];
+                    return new Res$2(1, kvalues_3);
+                }
+                else {
+                    const kvalues_2 = matchValue_1.fields[0];
+                    const kstate_4 = matchValue_1.fields[1];
+                    const newState = (kstate_5) => (new BindState$3(mstate, kstate_5, mleftovers, isStopped));
+                    switch (kstate_4.tag) {
+                        case 1: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(lastKState_1)));
+                        }
+                        case 2: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(2));
+                        }
+                        default: {
+                            const kstate_6 = kstate_4.fields[0];
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(some(kstate_6))));
+                        }
+                    }
+                }
+            }), (buildSkip = ((state_2) => (new LoopState$1(0, state_2))), (evalk_2 = evalk_1, (m_5 = ((builder$0040_1 = Gen_feed, Gen_BaseBuilder__Delay_1505(builder$0040_1, () => {
+                const m_1 = new Init$1(0, 0);
+                return new Gen$2(0, (state) => {
+                    let feedback_4, kstate_3, kstate_2;
+                    const getInitial = () => {
+                        if (m_1.tag === 1) {
+                            const f_1 = m_1.fields[0];
+                            return f_1() | 0;
+                        }
+                        else {
+                            const m_2 = m_1.fields[0];
+                            return m_2 | 0;
+                        }
+                    };
+                    const evalk = (lastFeed, lastKState) => {
+                        let curr, tupledArg;
+                        const matchValue = Gen_run((curr = (lastFeed | 0), (tupledArg = [curr, curr + 1], Gen_FeedBuilder__Yield_2A0A0(builder$0040_1, tupledArg[0], tupledArg[1]))))(lastKState);
+                        if (matchValue.tag === 1) {
+                            const kvalues_1 = matchValue.fields[0];
+                            return new Res$2(1, kvalues_1);
+                        }
+                        else {
+                            const kvalues = matchValue.fields[0];
+                            const kstate = matchValue.fields[1].fields[0];
+                            const feedback = matchValue.fields[1].fields[1];
+                            let patternInput;
+                            switch (feedback.tag) {
+                                case 1: {
+                                    patternInput = [lastFeed, kstate];
+                                    break;
+                                }
+                                case 2: {
+                                    patternInput = [void 0, void 0];
+                                    break;
+                                }
+                                case 3: {
+                                    patternInput = [void 0, kstate];
+                                    break;
+                                }
+                                case 4: {
+                                    const feedback_2 = feedback.fields[0];
+                                    patternInput = [feedback_2, void 0];
+                                    break;
+                                }
+                                default: {
+                                    const feedback_1 = feedback.fields[0];
+                                    patternInput = [feedback_1, kstate];
+                                }
+                            }
+                            const kstate_1 = patternInput[1];
+                            const feedback_3 = patternInput[0];
+                            const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
+                            return new Res$2(0, kvalues, new LoopState$1(0, state_1));
+                        }
+                    };
+                    return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = (state.mstate | 0), (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
+                });
+            })())), new Gen$2(0, (state_3) => {
+                let kstate_7, lastMState_2, isStopped_2, lastKState_3, lastMState_1, x, xs;
+                const evalmres = (mres, lastMState, lastKState_2, isStopped_1) => {
+                    if (mres.tag === 1) {
+                        if (isEmpty(mres.fields[0])) {
+                            return new Res$2(1, empty());
+                        }
+                        else {
+                            const mleftovers_2 = tail(mres.fields[0]);
+                            const mval_2 = head(mres.fields[0]) | 0;
+                            return evalk_2(mval_2, lastMState, mleftovers_2, lastKState_2, isStopped_1);
+                        }
+                    }
+                    else if (isEmpty(mres.fields[0])) {
+                        const activePatternResult854 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mstate_2 = activePatternResult854;
+                        const state_4 = new BindState$3(mstate_2, lastKState_2, empty(), isStopped_1);
+                        return new Res$2(0, empty(), buildSkip(state_4));
+                    }
+                    else {
+                        const activePatternResult853 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mleftovers_1 = tail(mres.fields[0]);
+                        const mstate_1 = activePatternResult853;
+                        const mval_1 = head(mres.fields[0]) | 0;
+                        return evalk_2(mval_1, mstate_1, mleftovers_1, lastKState_2, isStopped_1);
+                    }
+                };
+                return (state_3 == null) ? evalmres(Gen_run(m_5)(void 0), void 0, void 0, false) : (isEmpty(state_3.mleftovers) ? (state_3.isStopped ? (new Res$2(1, empty())) : ((kstate_7 = state_3.kstate, (lastMState_2 = state_3.mstate, evalmres(Gen_run(m_5)(lastMState_2), lastMState_2, kstate_7, false))))) : ((isStopped_2 = state_3.isStopped, (lastKState_3 = state_3.kstate, (lastMState_1 = state_3.mstate, (x = (head(state_3.mleftovers) | 0), (xs = tail(state_3.mleftovers), evalk_2(x, lastMState_1, xs, lastKState_3, isStopped_2))))))));
+            })))))))(lastKState_4);
+            if (matchValue_2.tag === 1) {
+                const kvalues_5 = matchValue_2.fields[0];
+                return new Res$2(1, kvalues_5);
+            }
+            else {
+                const kvalues_4 = matchValue_2.fields[0];
+                const kstate_8 = matchValue_2.fields[1];
+                const newState_1 = (kstate_9) => (new BindState$3(mstate_3, kstate_9, mleftovers_3, isStopped_3));
+                switch (kstate_8.tag) {
+                    case 1: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(lastKState_4)));
+                    }
+                    case 2: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(2));
+                    }
+                    default: {
+                        const kstate_10 = kstate_8.fields[0];
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(kstate_10)));
+                    }
+                }
+            }
+        };
+        const buildSkip_2 = (state_5) => (new LoopState$1(0, state_5));
+        const evalk_4 = evalk_3;
+        const m_8 = g;
+        return new Gen$2(0, (state_6) => {
+            let kstate_11, lastMState_5, isStopped_5, lastKState_6, lastMState_4, x_1, xs_1;
+            const evalmres_1 = (mres_1, lastMState_3, lastKState_5, isStopped_4) => {
+                if (mres_1.tag === 1) {
+                    if (isEmpty(mres_1.fields[0])) {
+                        return new Res$2(1, empty());
+                    }
+                    else {
+                        const mleftovers_5 = tail(mres_1.fields[0]);
+                        const mval_5 = head(mres_1.fields[0]);
+                        return evalk_4(mval_5, lastMState_3, mleftovers_5, lastKState_5, isStopped_4);
+                    }
+                }
+                else if (isEmpty(mres_1.fields[0])) {
+                    const activePatternResult854_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mstate_5 = activePatternResult854_1;
+                    const state_7 = new BindState$3(mstate_5, lastKState_5, empty(), isStopped_4);
+                    return new Res$2(0, empty(), buildSkip_2(state_7));
+                }
+                else {
+                    const activePatternResult853_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mleftovers_4 = tail(mres_1.fields[0]);
+                    const mstate_4 = activePatternResult853_1;
+                    const mval_4 = head(mres_1.fields[0]);
+                    return evalk_4(mval_4, mstate_4, mleftovers_4, lastKState_5, isStopped_4);
+                }
+            };
+            return (state_6 == null) ? evalmres_1(Gen_run(m_8)(void 0), void 0, void 0, false) : (isEmpty(state_6.mleftovers) ? (state_6.isStopped ? (new Res$2(1, empty())) : ((kstate_11 = state_6.kstate, (lastMState_5 = state_6.mstate, evalmres_1(Gen_run(m_8)(lastMState_5), lastMState_5, kstate_11, false))))) : ((isStopped_5 = state_6.isStopped, (lastKState_6 = state_6.kstate, (lastMState_4 = state_6.mstate, (x_1 = head(state_6.mleftovers), (xs_1 = tail(state_6.mleftovers), evalk_4(x_1, lastMState_4, xs_1, lastKState_6, isStopped_5))))))));
+        });
+    })();
 }
 
 export const TopLevelOperators_loop = Gen_loop;
 
 export const TopLevelOperators_feed = Gen_feed;
+
+export class Extensions {
+    constructor() {
+    }
+}
+
+export function Extensions$reflection() {
+    return class_type("LocSta.Extensions", void 0, Extensions);
+}
+
+export function Extensions_$ctor() {
+    return new Extensions();
+}
+
+export function Extensions_GetSlice_Z2F4515A1(inputGen, inclStartIdx, inclEndIdx) {
+    const s = max((x, y) => comparePrimitives(x, y), 0, defaultArg(inclStartIdx, 0)) | 0;
+    const builder$0040 = TopLevelOperators_loop;
+    return Gen_BaseBuilder__Delay_1505(builder$0040, () => {
+        const evalk_3 = (mval_3, mstate_3, mleftovers_3, lastKState_4, isStopped_3) => {
+            let i, evalk_1, buildSkip, evalk_2, m_5;
+            const matchValue_2 = Gen_run((i = (mval_3 | 0), (evalk_1 = ((mval, mstate, mleftovers, lastKState_1, isStopped) => {
+                let value, e, e_1;
+                const matchValue_1 = Gen_run((value = mval, (i >= s) ? ((inclEndIdx != null) ? (((e = (inclEndIdx | 0), i > e)) ? ((e_1 = (inclEndIdx | 0), Gen_LoopBuilder__Return_2CC951C7(builder$0040, new Loop_Stop(0)))) : Gen_LoopBuilder__Yield_1505(builder$0040, value)) : Gen_LoopBuilder__Yield_1505(builder$0040, value)) : Gen_LoopBuilder__Zero(builder$0040)))(lastKState_1);
+                if (matchValue_1.tag === 1) {
+                    const kvalues_3 = matchValue_1.fields[0];
+                    return new Res$2(1, kvalues_3);
+                }
+                else {
+                    const kvalues_2 = matchValue_1.fields[0];
+                    const kstate_4 = matchValue_1.fields[1];
+                    const newState = (kstate_5) => (new BindState$3(mstate, kstate_5, mleftovers, isStopped));
+                    switch (kstate_4.tag) {
+                        case 1: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(lastKState_1)));
+                        }
+                        case 2: {
+                            return new Res$2(0, kvalues_2, new LoopState$1(2));
+                        }
+                        default: {
+                            const kstate_6 = kstate_4.fields[0];
+                            return new Res$2(0, kvalues_2, new LoopState$1(0, newState(some(kstate_6))));
+                        }
+                    }
+                }
+            }), (buildSkip = ((state_2) => (new LoopState$1(0, state_2))), (evalk_2 = evalk_1, (m_5 = inputGen, new Gen$2(0, (state_3) => {
+                let kstate_7, lastMState_2, isStopped_2, lastKState_3, lastMState_1, x_1, xs;
+                const evalmres = (mres, lastMState, lastKState_2, isStopped_1) => {
+                    if (mres.tag === 1) {
+                        if (isEmpty(mres.fields[0])) {
+                            return new Res$2(1, empty());
+                        }
+                        else {
+                            const mleftovers_2 = tail(mres.fields[0]);
+                            const mval_2 = head(mres.fields[0]);
+                            return evalk_2(mval_2, lastMState, mleftovers_2, lastKState_2, isStopped_1);
+                        }
+                    }
+                    else if (isEmpty(mres.fields[0])) {
+                        const activePatternResult854 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mstate_2 = activePatternResult854;
+                        const state_4 = new BindState$3(mstate_2, lastKState_2, empty(), isStopped_1);
+                        return new Res$2(0, empty(), buildSkip(state_4));
+                    }
+                    else {
+                        const activePatternResult853 = Gen_$007CLoopStateToOption$007C(lastMState, mres.fields[1]);
+                        const mleftovers_1 = tail(mres.fields[0]);
+                        const mstate_1 = activePatternResult853;
+                        const mval_1 = head(mres.fields[0]);
+                        return evalk_2(mval_1, mstate_1, mleftovers_1, lastKState_2, isStopped_1);
+                    }
+                };
+                return (state_3 == null) ? evalmres(Gen_run(m_5)(void 0), void 0, void 0, false) : (isEmpty(state_3.mleftovers) ? (state_3.isStopped ? (new Res$2(1, empty())) : ((kstate_7 = state_3.kstate, (lastMState_2 = state_3.mstate, evalmres(Gen_run(m_5)(lastMState_2), lastMState_2, kstate_7, false))))) : ((isStopped_2 = state_3.isStopped, (lastKState_3 = state_3.kstate, (lastMState_1 = state_3.mstate, (x_1 = head(state_3.mleftovers), (xs = tail(state_3.mleftovers), evalk_2(x_1, lastMState_1, xs, lastKState_3, isStopped_2))))))));
+            })))))))(lastKState_4);
+            if (matchValue_2.tag === 1) {
+                const kvalues_5 = matchValue_2.fields[0];
+                return new Res$2(1, kvalues_5);
+            }
+            else {
+                const kvalues_4 = matchValue_2.fields[0];
+                const kstate_8 = matchValue_2.fields[1];
+                const newState_1 = (kstate_9) => (new BindState$3(mstate_3, kstate_9, mleftovers_3, isStopped_3));
+                switch (kstate_8.tag) {
+                    case 1: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(lastKState_4)));
+                    }
+                    case 2: {
+                        return new Res$2(0, kvalues_4, new LoopState$1(2));
+                    }
+                    default: {
+                        const kstate_10 = kstate_8.fields[0];
+                        return new Res$2(0, kvalues_4, new LoopState$1(0, newState_1(kstate_10)));
+                    }
+                }
+            }
+        };
+        const buildSkip_2 = (state_5) => (new LoopState$1(0, state_5));
+        const evalk_4 = evalk_3;
+        let m_8;
+        const builder$0040_1 = Gen_feed;
+        m_8 = Gen_BaseBuilder__Delay_1505(builder$0040_1, () => {
+            const m_1 = new Init$1(0, 0);
+            return new Gen$2(0, (state) => {
+                let feedback_4, kstate_3, kstate_2;
+                const getInitial = () => {
+                    if (m_1.tag === 1) {
+                        const f_1 = m_1.fields[0];
+                        return f_1() | 0;
+                    }
+                    else {
+                        const m_2 = m_1.fields[0];
+                        return m_2 | 0;
+                    }
+                };
+                const evalk = (lastFeed, lastKState) => {
+                    let curr, tupledArg;
+                    const matchValue = Gen_run((curr = (lastFeed | 0), (tupledArg = [curr, curr + 1], Gen_FeedBuilder__Yield_2A0A0(builder$0040_1, tupledArg[0], tupledArg[1]))))(lastKState);
+                    if (matchValue.tag === 1) {
+                        const kvalues_1 = matchValue.fields[0];
+                        return new Res$2(1, kvalues_1);
+                    }
+                    else {
+                        const kvalues = matchValue.fields[0];
+                        const kstate = matchValue.fields[1].fields[0];
+                        const feedback = matchValue.fields[1].fields[1];
+                        let patternInput;
+                        switch (feedback.tag) {
+                            case 1: {
+                                patternInput = [lastFeed, kstate];
+                                break;
+                            }
+                            case 2: {
+                                patternInput = [void 0, void 0];
+                                break;
+                            }
+                            case 3: {
+                                patternInput = [void 0, kstate];
+                                break;
+                            }
+                            case 4: {
+                                const feedback_2 = feedback.fields[0];
+                                patternInput = [feedback_2, void 0];
+                                break;
+                            }
+                            default: {
+                                const feedback_1 = feedback.fields[0];
+                                patternInput = [feedback_1, kstate];
+                            }
+                        }
+                        const kstate_1 = patternInput[1];
+                        const feedback_3 = patternInput[0];
+                        const state_1 = new BindState$3(feedback_3, kstate_1, empty(), false);
+                        return new Res$2(0, kvalues, new LoopState$1(0, state_1));
+                    }
+                };
+                return (state == null) ? evalk(getInitial(), void 0) : (state.isStopped ? (new Res$2(1, empty())) : ((state.mstate != null) ? ((feedback_4 = (state.mstate | 0), (kstate_3 = state.kstate, evalk(feedback_4, kstate_3)))) : ((kstate_2 = state.kstate, evalk(getInitial(), kstate_2)))));
+            });
+        })();
+        return new Gen$2(0, (state_6) => {
+            let kstate_11, lastMState_5, isStopped_5, lastKState_6, lastMState_4, x_2, xs_1;
+            const evalmres_1 = (mres_1, lastMState_3, lastKState_5, isStopped_4) => {
+                if (mres_1.tag === 1) {
+                    if (isEmpty(mres_1.fields[0])) {
+                        return new Res$2(1, empty());
+                    }
+                    else {
+                        const mleftovers_5 = tail(mres_1.fields[0]);
+                        const mval_5 = head(mres_1.fields[0]) | 0;
+                        return evalk_4(mval_5, lastMState_3, mleftovers_5, lastKState_5, isStopped_4);
+                    }
+                }
+                else if (isEmpty(mres_1.fields[0])) {
+                    const activePatternResult854_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mstate_5 = activePatternResult854_1;
+                    const state_7 = new BindState$3(mstate_5, lastKState_5, empty(), isStopped_4);
+                    return new Res$2(0, empty(), buildSkip_2(state_7));
+                }
+                else {
+                    const activePatternResult853_1 = Gen_$007CLoopStateToOption$007C(lastMState_3, mres_1.fields[1]);
+                    const mleftovers_4 = tail(mres_1.fields[0]);
+                    const mstate_4 = activePatternResult853_1;
+                    const mval_4 = head(mres_1.fields[0]) | 0;
+                    return evalk_4(mval_4, mstate_4, mleftovers_4, lastKState_5, isStopped_4);
+                }
+            };
+            return (state_6 == null) ? evalmres_1(Gen_run(m_8)(void 0), void 0, void 0, false) : (isEmpty(state_6.mleftovers) ? (state_6.isStopped ? (new Res$2(1, empty())) : ((kstate_11 = state_6.kstate, (lastMState_5 = state_6.mstate, evalmres_1(Gen_run(m_8)(lastMState_5), lastMState_5, kstate_11, false))))) : ((isStopped_5 = state_6.isStopped, (lastKState_6 = state_6.kstate, (lastMState_4 = state_6.mstate, (x_2 = (head(state_6.mleftovers) | 0), (xs_1 = tail(state_6.mleftovers), evalk_4(x_2, lastMState_4, xs_1, lastKState_6, isStopped_5))))))));
+        });
+    })();
+}
 

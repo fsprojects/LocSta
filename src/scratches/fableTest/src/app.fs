@@ -1,28 +1,41 @@
 module App
 
 open LocSta
+open Browser
+open Browser.Types
 
-open Browser.Dom
+type HtmlElementEx = seq<string * string> -> string -> LoopGen<HTMLElement, HTMLElement>
 
-let app = document.querySelector("#app") :?> Browser.Types.HTMLDivElement
+let createElem name = document.createElement name
 
-let createElem name = document.createElement name |> app.appendChild
-
-let elem name =
+let elem name attributes content =
     fun state ->
-        let element = state |> Option.defaultWith (fun () -> createElem name)
+        let element = state |> Option.defaultWith (fun () -> document.createElement name)
+        for aname,avalue in attributes do
+            let elemAttr = element.attributes.getNamedItem aname
+            if elemAttr.value <> avalue then
+                elemAttr.value <- avalue
+        if element.innerHTML <> content then
+            element.innerHTML <- content
         Res.Loop.emit element element
     |> Gen.createLoop
 
-let view =
+let div: HtmlElementEx = elem "div"
+let button: HtmlElementEx = elem "button"
+let p: HtmlElementEx = elem "p"
+
+let view = 
     loop {
-        let! p = elem "p"
-        let! count = count 0 1
-        do p.textContent <- (string count)
-        return Loop.Emit p
+        let! c = Gen.count 0 1
+        return! div [] $"Count = {c}"
     }
     |> Gen.toEvaluable
 
-let evaluateButton = document.querySelector(".my-button") :?> Browser.Types.HTMLButtonElement
-evaluateButton.onclick <- fun _ -> 
-    view.Evaluate()
+
+
+let app = document.querySelector("#app") :?> HTMLDivElement
+let initial = view.Evaluate().Value
+do app.appendChild initial |> ignore
+
+let evaluateButton = document.querySelector(".my-button") :?> HTMLButtonElement
+evaluateButton.onclick <- fun _ -> view.Evaluate()
