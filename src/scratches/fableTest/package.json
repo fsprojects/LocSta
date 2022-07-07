@@ -2,14 +2,11 @@
   "private": true,
   "scripts": {
     "postinstall": "dotnet tool restore",
-    "start": "dotnet fable watch src --run webpack-dev-server",
+    "start": "dotnet fable watch src -s -o build/client --run vite",
     "build": "dotnet fable src && webpack"
   },
   "devDependencies": {
-    "webpack": "^4.46.0",
-    "webpack-cli": "^3.3.0",
-    "webpack-dev-server": "^3.11.2",
-    "glob-parent": ">=5.1.2"
+    "vite": "^2.5.8"
   },
   "version": "1.0.0"
 }
