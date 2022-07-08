@@ -1913,6 +1913,13 @@ export function Gen_take(n, g) {
     })();
 }
 
+export function Gen_initWith(factory) {
+    return new Gen$2(0, (state) => {
+        const state_1 = defaultArgWith(state, factory);
+        return Res_Loop_emit(state_1, state_1);
+    });
+}
+
 export const TopLevelOperators_loop = Gen_loop;
 
 export const TopLevelOperators_feed = Gen_feed;

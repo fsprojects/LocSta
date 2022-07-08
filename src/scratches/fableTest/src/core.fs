@@ -765,6 +765,16 @@ module Gen =
                 return Loop.Stop
         }
 
+    // New Things //////////////////////
+    let initWith factory =
+        fun state ->
+            let state = state |> Option.defaultWith factory
+            Res.Loop.emit state state
+        |> createLoop
+
+    // TODO: Combine() with "unit" so that "do for ..." or "if for ..." can be used
+    
+
 
 [<AutoOpen>]
 module TopLevelOperators =
