@@ -1,6 +1,8 @@
 
 namespace LocSta
 
+open System
+
 // TODO: struct tuples
 
 type Gen<'o,'s,'r> = 's option -> 'r -> ('o * 's)
@@ -33,14 +35,43 @@ module Gen =
             // as a gen, so that it can be used as a bindable element itself -
             // but this time with state of 2 gens packed together.
             let fOut,fState' = fgen fState r
-            
+
             let resultingState = mState', fState'
+            fOut, resultingState
+    
+    type [<Struct>] BoxedState =
+        { stateType: Type; state: obj }
+        static member Create(state) = { stateType = state.GetType(); state = state }
+    type [<Struct>] CombinedBoxedState =
+        { mState: BoxedState; fState: BoxedState }
+    
+    let private unboxState<'t> state =
+        match state with
+        | None -> None
+        | Some x -> Some (x.state :?> 't)
+
+    let inline bindBoxed
+        ([<InlineIfLambda>] m: Gen<'o1,'s1,'r>)
+        ([<InlineIfLambda>] f: 'o1 -> Gen<'o2,'s2,'r>)
+        : Gen<'o2, CombinedBoxedState, 'r>
+        =
+        fun mfState r ->
+            let mState,fState =
+                match mfState with
+                | None -> None,None
+                | Some mfState -> Some mfState.mState, Some mfState.fState
+            let mOut,mState' = m (unboxState mState) r
+            let fgen = f mOut
+            let fOut,fState' = fgen (unboxState fState) r
+            let resultingState =
+                { mState = BoxedState.Create(mState')
+                  fState = BoxedState.Create(fState') }
             fOut, resultingState
 
     let inline ofValue x = fun s r -> x,()
 
     type GenBuilder() =
-        member this.Bind(m, f) = bind m f
+        member this.Bind(m, f) = bindBoxed m f
         member this.Return(x) = ofValue x
         member this.ReturnFrom(x) : Gen<_,_,_> = x
 
