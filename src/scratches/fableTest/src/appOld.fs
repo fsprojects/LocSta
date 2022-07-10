@@ -29,10 +29,14 @@ type App(appElement: HTMLElement, triggerUpdate: App -> HTMLElement) =
         let element = triggerUpdate this
         ()
 
-let getApp () : Gen<App,_,_> = fun r s -> r,()
+let getApp () : Gen<App,_,_> = fun s r -> r,()
 
 type NodeList with
     member this.Seq = seq { for i in 0 .. this.length-1 do this.Item i }
+
+let genList (children: Gen<_,_,_> list) =
+    fun s r ->
+
 
 let elem name attributes child =
     loop {

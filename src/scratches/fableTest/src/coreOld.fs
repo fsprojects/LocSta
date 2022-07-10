@@ -3,16 +3,16 @@ namespace LocSta
 
 // TODO: struct tuples
 
-type Gen<'o,'r,'s> = 'r -> 's option -> ('o * 's)
+type Gen<'o,'s,'r> = 's option -> 'r -> ('o * 's)
 
 module Gen =
     
     let inline bind 
-        ([<InlineIfLambda>] m: Gen<'o1,'r,'s1>)
-        ([<InlineIfLambda>] f: 'o1 -> Gen<'o2,'r,'s2>)
-        : Gen<'o2, 'r, 's1 * 's2>
+        ([<InlineIfLambda>] m: Gen<'o1,'s1,'r>)
+        ([<InlineIfLambda>] f: 'o1 -> Gen<'o2,'s2,'r>)
+        : Gen<'o2, 's1 * 's2, 'r>
         =
-        fun r mfState ->
+        fun mfState r ->
             // unpack the previous state (may be None or Some)
             let mState,fState =
                 match mfState with
@@ -22,7 +22,7 @@ module Gen =
             // The result of m is made up of an actual value and a state that
             // has to be "recorded" by packing it together with the state of the
             // next gen.
-            let mOut,mState' = m r mState
+            let mOut,mState' = m mState r
 
             // Continue evaluating the computation:
             // passing the actual output value of m to the rest of the computation
@@ -32,12 +32,12 @@ module Gen =
             // Evaluate the next gen and build up the result of this bind function
             // as a gen, so that it can be used as a bindable element itself -
             // but this time with state of 2 gens packed together.
-            let fOut,fState' = fgen r fState
+            let fOut,fState' = fgen fState r
             
             let resultingState = mState', fState'
             fOut, resultingState
 
-    let inline ofValue x = fun r s -> x,()
+    let inline ofValue x = fun s r -> x,()
 
     type GenBuilder() =
         member this.Bind(m, f) = bind m f
@@ -53,12 +53,12 @@ module Gen =
         }
 
     let preserve factory : Gen<_,_,_> =
-        fun r s ->
+        fun s r ->
             let state = s |> Option.defaultWith factory
             state,state
 
     let ofMutable initialValue : Gen<_,_,_> =
-        fun r s ->
+        fun s r ->
             let refCell = s |> Option.defaultWith (fun () -> ref initialValue)
             let setter = fun value -> refCell.contents <- value
             (refCell.contents, setter), refCell
@@ -66,7 +66,7 @@ module Gen =
     let inline toEvaluable ([<InlineIfLambda>] g: Gen<_,_,_>) =
         let mutable state = None
         fun r ->
-            let fOut,fState = g r state
+            let fOut,fState = g state r
             state <- Some fState
             fOut
 

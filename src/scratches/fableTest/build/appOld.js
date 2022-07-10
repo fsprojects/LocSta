@@ -3,7 +3,7 @@ import { class_type, union_type, int32_type } from "./.fable/fable-library.3.2.9
 import { toText, printf, interpolate, toConsole } from "./.fable/fable-library.3.2.9/String.js";
 import { contains, map, delay } from "./.fable/fable-library.3.2.9/Seq.js";
 import { rangeDouble } from "./.fable/fable-library.3.2.9/Range.js";
-import { Gen_GenBuilder__ReturnFrom_Z687072E4, Gen_ofMutable, Gen_loop, Gen_GenBuilder__Return_1505, Gen_preserve, Gen_GenBuilder__Bind_Z6816160D } from "./coreOld.js";
+import { Gen_GenBuilder__ReturnFrom_Z781C29E4, Gen_ofMutable, Gen_loop, Gen_GenBuilder__Return_1505, Gen_preserve, Gen_GenBuilder__Bind_456328F3 } from "./coreOld.js";
 import { structuralHash, equals, getEnumerator, safeHash, uncurry } from "./.fable/fable-library.3.2.9/Util.js";
 
 export class Sender extends Union {
@@ -68,7 +68,7 @@ export function App__TriggerUpdate_B088534(this$, sender) {
     const element = this$.triggerUpdate(this$);
 }
 
-export function getApp(unitVar0, r, s) {
+export function getApp(unitVar0, s, r) {
     return [r, void 0];
 }
 
@@ -76,13 +76,14 @@ export function Browser_Types_NodeList__NodeList_get_Seq(this$) {
     return delay(() => map((i) => (this$[i]), rangeDouble(0, 1, this$.length - 1)));
 }
 
-export function elem(name, attributes, child) {
-    return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, (r, s) => getApp(void 0, r, s), uncurry(3, (_arg1) => {
+export function genList(children, s, r) {
+    let g, state;
+    const elem_1 = (name) => ((attributes) => ((child) => Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_1, r_1) => getApp(void 0, s_1, r_1), uncurry(3, (_arg1) => {
         const app = _arg1;
-        return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, (r_1, s_1) => Gen_preserve(() => App__CreateElement_Z721C83C5(app, name), r_1, s_1), uncurry(3, (_arg2) => {
-            const elem_1 = _arg2;
-            toConsole(interpolate("Eval: %P() (%P())", [name, safeHash(elem_1)]));
-            return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, uncurry(2, Gen_GenBuilder__Bind_Z6816160D(Gen_loop, child, uncurry(3, (_arg1_1) => {
+        return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_2, r_2) => Gen_preserve(() => App__CreateElement_Z721C83C5(app, name), s_2, r_2), uncurry(3, (_arg2) => {
+            const elem = _arg2;
+            toConsole(interpolate("Eval: %P() (%P())", [name, safeHash(elem)]));
+            return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, Gen_GenBuilder__Bind_456328F3(Gen_loop, child, uncurry(3, (_arg1_1) => {
                 const x$0027 = _arg1_1;
                 return Gen_GenBuilder__Return_1505(Gen_loop, x$0027);
             }))), uncurry(3, (_arg3) => {
@@ -93,7 +94,7 @@ export function elem(name, attributes, child) {
                         const forLoopVar = enumerator["System.Collections.Generic.IEnumerator`1.get_Current"]();
                         const avalue = forLoopVar[1];
                         const aname = forLoopVar[0];
-                        const elemAttr = elem_1.attributes.getNamedItem(aname);
+                        const elemAttr = elem.attributes.getNamedItem(aname);
                         if (elemAttr.value !== avalue) {
                             elemAttr.value = avalue;
                         }
@@ -102,101 +103,83 @@ export function elem(name, attributes, child) {
                 finally {
                     enumerator.Dispose();
                 }
-                if (!contains(child_1, Browser_Types_NodeList__NodeList_get_Seq(elem_1.childNodes), {
+                if (!contains(child_1, Browser_Types_NodeList__NodeList_get_Seq(elem.childNodes), {
                     Equals: (x_3, y) => equals(x_3, y),
                     GetHashCode: (x_3) => structuralHash(x_3),
                 })) {
-                    toConsole(interpolate("add child (node count = %P())", [elem_1.childNodes.length]));
-                    void elem_1.appendChild(child_1);
+                    toConsole(interpolate("add child (node count = %P())", [elem.childNodes.length]));
+                    void elem.appendChild(child_1);
                 }
-                return Gen_GenBuilder__Return_1505(Gen_loop, elem_1);
+                return Gen_GenBuilder__Return_1505(Gen_loop, elem);
             }));
         }));
-    }));
-}
-
-export function text(content) {
-    return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, (r, s) => Gen_preserve(() => document.createTextNode(content), r, s), uncurry(3, (_arg1) => {
-        const elem_1 = _arg1;
-        if (elem_1.textContent !== content) {
-            elem_1.textContent = content;
+    }))));
+    const text = (content) => Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_3, r_3) => Gen_preserve(() => document.createTextNode(content), s_3, r_3), uncurry(3, (_arg4) => {
+        const elem_2 = _arg4;
+        if (elem_2.textContent !== content) {
+            elem_2.textContent = content;
         }
-        return Gen_GenBuilder__Return_1505(Gen_loop, elem_1);
+        return Gen_GenBuilder__Return_1505(Gen_loop, elem_2);
     }));
-}
-
-export function div(attributes, content) {
-    return elem("div", attributes, content);
-}
-
-export function p(attributes, content) {
-    return elem("p", attributes, content);
-}
-
-export function button(content, click) {
-    return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, (r, s) => getApp(void 0, r, s), uncurry(3, (_arg1) => {
+    const div = (attributes_1) => ((content_1) => elem_1("div")(attributes_1)(content_1));
+    const p = (attributes_2) => ((content_2) => elem_1("p")(attributes_2)(content_2));
+    const button_1 = (content_3) => ((click) => Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_4, r_4) => getApp(void 0, s_4, r_4), uncurry(3, (_arg5) => {
         let clo3;
-        const app = _arg1;
-        return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, uncurry(2, Gen_GenBuilder__Bind_Z6816160D(Gen_loop, uncurry(2, (clo3 = elem("button", [], content), (arg30) => {
+        const app_1 = _arg5;
+        return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, (clo3 = elem_1("button")([])(content_3), (arg30) => {
             const clo4 = clo3(arg30);
             return (arg40) => clo4(arg40);
-        })), uncurry(3, (_arg1_1) => {
-            const x$0027 = _arg1_1;
-            return Gen_GenBuilder__Return_1505(Gen_loop, x$0027);
-        }))), uncurry(3, (_arg2) => {
-            const button_1 = _arg2;
-            button_1.onclick = ((_arg1_2) => {
+        })), uncurry(3, (_arg1_2) => {
+            const x$0027_1 = _arg1_2;
+            return Gen_GenBuilder__Return_1505(Gen_loop, x$0027_1);
+        }))), uncurry(3, (_arg6) => {
+            const button = _arg6;
+            button.onclick = ((_arg1_3) => {
                 toConsole(printf("-----CLICK"));
                 click();
-                App__TriggerUpdate_B088534(app, void 0);
+                App__TriggerUpdate_B088534(app_1, void 0);
             });
-            return Gen_GenBuilder__Return_1505(Gen_loop, button_1);
+            return Gen_GenBuilder__Return_1505(Gen_loop, button);
         }));
-    }));
-}
-
-export function view() {
-    const comp = () => Gen_GenBuilder__Bind_Z6816160D(Gen_loop, (r, s) => Gen_ofMutable(0, r, s), uncurry(3, (_arg1) => {
-        let clo2;
-        const setCount = _arg1[1];
-        const count = _arg1[0] | 0;
-        return Gen_GenBuilder__ReturnFrom_Z687072E4(Gen_loop, uncurry(2, (clo2 = div([], uncurry(2, button(uncurry(2, text(toText(interpolate("Count = %P()", [count])))), () => {
-            setCount(count + 1);
-        }))), (arg20) => {
-            const clo3 = clo2(arg20);
-            return (arg30) => clo3(arg30);
-        })));
-    }));
-    return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, uncurry(2, comp()), uncurry(3, (_arg2) => {
-        const c1 = _arg2;
-        return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, uncurry(2, comp()), uncurry(3, (_arg3) => {
-            let clo2_1;
-            const c2 = _arg3;
-            return Gen_GenBuilder__Bind_Z6816160D(Gen_loop, uncurry(2, (clo2_1 = div([], (r_1, s_1) => Gen_preserve(() => document.createTextNode("---"), r_1, s_1)), (arg20_1) => {
+    })));
+    const view = () => {
+        const comp = () => Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_5, r_5) => Gen_ofMutable(0, s_5, r_5), uncurry(3, (_arg7) => {
+            let arg10_1, clo2_1;
+            const setCount = _arg7[1];
+            const count = _arg7[0] | 0;
+            return Gen_GenBuilder__ReturnFrom_Z781C29E4(Gen_loop, uncurry(2, (arg10_1 = button_1(uncurry(2, text(toText(interpolate("Count = %P()", [count])))))(() => {
+                setCount(count + 1);
+            }), (clo2_1 = div([])(uncurry(2, arg10_1)), (arg20_1) => {
                 const clo3_1 = clo2_1(arg20_1);
                 return (arg30_1) => clo3_1(arg30_1);
-            })), uncurry(3, (_arg4) => {
-                const wrapper = _arg4;
-                if (wrapper.childNodes.length === 1) {
-                    void wrapper.appendChild(c1);
-                    void wrapper.appendChild(c2);
-                }
-                return Gen_GenBuilder__Return_1505(Gen_loop, wrapper);
+            }))));
+        }));
+        return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp()), uncurry(3, (_arg8) => {
+            const c1 = _arg8;
+            return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp()), uncurry(3, (_arg9) => {
+                let clo2_2;
+                const c2 = _arg9;
+                return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, (clo2_2 = div([])((s_6, r_6) => Gen_preserve(() => document.createTextNode("---"), s_6, r_6)), (arg20_2) => {
+                    const clo3_2 = clo2_2(arg20_2);
+                    return (arg30_2) => clo3_2(arg30_2);
+                })), uncurry(3, (_arg10) => {
+                    const wrapper = _arg10;
+                    if (wrapper.childNodes.length === 1) {
+                        void wrapper.appendChild(c1);
+                        void wrapper.appendChild(c2);
+                    }
+                    return Gen_GenBuilder__Return_1505(Gen_loop, wrapper);
+                }));
             }));
         }));
-    }));
-}
-
-App__Run(App_$ctor_Z7B97B9E3(document.querySelector("#app"), (() => {
-    const g = view();
-    let state = void 0;
-    return (r) => {
-        const patternInput = g(r)(state);
+    };
+    App__Run(App_$ctor_Z7B97B9E3(document.querySelector("#app"), (g = view(), (state = (void 0), (r_7) => {
+        const patternInput = g(state)(r_7);
         const fState = patternInput[1];
         const fOut = patternInput[0];
         state = fState;
         return fOut;
-    };
-})()));
+    }))));
+}
 
 //# sourceMappingURL=appOld.js.map
