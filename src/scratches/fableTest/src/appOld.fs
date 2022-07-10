@@ -29,18 +29,23 @@ type App(appElement: HTMLElement, triggerUpdate: App -> HTMLElement) =
         let element = triggerUpdate this
         ()
 
-let getApp () : Gen<App,_,_> = fun s r -> r,()
+let app : Gen<App,_,_> = fun s r -> r,()
 
 type NodeList with
     member this.Seq = seq { for i in 0 .. this.length-1 do this.Item i }
 
-//let genList (children: Gen<_,_,_> list) =
-//    fun s r ->
+let genList (children: Gen<_,_,_> list) =
+    fun (s: CombinedBoxedState list) r ->
+        let results =
+            [ for g in children do
+                g None r
+            ]
+
 
 
 let elem name attributes child =
     loop {
-        let! app = getApp ()
+        let! app = app
         let! elem = preserve (fun () -> app.CreateElement name)
         printfn $"Eval: {name} ({elem.GetHashCode()})"
         let! child = child |> Gen.map (fun x -> x :> Node)
@@ -64,7 +69,7 @@ let text content =
 let div attributes content = elem "div" attributes content
 let p attributes content = elem "p" attributes content
 let button content click = loop {
-    let! app = getApp ()
+    let! app = app
     let! button = elem "button" [] content |> Gen.map (fun x -> x :?> HTMLButtonElement)
     button.onclick <- fun _ ->
         printfn "-----CLICK"
@@ -73,8 +78,10 @@ let button content click = loop {
     return button
 }
 
+let inline ( ~% ) g = g |> Gen.map (fun x -> x :> HTMLElement)
+
 let view() = loop {
-    let comp() = loop {
+    let comp = loop {
         let! count, setCount = Gen.ofMutable 0
         return!
             div [] (
@@ -82,8 +89,13 @@ let view() = loop {
             )
     }
 
-    let! c1 = comp()
-    let! c2 = comp()
+    let x = [
+        % comp
+        % button (comp) id
+    ]
+
+    let! c1 = comp
+    let! c2 = comp
     let! wrapper = div [] (preserve (fun () -> document.createTextNode "---"))
     do if wrapper.childNodes.length = 1 then
         wrapper.appendChild c1 |> ignore

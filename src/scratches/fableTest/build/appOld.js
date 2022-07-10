@@ -5,6 +5,7 @@ import { contains, map, delay } from "./.fable/fable-library.3.2.9/Seq.js";
 import { rangeDouble } from "./.fable/fable-library.3.2.9/Range.js";
 import { Gen_GenBuilder__ReturnFrom_Z781C29E4, Gen_ofMutable, Gen_loop, Gen_GenBuilder__Return_1505, Gen_preserve, Gen_GenBuilder__Bind_456328F3 } from "./coreOld.js";
 import { structuralHash, equals, getEnumerator, safeHash, uncurry } from "./.fable/fable-library.3.2.9/Util.js";
+import { ofArray } from "./.fable/fable-library.3.2.9/List.js";
 
 export class Sender extends Union {
     constructor(tag, ...fields) {
@@ -68,7 +69,7 @@ export function App__TriggerUpdate_B088534(this$, sender) {
     const element = this$.triggerUpdate(this$);
 }
 
-export function getApp(unitVar0, s, r) {
+export function app(s, r) {
     return [r, void 0];
 }
 
@@ -77,9 +78,9 @@ export function Browser_Types_NodeList__NodeList_get_Seq(this$) {
 }
 
 export function elem(name, attributes, child) {
-    return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s, r) => getApp(void 0, s, r), uncurry(3, (_arg1) => {
-        const app = _arg1;
-        return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_1, r_1) => Gen_preserve(() => App__CreateElement_Z721C83C5(app, name), s_1, r_1), uncurry(3, (_arg2) => {
+    return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s, r) => app(s, r), uncurry(3, (_arg1) => {
+        const app_1 = _arg1;
+        return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s_1, r_1) => Gen_preserve(() => App__CreateElement_Z721C83C5(app_1, name), s_1, r_1), uncurry(3, (_arg2) => {
             const elem_1 = _arg2;
             toConsole(interpolate("Eval: %P() (%P())", [name, safeHash(elem_1)]));
             return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, Gen_GenBuilder__Bind_456328F3(Gen_loop, child, uncurry(3, (_arg1_1) => {
@@ -134,9 +135,9 @@ export function p(attributes, content) {
 }
 
 export function button(content, click) {
-    return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s, r) => getApp(void 0, s, r), uncurry(3, (_arg1) => {
+    return Gen_GenBuilder__Bind_456328F3(Gen_loop, (s, r) => app(s, r), uncurry(3, (_arg1) => {
         let clo3;
-        const app = _arg1;
+        const app_1 = _arg1;
         return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, (clo3 = elem("button", [], content), (arg30) => {
             const clo4 = clo3(arg30);
             return (arg40) => clo4(arg40);
@@ -148,7 +149,7 @@ export function button(content, click) {
             button_1.onclick = ((_arg1_2) => {
                 toConsole(printf("-----CLICK"));
                 click();
-                App__TriggerUpdate_B088534(app, void 0);
+                App__TriggerUpdate_B088534(app_1, void 0);
             });
             return Gen_GenBuilder__Return_1505(Gen_loop, button_1);
         }));
@@ -156,7 +157,7 @@ export function button(content, click) {
 }
 
 export function view() {
-    const comp = () => Gen_GenBuilder__Bind_456328F3(Gen_loop, (s, r) => Gen_ofMutable(0, s, r), uncurry(3, (_arg1) => {
+    const comp = Gen_GenBuilder__Bind_456328F3(Gen_loop, (s, r) => Gen_ofMutable(0, s, r), uncurry(3, (_arg1) => {
         let clo2;
         const setCount = _arg1[1];
         const count = _arg1[0] | 0;
@@ -167,9 +168,17 @@ export function view() {
             return (arg30) => clo3(arg30);
         })));
     }));
-    return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp()), uncurry(3, (_arg2) => {
+    const x_7 = ofArray([Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp), uncurry(3, (_arg1_1) => {
+        const x$0027 = _arg1_1;
+        return Gen_GenBuilder__Return_1505(Gen_loop, x$0027);
+    })), Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, button(uncurry(2, comp), () => {
+    })), uncurry(3, (_arg1_2) => {
+        const x$0027_1 = _arg1_2;
+        return Gen_GenBuilder__Return_1505(Gen_loop, x$0027_1);
+    }))]);
+    return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp), uncurry(3, (_arg2) => {
         const c1 = _arg2;
-        return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp()), uncurry(3, (_arg3) => {
+        return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, comp), uncurry(3, (_arg3) => {
             let clo2_1;
             const c2 = _arg3;
             return Gen_GenBuilder__Bind_456328F3(Gen_loop, uncurry(2, (clo2_1 = div([], (s_1, r_1) => Gen_preserve(() => document.createTextNode("---"), s_1, r_1)), (arg20_1) => {
