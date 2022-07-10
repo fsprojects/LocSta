@@ -19,23 +19,19 @@ module Gen =
                 | None -> None,None
                 | Some (mState,fState) -> Some mState, Some fState
 
-            // no modifications from here:
-            // previousStateOfCurrentBlock and previousStateOfNextBlock are now
-            // both optional, but block who use it can deal with that.
-
-            // The result of currentBlock is made up of an actual value and a state that
+            // The result of m is made up of an actual value and a state that
             // has to be "recorded" by packing it together with the state of the
-            // next block.
+            // next gen.
             let mOut,mState' = m r mState
 
             // Continue evaluating the computation:
-            // passing the actual output value of currentBlock to the rest of the computation
-            // gives us access to the next block in the computation:
+            // passing the actual output value of m to the rest of the computation
+            // gives us access to the next gen in the computation:
             let fgen = f mOut
 
-            // Evaluate the next block and build up the result of this bind function
-            // as a block, so that it can be used as a bindable element itself -
-            // but this time with state of 2 blocks packed together.
+            // Evaluate the next gen and build up the result of this bind function
+            // as a gen, so that it can be used as a bindable element itself -
+            // but this time with state of 2 gens packed together.
             let fOut,fState' = fgen r fState
             
             let resultingState = mState', fState'
@@ -44,7 +40,7 @@ module Gen =
     let inline ofValue x = fun r s -> x,()
 
     type GenBuilder() =
-        member this.Bind(block, rest) = bind block rest
+        member this.Bind(m, f) = bind m f
         member this.Return(x) = ofValue x
         member this.ReturnFrom(x) : Gen<_,_,_> = x
 
@@ -56,12 +52,7 @@ module Gen =
             return f x'
         }
 
-    let stateValue value : Gen<_,_,_> =
-        fun r s ->
-            let state = s |> Option.defaultValue value
-            state,state
-
-    let stateWith factory : Gen<_,_,_> =
+    let preserve factory : Gen<_,_,_> =
         fun r s ->
             let state = s |> Option.defaultWith factory
             state,state

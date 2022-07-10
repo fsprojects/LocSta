@@ -37,7 +37,7 @@ type NodeList with
 let elem name attributes child =
     loop {
         let! app = getApp ()
-        let! elem = stateWith (fun () -> app.CreateElement name)
+        let! elem = preserve (fun () -> app.CreateElement name)
         printfn $"Eval: {name} ({elem.GetHashCode()})"
         let! child = child |> Gen.map (fun x -> x :> Node)
         do for aname,avalue in attributes do
@@ -52,7 +52,7 @@ let elem name attributes child =
 
 let text content = 
     loop {
-        let! elem = stateWith (fun () -> document.createTextNode content)
+        let! elem = preserve (fun () -> document.createTextNode content)
         do if elem.textContent <> content then
             elem.textContent <- content
         return elem
@@ -80,7 +80,7 @@ let view() = loop {
 
     let! c1 = comp()
     let! c2 = comp()
-    let! wrapper = div [] (stateWith (fun () -> document.createTextNode "---"))
+    let! wrapper = div [] (preserve (fun () -> document.createTextNode "---"))
     do if wrapper.childNodes.length = 1 then
         wrapper.appendChild c1 |> ignore
         wrapper.appendChild c2 |> ignore
@@ -89,8 +89,7 @@ let view() = loop {
 
 
 do
-    let evaluableView = view() |> Gen.toEvaluable
-    let app = App(
+    App(
         document.querySelector("#app") :?> HTMLDivElement,
-        evaluableView)
-    app.Run()
+        view() |> Gen.toEvaluable
+    ).Run()

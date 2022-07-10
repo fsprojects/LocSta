@@ -1,5 +1,5 @@
 import { class_type } from "./.fable/fable-library.3.2.9/Reflection.js";
-import { defaultArgWith, defaultArg, some } from "./.fable/fable-library.3.2.9/Option.js";
+import { defaultArgWith, some } from "./.fable/fable-library.3.2.9/Option.js";
 import { curry, partialApply } from "./.fable/fable-library.3.2.9/Util.js";
 import { FSharpRef } from "./.fable/fable-library.3.2.9/Types.js";
 
@@ -16,10 +16,10 @@ export function Gen_GenBuilder_$ctor() {
     return new Gen_GenBuilder();
 }
 
-export function Gen_GenBuilder__Bind_Z6816160D(this$, block, rest) {
+export function Gen_GenBuilder__Bind_Z6816160D(this$, m, f) {
     return (r) => ((mfState) => {
-        const m = block;
-        const f = rest;
+        const m_1 = m;
+        const f_1 = f;
         const r_1 = r;
         const mfState_1 = mfState;
         let patternInput;
@@ -33,10 +33,10 @@ export function Gen_GenBuilder__Bind_Z6816160D(this$, block, rest) {
         }
         const mState_1 = patternInput[0];
         const fState_1 = patternInput[1];
-        const patternInput_1 = m(r_1, mState_1);
+        const patternInput_1 = m_1(r_1, mState_1);
         const mState$0027 = patternInput_1[1];
         const mOut = patternInput_1[0];
-        const fgen = partialApply(2, f, [mOut]);
+        const fgen = partialApply(2, f_1, [mOut]);
         const patternInput_2 = fgen(r_1)(fState_1);
         const fState$0027 = patternInput_2[1];
         const fOut = patternInput_2[0];
@@ -55,12 +55,7 @@ export function Gen_GenBuilder__ReturnFrom_Z687072E4(this$, x) {
 
 export const Gen_loop = Gen_GenBuilder_$ctor();
 
-export function Gen_stateValue(value, r, s) {
-    const state = defaultArg(s, value);
-    return [state, state];
-}
-
-export function Gen_stateWith(factory, r, s) {
+export function Gen_preserve(factory, r, s) {
     const state = defaultArgWith(s, factory);
     return [state, state];
 }
