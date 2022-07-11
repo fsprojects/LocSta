@@ -1,12 +1,15 @@
 
 namespace LocSta
 
+open System
+
 // TODO: struct tuples
 
 type Gen<'o,'s,'r> = 's option -> 'r -> ('o * 's)
 
 module Gen =
     
+    /// Bind with transparent (nested) state typing.
     let inline bind 
         ([<InlineIfLambda>] m: Gen<'o1,'s1,'r>)
         ([<InlineIfLambda>] f: 'o1 -> Gen<'o2,'s2,'r>)
@@ -37,18 +40,15 @@ module Gen =
             let resultingState = mState', fState'
             fOut, resultingState
     
-    (*
-    type [<Struct>] BoxedState =
-        { stateType: Type; state: obj }
-        static member Create(state) = { stateType = state.GetType(); state = state }
-    type [<Struct>] CombinedBoxedState =
-        { mState: BoxedState; fState: BoxedState }
+    type BoxedState = { stateType: Type; state: obj }
+    type CombinedBoxedState = { mState: BoxedState; fState: BoxedState }
     
-    let private unboxState<'t> state =
+    let internal unboxState<'t> state =
         match state with
         | None -> None
         | Some x -> Some (x.state :?> 't)
 
+    /// Bind with hidden (boxed) state typing.
     let inline bindBoxed
         ([<InlineIfLambda>] m: Gen<'o1,'s1,'r>)
         ([<InlineIfLambda>] f: 'o1 -> Gen<'o2,'s2,'r>)
@@ -63,16 +63,16 @@ module Gen =
             let fgen = f mOut
             let fOut,fState' = fgen (unboxState fState) r
             let resultingState =
-                { mState = BoxedState.Create(mState')
-                  fState = BoxedState.Create(fState') }
+                { mState = { stateType = mState'.GetType(); state = mState' }
+                  fState = { stateType = fState'.GetType(); state = fState' }
+                }
             fOut, resultingState
-    *)
 
     let inline ofValue x = fun s r -> x,()
 
     type GenBuilder() =
         member _.Return(x) = ofValue x
-        member inline _.Bind(m, [<InlineIfLambda>] f) = bind m f
+        member inline _.Bind(m, [<InlineIfLambda>] f) = bindBoxed m f
         member _.ReturnFrom(x) : Gen<_,_,_> = x
 
     let loop = GenBuilder()

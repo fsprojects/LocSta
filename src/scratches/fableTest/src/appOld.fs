@@ -2,6 +2,7 @@
 //  - Don't calc the whole tree when triggering Update
 //  - first class task/async support (in gen)
 //  - implement "for" in ChildBuilder
+//  - hide all the crazy generic type signatures
 
 module App
 
