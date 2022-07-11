@@ -1,8 +1,6 @@
 
 namespace LocSta
 
-open System
-
 // TODO: struct tuples
 
 type Gen<'o,'s,'r> = 's option -> 'r -> ('o * 's)
@@ -39,6 +37,7 @@ module Gen =
             let resultingState = mState', fState'
             fOut, resultingState
     
+    (*
     type [<Struct>] BoxedState =
         { stateType: Type; state: obj }
         static member Create(state) = { stateType = state.GetType(); state = state }
@@ -67,32 +66,28 @@ module Gen =
                 { mState = BoxedState.Create(mState')
                   fState = BoxedState.Create(fState') }
             fOut, resultingState
+    *)
 
     let inline ofValue x = fun s r -> x,()
 
     type GenBuilder() =
-        member this.Bind(m, f) = bindBoxed m f
-        member this.Return(x) = ofValue x
-        member this.ReturnFrom(x) : Gen<_,_,_> = x
+        member _.Return(x) = ofValue x
+        member inline _.Bind(m, [<InlineIfLambda>] f) = bind m f
+        member _.ReturnFrom(x) : Gen<_,_,_> = x
 
     let loop = GenBuilder()
 
-    let inline map ([<InlineIfLambda>] f) x =
-        loop {
-            let! x' = x
-            return f x'
-        }
+    let inline map proj ([<InlineIfLambda>] g) = fun s r ->
+        let o,s = g s r in proj o, s
 
-    let preserve factory : Gen<_,_,_> =
-        fun s r ->
-            let state = s |> Option.defaultWith factory
-            state,state
+    let preserve factory = fun s r ->
+        let state = s |> Option.defaultWith factory
+        state,state
 
-    let ofMutable initialValue : Gen<_,_,_> =
-        fun s r ->
-            let refCell = s |> Option.defaultWith (fun () -> ref initialValue)
-            let setter = fun value -> refCell.contents <- value
-            (refCell.contents, setter), refCell
+    let ofMutable initialValue = fun s r ->
+        let refCell = s |> Option.defaultWith (fun () -> ref initialValue)
+        let setter = fun value -> refCell.contents <- value
+        (refCell.contents, setter), refCell
 
     let inline toEvaluable ([<InlineIfLambda>] g: Gen<_,_,_>) =
         let mutable state = None
@@ -102,9 +97,12 @@ module Gen =
             fOut
 
     // TODO: use toEvaluable
-    let inline toSeq r ([<InlineIfLambda>] g) : seq<_> =
+    let inline toSeq r ([<InlineIfLambda>] g) =
         let evaluable = toEvaluable g
         seq { while true do yield evaluable r  }
+
+    let inline withState ([<InlineIfLambda>] g) = fun s r ->
+        let o,s = g s r in (o,s),s
 
 [<AutoOpen>]
 module Autos =
