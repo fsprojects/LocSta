@@ -1,8 +1,15 @@
+// TODOs:
+//  - Don't calc the whole tree when triggering Update
+//  - first class task/async support (in gen)
+//  - implement "for" in ChildBuilder
+
 module App
 
 open System
+
 open LocSta
 open LocSta.Gen
+
 open Browser
 open Browser.Types
 
@@ -10,17 +17,16 @@ open Browser.Types
 module Application =
     type Sender = Id of int
     
+    // TODO: Braucht man den Sender-Kram noch?
     [<AllowNullLiteral>]
-    type App(appElement: HTMLElement, triggerUpdate: App -> Node) =
+    type App(document: Document, appElement: HTMLElement, triggerUpdate: App -> Node) =
         let mutable currId = -1
         member val CurrentSender: Sender option = None with get, set
         member _.NewSender() =
             currId <- currId + 1
             printfn $"New sender: {currId}"
             Id currId
-        member _.CreateElement name =
-            printfn $"Create: {name}"
-            document.createElement name :> Node
+        member _.Document = document
         member this.Run() =
             let initialElement = triggerUpdate this
             appElement.appendChild initialElement |> ignore
@@ -58,28 +64,37 @@ module Framework =
         member _.Zero() = []
         member _.Run(children) = run children
 
-    let syncChildren (elem: Node) (children: ChildGen list) = fun s r ->
-        // clear children
-        do elem.clearChildren()
-        let newState = 
-            [ for childType,childGen in children do
-                let o,s = childGen None r
-                do elem.appendChild o |> ignore
-                yield s
-            ]
-        (), newState
-
-    let elem name attributes children =
+    let elem name attributes (children: ChildGen list) =
+        console.log(children)
+        let syncChildren (elem: Node) : Gen<_,_,_> = fun s r ->
+            let s = s |> Option.defaultWith (fun () -> ResizeArray())
+            let newState =
+                seq {
+                    for childType,childGen in children do
+                        let stateIdx = s |> Seq.tryFindIndex (fun (typ,_) -> typ = childType)
+                        let newChildState =
+                            match stateIdx with
+                            | Some idx ->
+                                let childState = s[idx]
+                                do s.RemoveAt(idx)
+                                childGen (childState |> snd |> Some) r |> snd
+                            | None ->
+                                let o,s = childGen None r
+                                do elem.appendChild o |> ignore
+                                s
+                        yield childType,newChildState
+                }
+            (), ResizeArray newState
         loop {
             let! app = app
-            let! elem = preserve (fun () -> app.CreateElement(name))
+            let! elem = preserve (fun () -> app.Document.createElement name :> Node)
             printfn $"Eval: {name} ({elem.GetHashCode()})"
             // sync attrs
             do for aname,avalue in attributes do
                 let elemAttr = elem.attributes.getNamedItem aname
                 if elemAttr.value <> avalue then
                     elemAttr.value <- avalue
-            do! syncChildren elem children
+            do! syncChildren elem
             return elem
         }
 
@@ -87,7 +102,8 @@ module Framework =
 module HtmlElementsApi =
     let text text =
         loop {
-            let! elem = preserve (fun () -> document.createTextNode text)
+            let! app = app
+            let! elem = preserve (fun () -> app.Document.createTextNode text)
             do if elem.textContent <> text then
                 elem.textContent <- text
             return elem :> Node
@@ -129,21 +145,15 @@ let comp =
 let view() = 
     div [] {
         comp
-        comp
+        div [] {
+            text "Hurz"
+            comp
+        }
     }
-    //loop {
-    //    let! c1 = comp
-    //    let! c2 = comp
-    //    let! wrapper = div [] (preserve (fun () -> document.createTextNode "---"))
-    //    do if wrapper.childNodes.length = 1 then
-    //        wrapper.appendChild c1 |> ignore
-    //        wrapper.appendChild c2 |> ignore
-    //    return wrapper
-    //}
-
 
 do
     App(
+        document,
         document.querySelector("#app") :?> HTMLDivElement,
         view() |> Gen.toEvaluable
     ).Run()

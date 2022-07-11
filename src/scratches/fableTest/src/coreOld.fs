@@ -77,17 +77,19 @@ module Gen =
 
     let loop = GenBuilder()
 
-    let inline map proj ([<InlineIfLambda>] g) = fun s r ->
-        let o,s = g s r in proj o, s
+    let inline map proj ([<InlineIfLambda>] g) = 
+        fun s r -> let o,s = g s r in proj o, s
 
-    let preserve factory = fun s r ->
-        let state = s |> Option.defaultWith factory
-        state,state
+    let preserve factory = 
+        fun s r ->
+            let state = s |> Option.defaultWith factory
+            state,state
 
-    let ofMutable initialValue = fun s r ->
-        let refCell = s |> Option.defaultWith (fun () -> ref initialValue)
-        let setter = fun value -> refCell.contents <- value
-        (refCell.contents, setter), refCell
+    let ofMutable initialValue = 
+        fun s r ->
+            let refCell = s |> Option.defaultWith (fun () -> ref initialValue)
+            let setter = fun value -> refCell.contents <- value
+            (refCell.contents, setter), refCell
 
     let inline toEvaluable ([<InlineIfLambda>] g: Gen<_,_,_>) =
         let mutable state = None
@@ -101,8 +103,8 @@ module Gen =
         let evaluable = toEvaluable g
         seq { while true do yield evaluable r  }
 
-    let inline withState ([<InlineIfLambda>] g) = fun s r ->
-        let o,s = g s r in (o,s),s
+    let inline withState ([<InlineIfLambda>] g) =
+        fun s r -> let o,s = g s r in (o,s),s
 
 [<AutoOpen>]
 module Autos =

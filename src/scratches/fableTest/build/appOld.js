@@ -1,11 +1,11 @@
 import { FSharpRef, Union } from "./fable_modules/fable-library.3.7.16/Types.js";
-import { record_type, list_type, obj_type, tuple_type, unit_type, class_type, union_type, int32_type } from "./fable_modules/fable-library.3.7.16/Reflection.js";
+import { record_type, array_type, obj_type, tuple_type, unit_type, equals, class_type, union_type, int32_type } from "./fable_modules/fable-library.3.7.16/Reflection.js";
 import { printf, toConsole } from "./fable_modules/fable-library.3.7.16/String.js";
-import { singleton, collect, toList, map, delay } from "./fable_modules/fable-library.3.7.16/Seq.js";
+import { singleton, tryFindIndex, collect, map, delay } from "./fable_modules/fable-library.3.7.16/Seq.js";
 import { rangeDouble } from "./fable_modules/fable-library.3.7.16/Range.js";
 import { singleton as singleton_1, empty, append } from "./fable_modules/fable-library.3.7.16/List.js";
 import { curry, uncurry, disposeSafe, getEnumerator, safeHash, partialApply } from "./fable_modules/fable-library.3.7.16/Util.js";
-import { some } from "./fable_modules/fable-library.3.7.16/Option.js";
+import { defaultArgWith, some } from "./fable_modules/fable-library.3.7.16/Option.js";
 import { Gen_GenBuilder__ReturnFrom_Z781C29E4, Gen_ofMutable, Gen_loop, Gen_GenBuilder__Return_1505, Gen_preserve } from "./coreOld.js";
 
 //# sourceMappingURL=appOld.js.map
@@ -27,7 +27,8 @@ export function Application_Sender$reflection() {
 
 //# sourceMappingURL=appOld.js.map
 export class Application_App {
-    constructor(appElement, triggerUpdate) {
+    constructor(document$, appElement, triggerUpdate) {
+        this.document = document$;
         this.appElement = appElement;
         this.triggerUpdate = triggerUpdate;
         this.currId = -1;
@@ -41,8 +42,8 @@ export function Application_App$reflection() {
 }
 
 //# sourceMappingURL=appOld.js.map
-export function Application_App_$ctor_Z5483EEB6(appElement, triggerUpdate) {
-    return new Application_App(appElement, triggerUpdate);
+export function Application_App_$ctor_1838A887(document$, appElement, triggerUpdate) {
+    return new Application_App(document$, appElement, triggerUpdate);
 }
 
 //# sourceMappingURL=appOld.js.map
@@ -63,9 +64,8 @@ export function Application_App__NewSender(_) {
 }
 
 //# sourceMappingURL=appOld.js.map
-export function Application_App__CreateElement_Z721C83C5(_, name) {
-    toConsole(`Create: ${name}`);
-    return document.createElement(name);
+export function Application_App__get_Document(_) {
+    return _.document;
 }
 
 //# sourceMappingURL=appOld.js.map
@@ -129,22 +129,35 @@ export function Framework_ChildrenBuilder$1__Run_24C1E7D4(_, children) {
 }
 
 //# sourceMappingURL=appOld.js.map
-export function Framework_syncChildren(elem, children, s, r) {
-    Browser_Types_Node__Node_clearChildren(elem);
-    const newState = toList(delay(() => collect((matchValue) => {
-        const childType = matchValue[0];
-        const childGen = matchValue[1];
-        const patternInput = childGen(void 0)(r);
-        const s_1 = patternInput[1];
-        const o = patternInput[0];
-        elem.appendChild(o);
-        return singleton(s_1);
-    }, children)));
-    return [void 0, newState];
-}
-
-//# sourceMappingURL=appOld.js.map
 export function Framework_elem(name, attributes, children) {
+    console.log(some(children));
+    const syncChildren = (elem, s, r) => {
+        const s_1 = defaultArgWith(s, () => []);
+        const newState = delay(() => collect((matchValue) => {
+            const childType = matchValue[0];
+            const childGen = matchValue[1];
+            const stateIdx = tryFindIndex((tupledArg) => {
+                const typ = tupledArg[0];
+                return equals(typ, childType);
+            }, s_1);
+            let newChildState;
+            if (stateIdx == null) {
+                const patternInput = childGen(void 0)(r);
+                const s_2 = patternInput[1];
+                const o = patternInput[0];
+                elem.appendChild(o);
+                newChildState = s_2;
+            }
+            else {
+                const idx = stateIdx | 0;
+                const childState = s_1[idx];
+                s_1.splice(idx, 1);
+                newChildState = childGen(some(childState[1]))(r)[1];
+            }
+            return singleton([childType, newChildState]);
+        }, children));
+        return [void 0, Array.from(newState)];
+    };
     return (mfState_4) => ((r_7) => {
         const mfState_5 = mfState_4;
         const r_8 = r_7;
@@ -159,9 +172,9 @@ export function Framework_elem(name, attributes, children) {
         }
         const mState_1_2 = patternInput_4[0];
         const fState_1_2 = patternInput_4[1];
-        const patternInput_1_2 = Application_app(mState_1_2, r_8);
-        const mState$0027_2 = patternInput_1_2[1];
-        const mOut_2 = patternInput_1_2[0];
+        const patternInput_1_3 = Application_app(mState_1_2, r_8);
+        const mState$0027_2 = patternInput_1_3[1];
+        const mOut_2 = patternInput_1_3[0];
         let fgen_2;
         const app = mOut_2;
         fgen_2 = ((mfState_2) => ((r_5) => {
@@ -178,19 +191,19 @@ export function Framework_elem(name, attributes, children) {
             }
             const mState_1_1 = patternInput_3[0];
             const fState_1_1 = patternInput_3[1];
-            const patternInput_1_1 = Gen_preserve(() => Application_App__CreateElement_Z721C83C5(app, name), mState_1_1, r_6);
-            const mState$0027_1 = patternInput_1_1[1];
-            const mOut_1 = patternInput_1_1[0];
+            const patternInput_1_2 = Gen_preserve(() => Application_App__get_Document(app).createElement(name), mState_1_1, r_6);
+            const mState$0027_1 = patternInput_1_2[1];
+            const mOut_1 = patternInput_1_2[0];
             let fgen_1;
-            const elem = mOut_1;
-            toConsole(`Eval: ${name} (${safeHash(elem)})`);
+            const elem_1 = mOut_1;
+            toConsole(`Eval: ${name} (${safeHash(elem_1)})`);
             const enumerator = getEnumerator(attributes);
             try {
                 while (enumerator["System.Collections.IEnumerator.MoveNext"]()) {
                     const forLoopVar = enumerator["System.Collections.Generic.IEnumerator`1.get_Current"]();
                     const avalue = forLoopVar[1];
                     const aname = forLoopVar[0];
-                    const elemAttr = elem.attributes.getNamedItem(aname);
+                    const elemAttr = elem_1.attributes.getNamedItem(aname);
                     if (elemAttr.value !== avalue) {
                         elemAttr.value = avalue;
                     }
@@ -199,24 +212,25 @@ export function Framework_elem(name, attributes, children) {
             finally {
                 disposeSafe(enumerator);
             }
+            const m = partialApply(2, syncChildren, [elem_1]);
             fgen_1 = ((mfState) => ((r_3) => {
                 const mfState_1 = mfState;
                 const r_4 = r_3;
-                let patternInput;
+                let patternInput_1;
                 if (mfState_1 != null) {
                     const mState = mfState_1[0];
                     const fState = mfState_1[1];
-                    patternInput = [mState, some(fState)];
+                    patternInput_1 = [mState, some(fState)];
                 }
                 else {
-                    patternInput = [void 0, void 0];
+                    patternInput_1 = [void 0, void 0];
                 }
-                const mState_1 = patternInput[0];
-                const fState_1 = patternInput[1];
-                const patternInput_1 = Framework_syncChildren(elem, children, mState_1, r_4);
-                const mState$0027 = patternInput_1[1];
-                const mOut = patternInput_1[0];
-                const fgen = Gen_GenBuilder__Return_1505(Gen_loop, elem);
+                const mState_1 = patternInput_1[0];
+                const fState_1 = patternInput_1[1];
+                const patternInput_1_1 = m(mState_1)(r_4);
+                const mState$0027 = patternInput_1_1[1];
+                const mOut = patternInput_1_1[0];
+                const fgen = Gen_GenBuilder__Return_1505(Gen_loop, elem_1);
                 const patternInput_2 = fgen(fState_1)(r_4);
                 const fState$0027 = patternInput_2[1];
                 const fOut = patternInput_2[0];
@@ -239,34 +253,59 @@ export function Framework_elem(name, attributes, children) {
 
 //# sourceMappingURL=appOld.js.map
 export function HtmlElementsApi_text(text) {
-    return (mfState) => ((r_1) => {
-        const mfState_1 = mfState;
-        const r_2 = r_1;
-        let patternInput;
-        if (mfState_1 != null) {
-            const mState = mfState_1[0];
-            const fState = mfState_1[1];
-            patternInput = [mState, some(fState)];
+    return (mfState_2) => ((r_4) => {
+        const mfState_3 = mfState_2;
+        const r_5 = r_4;
+        let patternInput_3;
+        if (mfState_3 != null) {
+            const mState_2 = mfState_3[0];
+            const fState_2 = mfState_3[1];
+            patternInput_3 = [some(mState_2), fState_2];
         }
         else {
-            patternInput = [void 0, void 0];
+            patternInput_3 = [void 0, void 0];
         }
-        const mState_1 = patternInput[0];
-        const fState_1 = patternInput[1];
-        const patternInput_1 = Gen_preserve(() => document.createTextNode(text), mState_1, r_2);
-        const mState$0027 = patternInput_1[1];
-        const mOut = patternInput_1[0];
-        let fgen;
-        const elem = mOut;
-        if (elem.textContent !== text) {
-            elem.textContent = text;
-        }
-        fgen = Gen_GenBuilder__Return_1505(Gen_loop, elem);
-        const patternInput_2 = fgen(fState_1)(r_2);
-        const fState$0027 = patternInput_2[1];
-        const fOut = patternInput_2[0];
-        const resultingState = [mState$0027, fState$0027];
-        return [fOut, resultingState];
+        const mState_1_1 = patternInput_3[0];
+        const fState_1_1 = patternInput_3[1];
+        const patternInput_1_1 = Application_app(mState_1_1, r_5);
+        const mState$0027_1 = patternInput_1_1[1];
+        const mOut_1 = patternInput_1_1[0];
+        let fgen_1;
+        const app = mOut_1;
+        fgen_1 = ((mfState) => ((r_2) => {
+            const mfState_1 = mfState;
+            const r_3 = r_2;
+            let patternInput;
+            if (mfState_1 != null) {
+                const mState = mfState_1[0];
+                const fState = mfState_1[1];
+                patternInput = [mState, some(fState)];
+            }
+            else {
+                patternInput = [void 0, void 0];
+            }
+            const mState_1 = patternInput[0];
+            const fState_1 = patternInput[1];
+            const patternInput_1 = Gen_preserve(() => Application_App__get_Document(app).createTextNode(text), mState_1, r_3);
+            const mState$0027 = patternInput_1[1];
+            const mOut = patternInput_1[0];
+            let fgen;
+            const elem = mOut;
+            if (elem.textContent !== text) {
+                elem.textContent = text;
+            }
+            fgen = Gen_GenBuilder__Return_1505(Gen_loop, elem);
+            const patternInput_2 = fgen(fState_1)(r_3);
+            const fState$0027 = patternInput_2[1];
+            const fOut = patternInput_2[0];
+            const resultingState = [mState$0027, fState$0027];
+            return [fOut, resultingState];
+        }));
+        const patternInput_2_1 = fgen_1(fState_1_1)(r_5);
+        const fState$0027_1 = patternInput_2_1[1];
+        const fOut_1 = patternInput_2_1[0];
+        const resultingState_1 = [mState$0027_1, fState$0027_1];
+        return [fOut_1, resultingState_1];
     });
 }
 
@@ -378,12 +417,12 @@ export const comp = (mfState) => ((r_3) => {
         const s_1_1 = patternInput[1];
         const o = patternInput[0];
         return [o, s_1_1];
-    }), [tuple_type(class_type("Browser.Types.Text"), unit_type), curry(2, g_1)])))), singleton_1((g_1_1 = ((s_2, r_2) => {
+    }), [tuple_type(unit_type, tuple_type(class_type("Browser.Types.Text"), unit_type)), curry(2, g_1)])))), singleton_1((g_1_1 = ((s_2, r_2) => {
         const patternInput_1 = x_1(s_2)(r_2);
         const s_1_2 = patternInput_1[1];
         const o_1 = patternInput_1[0];
         return [o_1, s_1_2];
-    }), [tuple_type(unit_type, tuple_type(tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(list_type(obj_type), unit_type))), unit_type)), curry(2, g_1_1)]))))));
+    }), [tuple_type(unit_type, tuple_type(tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(array_type(tuple_type(class_type("System.Type"), obj_type)), unit_type))), unit_type)), curry(2, g_1_1)]))))));
     const patternInput_2_1 = fgen(fState_1)(r_4);
     const fState$0027 = patternInput_2_1[1];
     const fOut = patternInput_2_1[0];
@@ -393,23 +432,33 @@ export const comp = (mfState) => ((r_3) => {
 
 //# sourceMappingURL=appOld.js.map
 export function view() {
-    let g_1, g_1_1;
+    let g_1, x_3, builder$0040_1, x_1, g_1_1, g_1_2, g_1_3;
     const builder$0040 = HtmlElementsApi_div([]);
     return Framework_ChildrenBuilder$1__Run_24C1E7D4(builder$0040, Framework_ChildrenBuilder$1__Combine_Z12967EE0(builder$0040, singleton_1((g_1 = ((s, r) => {
         const patternInput = comp(s)(r);
         const s_1 = patternInput[1];
         const o = patternInput[0];
         return [o, s_1];
-    }), [tuple_type(record_type("Microsoft.FSharp.Core.FSharpRef`1", [int32_type], FSharpRef, () => [["contents", int32_type]]), tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(list_type(obj_type), unit_type)))), curry(2, g_1)])), singleton_1((g_1_1 = ((s_2, r_1) => {
-        const patternInput_1 = comp(s_2)(r_1);
+    }), [tuple_type(record_type("Microsoft.FSharp.Core.FSharpRef`1", [int32_type], FSharpRef, () => [["contents", int32_type]]), tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(array_type(tuple_type(class_type("System.Type"), obj_type)), unit_type)))), curry(2, g_1)])), (x_3 = ((builder$0040_1 = HtmlElementsApi_div([]), Framework_ChildrenBuilder$1__Run_24C1E7D4(builder$0040_1, Framework_ChildrenBuilder$1__Combine_Z12967EE0(builder$0040_1, (x_1 = HtmlElementsApi_text("Hurz"), singleton_1((g_1_1 = ((s_2, r_1) => {
+        const patternInput_1 = x_1(s_2)(r_1);
         const s_1_1 = patternInput_1[1];
         const o_1 = patternInput_1[0];
         return [o_1, s_1_1];
-    }), [tuple_type(record_type("Microsoft.FSharp.Core.FSharpRef`1", [int32_type], FSharpRef, () => [["contents", int32_type]]), tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(list_type(obj_type), unit_type)))), curry(2, g_1_1)]))));
+    }), [tuple_type(unit_type, tuple_type(class_type("Browser.Types.Text"), unit_type)), curry(2, g_1_1)]))), singleton_1((g_1_2 = ((s_3, r_2) => {
+        const patternInput_2 = comp(s_3)(r_2);
+        const s_1_2 = patternInput_2[1];
+        const o_2 = patternInput_2[0];
+        return [o_2, s_1_2];
+    }), [tuple_type(record_type("Microsoft.FSharp.Core.FSharpRef`1", [int32_type], FSharpRef, () => [["contents", int32_type]]), tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(array_type(tuple_type(class_type("System.Type"), obj_type)), unit_type)))), curry(2, g_1_2)])))))), singleton_1((g_1_3 = ((s_4, r_3) => {
+        const patternInput_3 = x_3(s_4)(r_3);
+        const s_1_3 = patternInput_3[1];
+        const o_3 = patternInput_3[0];
+        return [o_3, s_1_3];
+    }), [tuple_type(unit_type, tuple_type(class_type("Browser.Types.Node"), tuple_type(array_type(tuple_type(class_type("System.Type"), obj_type)), unit_type))), curry(2, g_1_3)])))));
 }
 
 //# sourceMappingURL=appOld.js.map
-Application_App__Run(Application_App_$ctor_Z5483EEB6(document.querySelector("#app"), (() => {
+Application_App__Run(Application_App_$ctor_1838A887(document, document.querySelector("#app"), (() => {
     const g = view();
     let state = void 0;
     return (r) => {
