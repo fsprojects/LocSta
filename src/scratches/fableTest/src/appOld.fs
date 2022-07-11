@@ -19,7 +19,7 @@ module Application =
     
     // TODO: Braucht man den Sender-Kram noch?
     [<AllowNullLiteral>]
-    type App(document: Document, appElement: HTMLElement, triggerUpdate: App -> Node) =
+    type App(document: Document, appElement: Element, triggerUpdate: App -> Node) =
         let mutable currId = -1
         member val CurrentSender: Sender option = None with get, set
         member _.NewSender() =
@@ -154,6 +154,6 @@ let view() =
 do
     App(
         document,
-        document.querySelector("#app") :?> HTMLDivElement,
+        document.querySelector("#app"),
         view() |> Gen.toEvaluable
     ).Run()
