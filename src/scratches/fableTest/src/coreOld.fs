@@ -110,7 +110,3 @@ module Gen =
     let inline withState (Gen g) =
         Gen <| fun s r ->
             let o,s = g s r in (o,s),s
-
-[<AutoOpen>]
-module Autos =
-    let loop = Gen.GenBuilder()

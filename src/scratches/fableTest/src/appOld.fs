@@ -26,7 +26,6 @@ module Application =
             let element = triggerUpdate this
             // TODO: Sync returned element(s) with current
             ()
-
     let app = Gen (fun s (r: App) -> r,())
 
 [<AutoOpen>]
@@ -38,38 +37,47 @@ module HelperAndExtensions =
 
 [<AutoOpen>]
 module Framework =
+
     type AppGen<'o,'s> = Gen<'o,'s,App>
     type RuntimeTypedAppGen<'o> = Type * AppGen<'o,obj>
 
     let inline boxGen (stateType: Type) (Gen g: AppGen<'o,'s>) : RuntimeTypedAppGen<'o> =
+        // fable requires runtime-resolution and passing the stateType from callsite due to erasure
         let g = Gen <| fun s r ->
             let o,s = g (unbox s) r
             o, box s
         stateType, g
 
-    //// TODO: Add overloads for yield (string, int, etc.)
-    //type ChildrenBuilder<'o,'r,'a>(run: RuntimeTypedAppGen<'o> list -> 'a) =
-    //    member inline _.Box<'o,'s>(x: AppGen<'o,'s>) =
-    //        // fable requires typeof<> here; not later.
-    //        boxGen typeof<'s> x
-    //    member inline this.Yield<'o,'s>(x: AppGen<'o,'s>) = [this.Box x]
-    //    member inline _.Delay([<InlineIfLambda>] (f: unit -> _)) = f
-    //    member _.Combine(a, b) = List.append a (b())
-    //    member _.Zero() = []
-    //    member _.Run(children) = run (children())
-    //    member inline _.For(inputList: seq<int>, body: 'a -> 'b) : 'c =
-    //        failwith "TODO"
-    //        //[ for x in inputList do body x ]
+    // TODO: Add overloads for yield (string, int, etc.)
     type ChildrenBuilder<'o,'s>(run: RuntimeTypedAppGen<'o> list -> AppGen<'o,'s>) =
-        member inline _.Yield<'o,'s1>(x: Gen<'o,'s1,App>) =
-            // fable requires typeof<> here; not later.
-            [boxGen typeof<'s1> x]
+        member inline _.Yield<'o,'s1>(x: Gen<'o,'s1,App>) = [boxGen typeof<'s1> x]
+        member inline _.YieldFrom<'o,'s1>(x: Gen<'o list,'s1,App>) = [boxGen typeof<'s1> x]
         member inline _.Delay([<InlineIfLambda>] f) = f ()
         member _.Combine(a, b) = List.append a b
         member _.Zero() = []
         member _.Run(children) = run children
         member inline _.For(sequence: seq<'a>, body: 'a -> RuntimeTypedAppGen<'o> list) : RuntimeTypedAppGen<'o> list =
             [ for x in sequence do yield! body x ]
+
+    //type ViewBuilder() =
+    //    inherit Gen.GenBuilder()
+    type ViewBuilder() =
+        member inline _.Bind(m, [<InlineIfLambda>] f) = Gen.bind m f
+        member _.Yield(x: AppGen<'o,'s>) = x
+        member inline _.Delay([<InlineIfLambda>] f) = f ()
+        member inline _.Combine(a, b) : Gen<_,_,_> =
+            printfn "COMBINE"
+            loop {
+                let! a = a
+                let! b = b
+                return [a;b]
+            }
+        member _.Zero() : AppGen<unit list, unit> = Gen.ofValue []
+    let pview = ViewBuilder()
+
+
+[<AutoOpen>]
+module HtmlElementsApi =
 
     let inline elem name attributes children =
         let syncAttributes (elem: Node) =
@@ -104,8 +112,6 @@ module Framework =
             return elem
         }
 
-[<AutoOpen>]
-module HtmlElementsApi =
     let text text =
         loop {
             let! app = app
@@ -136,36 +142,39 @@ module HtmlElementsApi =
     let nothing = text ""
 
 
-let comp = 
-    loop {
+let comp =
+    pview {
         let! count, setCount = Gen.ofMutable 0
-        return!
-            div [] {
-                div []  {
-                    text $"BEGIN for ..."
-                    for x in 0..3 do
-                        text $"count = {count}"
-                        button [] (fun () -> setCount (count + 1)) { text "..." }
-                        text $"    (another x = {x})"
-                        text $"    (another x = {x})"
-                    text $"END for ..."
-                }
-            }
-    }
-
-
-let view() = 
-    div [] {
-        comp
         div [] {
-            text "Hurz"
-            comp
+            div []  {
+                text $"BEGIN for ..."
+                for x in 0..3 do
+                    text $"count = {count}"
+                    button [] (fun () -> setCount (count + 1)) { text "..." }
+                    text $"    (another x = {x})"
+                    text $"    (another x = {x})"
+                text $"END for ..."
+            }
         }
+        text "xxxx"
     }
 
-do
-    App(
-        document,
-        document.querySelector("#app"),
-        view() |> Gen.toEvaluable
-    ).Run()
+
+//let view() =
+//    pview {
+//        div [] {
+//            comp
+//            div [] {
+//                text "Hurz"
+//                comp
+//            }
+//        }
+//    }
+    
+
+//do
+//    App(
+//        document,
+//        document.querySelector("#app"),
+//        view() |> Gen.toEvaluable
+//    ).Run()
