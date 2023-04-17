@@ -16,7 +16,7 @@ What is state(ful) - from a programmers perspective?
 * Usually, (local) state is represented by an instance of an object or a closure that captures a mutable value.
 * State must then have an 'identity', which is represented by a persistent location in memory - a pointer.
 * In order to use state from a computation, it means: It has to be created *up-front*, and it can be used *afterwards* by it's pointer.
-* The separation between *allocation* and *usage* makes composition hard, or at least uncomfortable (besides other thinks that make compotion hard or uncomfortable).
+* The separation of *instanciation* and *usage* makes composition hard, or at least uncomfortable (besides other thinks that make compotion hard or uncomfortable).
 
 What is stateless?
 
@@ -24,7 +24,7 @@ What is stateless?
 * There is no mutation involved.
 * No need for objects, state capturing closures or pointers - there are just functions.
 * There is no persistence from one evaluation of a stateless computation to another.
-* No separation between *allocation* and *usage*, which is comfortable to write: A function can be used in the place where it should be used - there is no de-localization in code between state allocation and usage, because there is no such thing as state allocation.
+* No separation of *instanciation* and *usage*, which is comfortable to write: A function can be used ad-hoc (or in-place) where it should be used - there is no de-localization in code between state instanciation and usage.
 
 **LocSta aims to providing coding comfort in a way that stateful computations can be treated and composed as if they were stateless functions.**
 
