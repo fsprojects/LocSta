@@ -1,3 +1,8 @@
+# DISCONTINUED
+
+**LocSta is discontinued. Before starting to work with this library or thinking about forking it, please have a look at [Vide](https://github.com/vide-collabo/Vide), which is a successor of LocSta.**
+
+--------------------------
 
 LocSta
 ===
