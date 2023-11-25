@@ -7,7 +7,7 @@
 LocSta
 ===
 
-LocSta is authored by [@ronaldschlenker](https://github.com/ronaldschlenker). Feel free to leave a message.
+LocSta is authored by [@SchlenkR](https://github.com/ronaldschlenker). Feel free to leave a message.
 
 ![build status](https://github.com/fsprojects/LocSta/actions/workflows/build_onPushMaster_onPullrequest.yml/badge.svg?event=push) ![test status](https://github.com/fsprojects/LocSta/actions/workflows/test_onPushMaster_onPullrequest.yml/badge.svg?event=push)
 
