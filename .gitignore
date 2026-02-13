@@ -1,0 +1,67 @@
+# ---- OS / Editor ----
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- Logs ----
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- .NET / C# ----
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+TestResults/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.cache
+*.nupkg
+*.snupkg
+*.pdb
+*.mdb
+_ReSharper*/
+*.DotSettings.user
+BenchmarkDotNet.Artifacts/
+
+# ---- Build / Coverage ----
+artifacts/
+coverage/
+coverage-*/
+*.coverage
+*.coveragexml
+lcov.info
+
+# ---- Web / Node ----
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+.svelte-kit/
+.angular/
+.parcel-cache/
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# ---- Env / Secrets ----
+.env
+.env.*
+!.env.example
+secrets.json
+
+# ---- Optional local settings (uncomment if needed) ----
+# appsettings.Development.json
+# appsettings.Local.json
