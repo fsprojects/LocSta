@@ -1,4 +1,12 @@
 
+/// Mutable value for local state within streams
+type MutableValue<'s>(initValue: 's) =
+    let mutable state = initValue
+    member _.Value
+        with get() = state
+        and set v = state <- v
+    override _.ToString() = $"mut_({state})"
+
 type SigStream<'v,'c,'s> = 's voption -> 'c -> 'v * 's
 
 type SigStreamBuilder() =
@@ -46,14 +54,6 @@ type SigStreamBuilder() =
             resValues, newState
 
 let stream = SigStreamBuilder()
-
-/// Mutable value for local state within streams
-type MutableValue<'s>(initValue: 's) =
-    let mutable state = initValue
-    member _.Value
-        with get() = state
-        and set v = state <- v
-    override _.ToString() = $"mut_({state})"
 
 /// Create a stream from a sequence
 let ofSeq (sequence: seq<_>) : SigStream<_,_,_> =
