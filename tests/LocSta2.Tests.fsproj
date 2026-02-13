@@ -7,6 +7,8 @@
 
   <ItemGroup>
     <Compile Include="CounterTests.fs" />
+    <Compile Include="DelayBy1Tests.fs" />
+    <Compile Include="DelayByNTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

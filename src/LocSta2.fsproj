@@ -5,7 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="LocSta.fs" />
+    <Compile Include="Core.fs" />
+    <Compile Include="Blocks.fs" />
   </ItemGroup>
 
 </Project>

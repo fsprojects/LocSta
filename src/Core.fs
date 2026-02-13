@@ -1,12 +1,15 @@
+[<AutoOpen>]
+module LocSta.Core
 
 /// Mutable value for local state within streams
-type State<'s>(initial) =
+type StateController<'s>(initial) =
     let mutable state : 's voption = initial
     member _.Value with get() = state
     member _.Set(v) = state <- ValueSome v
+    member _.Reset() = state <- ValueNone
     override _.ToString() = state.ToString()
 
-type SigStream<'v,'c,'s> = State<'s> -> 'c -> 'v * State<'s>
+type SigStream<'v,'c,'s> = StateController<'s> -> 'c -> 'v * StateController<'s>
 
 type SigStreamBuilder() =
     member inline _.Bind
@@ -19,7 +22,7 @@ type SigStreamBuilder() =
         fun s ctx ->
             let ms,fs =
                 match s.Value with
-                | ValueNone -> State(ValueNone), State(ValueNone)
+                | ValueNone -> StateController(ValueNone), StateController(ValueNone)
                 | ValueSome (ms,fs) -> ms, fs
             let mv,ms = m ms ctx
             let f = f mv
@@ -54,7 +57,7 @@ type SigStreamBuilder() =
                         let elemState =
                             match currMap.TryFind(i) with
                             | Some st -> st
-                            | None -> State(ValueNone)
+                            | None -> StateController(ValueNone)
                         let v, newState = body elem elemState ctx
                         v, (i, newState)
                 ]
@@ -62,6 +65,7 @@ type SigStreamBuilder() =
             let newMap = resStates |> Map.ofList
             s.Set(newMap)
             resValues, s
+
 
 let stream = SigStreamBuilder()
 
@@ -90,9 +94,14 @@ let inline map ([<InlineIfLambda>] proj) ([<InlineIfLambda>] s1) =
 let inline getCtx<'c> () : SigStream<'c,'c,unit> =
     fun s ctx -> ctx, s
 
+/// Get the state controller of this block
+let inline getState<'c,'s> () : SigStream<StateController<'s>,'c,'s> =
+    fun state ctx ->
+        state,state
+
 /// Use a memoized value (lazy initialization)
 let inline useMemoWith ([<InlineIfLambda>] initializer) : SigStream<'a,'c,'a> =
-    fun (state: State<'a>) ctx ->
+    fun (state: StateController<'a>) ctx ->
         let value =
             match state.Value with
             | ValueNone -> initializer()
@@ -101,7 +110,7 @@ let inline useMemoWith ([<InlineIfLambda>] initializer) : SigStream<'a,'c,'a> =
         value, state
 
 let useMemo (value: 'a) : SigStream<'a,'c,'a> =
-    fun (state: State<'a>) ctx ->
+    fun (state: StateController<'a>) ctx ->
         let v =
             match state.Value with
             | ValueNone -> value
@@ -130,7 +139,7 @@ module Eval =
         ([<InlineIfLambda>] getCtx: int -> _)
         ([<InlineIfLambda>] stream: SigStream<_,_,_>)
         =
-        let state = State(ValueNone)
+        let state = StateController(ValueNone)
         seq {
             let mutable i = 0
             while true do
@@ -146,7 +155,7 @@ module Eval =
 
     /// Evaluate with input sequence
     let inline runWith (inputs: seq<_>) stream =
-        let state = State(ValueNone)
+        let state = StateController(ValueNone)
         inputs
         |> Seq.map (fun ctx ->
             let v, _ = stream state ctx
