@@ -6,9 +6,45 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="CounterTests.fs" />
-    <Compile Include="DelayBy1Tests.fs" />
-    <Compile Include="DelayByNTests.fs" />
+    <!-- Generators -->
+    <Compile Include="Generators/CounterTests.fs" />
+    <Compile Include="Generators/FibonacciTests.fs" />
+    <!-- Delay -->
+    <Compile Include="Delay/DelayBy1Tests.fs" />
+    <Compile Include="Delay/DelayByNTests.fs" />
+    <!-- State -->
+    <Compile Include="State/HoldTests.fs" />
+    <Compile Include="State/LatchTests.fs" />
+    <Compile Include="State/EdgeTests.fs" />
+    <Compile Include="State/ChangedTests.fs" />
+    <!-- Arithmetic -->
+    <Compile Include="Arithmetic/DiffTests.fs" />
+    <Compile Include="Arithmetic/CumulativeSumTests.fs" />
+    <Compile Include="Arithmetic/CumulativeProductTests.fs" />
+    <Compile Include="Arithmetic/ClampTests.fs" />
+    <Compile Include="Arithmetic/RescaleTests.fs" />
+    <!-- Statistics -->
+    <Compile Include="Statistics/EmaTests.fs" />
+    <Compile Include="Statistics/RollingStdDevTests.fs" />
+    <Compile Include="Statistics/RollingMinTests.fs" />
+    <Compile Include="Statistics/RollingMaxTests.fs" />
+    <Compile Include="Statistics/RunningMinTests.fs" />
+    <Compile Include="Statistics/RunningMaxTests.fs" />
+    <!-- Detection -->
+    <Compile Include="Detection/CrossoverTests.fs" />
+    <Compile Include="Detection/ThresholdTests.fs" />
+    <!-- Logic -->
+    <Compile Include="Logic/DebounceTests.fs" />
+    <Compile Include="Logic/ToggleTests.fs" />
+    <!-- Counting -->
+    <Compile Include="Counting/CountWhereTests.fs" />
+    <Compile Include="Counting/CountSinceTests.fs" />
+    <Compile Include="Counting/CountInTests.fs" />
+    <Compile Include="Counting/TimeSinceTests.fs" />
+    <Compile Include="Counting/RateTests.fs" />
+    <!-- Windowing -->
+    <Compile Include="Windowing/WindowedReduceTests.fs" />
+    <Compile Include="Windowing/SegmentTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

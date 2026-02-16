@@ -6,7 +6,48 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
-    <Compile Include="Blocks.fs" />
+    <!-- Generators -->
+    <Compile Include="Generators/Counter.fs" />
+    <Compile Include="Generators/Fibonacci.fs" />
+    <!-- Delay -->
+    <Compile Include="Delay/DelayByN.fs" />
+    <Compile Include="Delay/DelayBy1.fs" />
+    <!-- State -->
+    <Compile Include="State/Hold.fs" />
+    <Compile Include="State/Latch.fs" />
+    <Compile Include="State/Edge.fs" />
+    <Compile Include="State/Changed.fs" />
+    <!-- Arithmetic -->
+    <Compile Include="Arithmetic/Diff.fs" />
+    <Compile Include="Arithmetic/CumulativeSum.fs" />
+    <Compile Include="Arithmetic/CumulativeProduct.fs" />
+    <Compile Include="Arithmetic/Clamp.fs" />
+    <Compile Include="Arithmetic/Rescale.fs" />
+    <!-- Statistics -->
+    <Compile Include="Statistics/MovingAverage.fs" />
+    <Compile Include="Statistics/Ema.fs" />
+    <Compile Include="Statistics/RollingStdDev.fs" />
+    <Compile Include="Statistics/RollingMin.fs" />
+    <Compile Include="Statistics/RollingMax.fs" />
+    <Compile Include="Statistics/RunningMin.fs" />
+    <Compile Include="Statistics/RunningMax.fs" />
+    <!-- Detection -->
+    <Compile Include="Detection/Crossover.fs" />
+    <Compile Include="Detection/Threshold.fs" />
+    <!-- Logic -->
+    <Compile Include="Logic/Debounce.fs" />
+    <Compile Include="Logic/Toggle.fs" />
+    <!-- Counting -->
+    <Compile Include="Counting/CountWhere.fs" />
+    <Compile Include="Counting/CountSince.fs" />
+    <Compile Include="Counting/CountIn.fs" />
+    <Compile Include="Counting/TimeSince.fs" />
+    <Compile Include="Counting/Rate.fs" />
+    <!-- Windowing -->
+    <Compile Include="Windowing/WindowedReduce.fs" />
+    <Compile Include="Windowing/Segment.fs" />
+    <!-- Operators -->
+    <Compile Include="Operators/Operators.fs" />
   </ItemGroup>
 
 </Project>
