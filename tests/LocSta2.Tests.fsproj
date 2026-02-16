@@ -45,6 +45,34 @@
     <!-- Windowing -->
     <Compile Include="Windowing/WindowedReduceTests.fs" />
     <Compile Include="Windowing/SegmentTests.fs" />
+    <!-- DSP: Oscillators -->
+    <Compile Include="Dsp/Oscillators/SineOscTests.fs" />
+    <Compile Include="Dsp/Oscillators/SawOscTests.fs" />
+    <Compile Include="Dsp/Oscillators/SquareOscTests.fs" />
+    <Compile Include="Dsp/Oscillators/TriangleOscTests.fs" />
+    <Compile Include="Dsp/Oscillators/WhiteNoiseTests.fs" />
+    <!-- DSP: Filters -->
+    <Compile Include="Dsp/Filters/LowPass1Tests.fs" />
+    <Compile Include="Dsp/Filters/HighPass1Tests.fs" />
+    <Compile Include="Dsp/Filters/BiquadLowPassTests.fs" />
+    <Compile Include="Dsp/Filters/BiquadHighPassTests.fs" />
+    <Compile Include="Dsp/Filters/BiquadBandPassTests.fs" />
+    <Compile Include="Dsp/Filters/DcBlockTests.fs" />
+    <!-- DSP: Envelope -->
+    <Compile Include="Dsp/Envelope/EnvFollowTests.fs" />
+    <Compile Include="Dsp/Envelope/AdsrTests.fs" />
+    <!-- DSP: Dynamics -->
+    <Compile Include="Dsp/Dynamics/SoftClipTests.fs" />
+    <Compile Include="Dsp/Dynamics/HardClipTests.fs" />
+    <Compile Include="Dsp/Dynamics/GateTests.fs" />
+    <!-- DSP: Modulation -->
+    <Compile Include="Dsp/Modulation/RingModTests.fs" />
+    <Compile Include="Dsp/Modulation/BitCrushTests.fs" />
+    <Compile Include="Dsp/Modulation/CrossfadeTests.fs" />
+    <!-- DSP: Analysis -->
+    <Compile Include="Dsp/Analysis/RmsTests.fs" />
+    <Compile Include="Dsp/Analysis/ZeroCrossRateTests.fs" />
+    <Compile Include="Dsp/Analysis/PeakHoldTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

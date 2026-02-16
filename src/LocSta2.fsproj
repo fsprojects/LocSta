@@ -48,6 +48,34 @@
     <Compile Include="Windowing/Segment.fs" />
     <!-- Operators -->
     <Compile Include="Operators/Operators.fs" />
+    <!-- DSP: Oscillators -->
+    <Compile Include="Dsp/Oscillators/SineOsc.fs" />
+    <Compile Include="Dsp/Oscillators/SawOsc.fs" />
+    <Compile Include="Dsp/Oscillators/SquareOsc.fs" />
+    <Compile Include="Dsp/Oscillators/TriangleOsc.fs" />
+    <Compile Include="Dsp/Oscillators/WhiteNoise.fs" />
+    <!-- DSP: Filters -->
+    <Compile Include="Dsp/Filters/LowPass1.fs" />
+    <Compile Include="Dsp/Filters/HighPass1.fs" />
+    <Compile Include="Dsp/Filters/BiquadLowPass.fs" />
+    <Compile Include="Dsp/Filters/BiquadHighPass.fs" />
+    <Compile Include="Dsp/Filters/BiquadBandPass.fs" />
+    <Compile Include="Dsp/Filters/DcBlock.fs" />
+    <!-- DSP: Envelope -->
+    <Compile Include="Dsp/Envelope/EnvFollow.fs" />
+    <Compile Include="Dsp/Envelope/Adsr.fs" />
+    <!-- DSP: Dynamics -->
+    <Compile Include="Dsp/Dynamics/SoftClip.fs" />
+    <Compile Include="Dsp/Dynamics/HardClip.fs" />
+    <Compile Include="Dsp/Dynamics/Gate.fs" />
+    <!-- DSP: Modulation -->
+    <Compile Include="Dsp/Modulation/RingMod.fs" />
+    <Compile Include="Dsp/Modulation/BitCrush.fs" />
+    <Compile Include="Dsp/Modulation/Crossfade.fs" />
+    <!-- DSP: Analysis -->
+    <Compile Include="Dsp/Analysis/Rms.fs" />
+    <Compile Include="Dsp/Analysis/ZeroCrossRate.fs" />
+    <Compile Include="Dsp/Analysis/PeakHold.fs" />
   </ItemGroup>
 
 </Project>
