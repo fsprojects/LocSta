@@ -83,7 +83,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\LocSta2.fsproj" />
+    <ProjectReference Include="..\LocSta2\LocSta2.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,8 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/LocSta2.fsproj" />
+    <Project Path="src/LocSta2/LocSta2.fsproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/LocSta2.Tests.fsproj" />
+    <Project Path="src/tests/LocSta2.Tests.fsproj" />
   </Folder>
 </Solution>
