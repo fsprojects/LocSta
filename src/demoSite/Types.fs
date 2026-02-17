@@ -1,10 +1,8 @@
-namespace DemoSite.Data
-
-open System.Collections.Generic
+module DemoSite.Types
 
 type ChartSeries =
     { Label: string
-      Values: List<float>
+      Values: float list
       Color: string
       IsStep: bool }
 
@@ -12,10 +10,10 @@ type BlockDemo =
     { Name: string
       Description: string
       CodeSnippet: string
-      InputSeries: List<ChartSeries>
-      OutputSeries: List<ChartSeries> }
+      InputSeries: ChartSeries list
+      OutputSeries: ChartSeries list }
 
 type Category =
     { Name: string
       Slug: string
-      Blocks: List<BlockDemo> }
+      Blocks: BlockDemo list }

@@ -6,10 +6,15 @@ open LocSta.Core
 let delayByN n defaultValue =
     stream {
         let! ctx = getCtx()
-        let! buffer = useStateWith (fun () -> System.Collections.Generic.Queue<_>(List.replicate n defaultValue))
+        let! buffer = useStateWith (fun () -> List.replicate n defaultValue)
         let output =
-            if buffer.Value.Count = 0 then ctx
-            else buffer.Value.Dequeue()
-        if n > 0 then buffer.Value.Enqueue ctx
+            match buffer.Value with
+            | [] -> ctx
+            | head :: _ -> head
+        if n > 0 then
+            buffer.Value <-
+                match buffer.Value with
+                | [] -> [ ctx ]
+                | _ :: tail -> tail @ [ ctx ]
         return output
     }

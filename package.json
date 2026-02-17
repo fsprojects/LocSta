@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "start": "dotnet fable watch src/demoSite -o src/demoSite/.fable --run vite",
+    "build": "dotnet fable src/demoSite -o src/demoSite/.fable && vite build"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

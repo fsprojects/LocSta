@@ -43,6 +43,9 @@ coverage-*/
 *.coveragexml
 lcov.info
 
+# ---- Fable ----
+.fable/
+
 # ---- Web / Node ----
 node_modules/
 dist/

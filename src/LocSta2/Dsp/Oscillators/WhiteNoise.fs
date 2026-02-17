@@ -6,6 +6,10 @@ open LocSta.Core
 let whiteNoise seed =
     stream {
         let! _ = getCtx()
+#if FABLE_COMPILER
+        return Fable.Core.JS.Math.random() * 2.0 - 1.0
+#else
         let! rng = useMemoWith (fun () -> System.Random(seed))
         return rng.NextDouble() * 2.0 - 1.0
+#endif
     }

@@ -1,7 +1,7 @@
-namespace DemoSite.Data
+module DemoSite.BlockDemos
 
-open System.Collections.Generic
 open LocSta.Core
+open DemoSite.Types
 
 module Samples =
     let noisySine n =
@@ -20,20 +20,18 @@ module Samples =
         [ false; false; true; true; false; true; false; false; true; true
           true; false; true; false; false; false; true; true; false; true ]
 
-    let toList (xs: 'a list) = List<'a>(xs)
-
     let series label color values =
-        { Label = label; Values = toList values; Color = color; IsStep = false }
+        { Label = label; Values = values; Color = color; IsStep = false }
 
     let stepSeries label color values =
-        { Label = label; Values = toList values; Color = color; IsStep = true }
+        { Label = label; Values = values; Color = color; IsStep = true }
 
-    let demo name desc snippet (inputs: ChartSeries list) (outputs: ChartSeries list) =
+    let demo name desc snippet inputs outputs =
         { Name = name
           Description = desc
           CodeSnippet = snippet
-          InputSeries = List<ChartSeries>(inputs :> ChartSeries seq)
-          OutputSeries = List<ChartSeries>(outputs :> ChartSeries seq) }
+          InputSeries = inputs
+          OutputSeries = outputs }
 
 open Samples
 
@@ -323,40 +321,36 @@ module BlockDemos =
     // ── DSP: Oscillators ────────────────────────────────────────────
 
     let sineOsc () =
-        let sr = 100.0
         let n = 200
         let input = List.replicate n 2.0
-        let output = LocSta.Blocks.Dsp.Oscillators.SineOsc.sineOsc sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Oscillators.SineOsc.sineOsc 100.0 |> Eval.runWith input
         demo "SineOsc" "Sine wave oscillator."
             "sineOsc 100.0 |> Eval.runWith (replicate 200 2.0)"
             []
             [ series "Output" "#e74c3c" output ]
 
     let sawOsc () =
-        let sr = 100.0
         let n = 200
         let input = List.replicate n 2.0
-        let output = LocSta.Blocks.Dsp.Oscillators.SawOsc.sawOsc sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Oscillators.SawOsc.sawOsc 100.0 |> Eval.runWith input
         demo "SawOsc" "Sawtooth wave oscillator."
             "sawOsc 100.0 |> Eval.runWith (replicate 200 2.0)"
             []
             [ series "Output" "#e74c3c" output ]
 
     let squareOsc () =
-        let sr = 100.0
         let n = 200
         let input = List.replicate n (2.0, 0.5)
-        let output = LocSta.Blocks.Dsp.Oscillators.SquareOsc.squareOsc sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Oscillators.SquareOsc.squareOsc 100.0 |> Eval.runWith input
         demo "SquareOsc" "Square wave oscillator with pulse width control."
             "squareOsc 100.0 |> Eval.runWith (replicate 200 (2.0, 0.5))"
             []
             [ stepSeries "Output" "#e74c3c" output ]
 
     let triangleOsc () =
-        let sr = 100.0
         let n = 200
         let input = List.replicate n 2.0
-        let output = LocSta.Blocks.Dsp.Oscillators.TriangleOsc.triangleOsc sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Oscillators.TriangleOsc.triangleOsc 100.0 |> Eval.runWith input
         demo "TriangleOsc" "Triangle wave oscillator."
             "triangleOsc 100.0 |> Eval.runWith (replicate 200 2.0)"
             []
@@ -374,57 +368,52 @@ module BlockDemos =
     // ── DSP: Filters ────────────────────────────────────────────────
 
     let lowPass1 () =
-        let sr = 1000.0
         let n = 200
         let signal = [ for i in 0 .. n - 1 -> sin (float i * 0.1) + 0.5 * sin (float i * 0.8) ]
         let cutoff = 50.0
         let input = signal |> List.map (fun s -> (s, cutoff))
-        let output = LocSta.Blocks.Dsp.Filters.LowPass1.lowPass1 sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Filters.LowPass1.lowPass1 1000.0 |> Eval.runWith input
         demo "LowPass1" "1-pole low-pass filter."
             "lowPass1 1000.0 |> Eval.runWith (signal, 50.0)"
             [ series "Input" "#3498db" signal ]
             [ series "Output" "#e74c3c" output ]
 
     let highPass1 () =
-        let sr = 1000.0
         let n = 200
         let signal = [ for i in 0 .. n - 1 -> sin (float i * 0.1) + 0.5 * sin (float i * 0.8) ]
         let cutoff = 50.0
         let input = signal |> List.map (fun s -> (s, cutoff))
-        let output = LocSta.Blocks.Dsp.Filters.HighPass1.highPass1 sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Filters.HighPass1.highPass1 1000.0 |> Eval.runWith input
         demo "HighPass1" "1-pole high-pass filter."
             "highPass1 1000.0 |> Eval.runWith (signal, 50.0)"
             [ series "Input" "#3498db" signal ]
             [ series "Output" "#e74c3c" output ]
 
     let biquadLowPass () =
-        let sr = 1000.0
         let n = 200
         let signal = [ for i in 0 .. n - 1 -> sin (float i * 0.1) + 0.5 * sin (float i * 0.8) ]
         let input = signal |> List.map (fun s -> (s, 50.0, 0.707))
-        let output = LocSta.Blocks.Dsp.Filters.BiquadLowPass.biquadLowPass sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Filters.BiquadLowPass.biquadLowPass 1000.0 |> Eval.runWith input
         demo "BiquadLowPass" "Biquad low-pass filter (2nd order)."
             "biquadLowPass 1000.0 |> Eval.runWith (signal, 50.0, 0.707)"
             [ series "Input" "#3498db" signal ]
             [ series "Output" "#e74c3c" output ]
 
     let biquadHighPass () =
-        let sr = 1000.0
         let n = 200
         let signal = [ for i in 0 .. n - 1 -> sin (float i * 0.1) + 0.5 * sin (float i * 0.8) ]
         let input = signal |> List.map (fun s -> (s, 50.0, 0.707))
-        let output = LocSta.Blocks.Dsp.Filters.BiquadHighPass.biquadHighPass sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Filters.BiquadHighPass.biquadHighPass 1000.0 |> Eval.runWith input
         demo "BiquadHighPass" "Biquad high-pass filter (2nd order)."
             "biquadHighPass 1000.0 |> Eval.runWith (signal, 50.0, 0.707)"
             [ series "Input" "#3498db" signal ]
             [ series "Output" "#e74c3c" output ]
 
     let biquadBandPass () =
-        let sr = 1000.0
         let n = 200
         let signal = [ for i in 0 .. n - 1 -> sin (float i * 0.1) + 0.5 * sin (float i * 0.8) ]
         let input = signal |> List.map (fun s -> (s, 80.0, 1.0))
-        let output = LocSta.Blocks.Dsp.Filters.BiquadBandPass.biquadBandPass sr |> Eval.runWith input
+        let output = LocSta.Blocks.Dsp.Filters.BiquadBandPass.biquadBandPass 1000.0 |> Eval.runWith input
         demo "BiquadBandPass" "Biquad band-pass filter (2nd order)."
             "biquadBandPass 1000.0 |> Eval.runWith (signal, 80.0, 1.0)"
             [ series "Input" "#3498db" signal ]
@@ -442,12 +431,11 @@ module BlockDemos =
     // ── DSP: Envelope ───────────────────────────────────────────────
 
     let envFollow () =
-        let sr = 1000.0
         let n = 200
         let signal = [ for i in 0 .. n - 1 ->
                             let env = if i < 80 then 1.0 elif i < 120 then 0.0 else 0.7
                             env * sin (float i * 0.5) ]
-        let output = LocSta.Blocks.Dsp.Envelope.EnvFollow.envFollow sr 5.0 50.0 |> Eval.runWith signal
+        let output = LocSta.Blocks.Dsp.Envelope.EnvFollow.envFollow 1000.0 5.0 50.0 |> Eval.runWith signal
         demo "EnvFollow" "Envelope follower with separate attack and release times."
             "envFollow 1000.0 5.0 50.0 |> Eval.runWith signal"
             [ series "Input" "#3498db" signal ]
@@ -568,49 +556,45 @@ module BlockDemos =
             [ series "Output" "#e74c3c" output ]
 
 
-type BlockDataService() =
-    let categories =
-        let cat name slug (blocks: BlockDemo list) =
-            { Name = name; Slug = slug; Blocks = List<BlockDemo>(blocks :> BlockDemo seq) }
-        List<Category>(
-            [
-                cat "Generators" "generators"
-                    [ BlockDemos.counter(); BlockDemos.fibonacci() ]
-                cat "Delay" "delay"
-                    [ BlockDemos.delayBy1(); BlockDemos.delayByN() ]
-                cat "State" "state"
-                    [ BlockDemos.hold(); BlockDemos.latch(); BlockDemos.edge(); BlockDemos.changed() ]
-                cat "Arithmetic" "arithmetic"
-                    [ BlockDemos.diff(); BlockDemos.cumulativeSum(); BlockDemos.cumulativeProduct()
-                      BlockDemos.clamp(); BlockDemos.rescale() ]
-                cat "Statistics" "statistics"
-                    [ BlockDemos.movingAverage(); BlockDemos.ema(); BlockDemos.rollingStdDev()
-                      BlockDemos.rollingMin(); BlockDemos.rollingMax()
-                      BlockDemos.runningMin(); BlockDemos.runningMax() ]
-                cat "Detection" "detection"
-                    [ BlockDemos.crossover(); BlockDemos.threshold() ]
-                cat "Logic" "logic"
-                    [ BlockDemos.debounce(); BlockDemos.toggle() ]
-                cat "Counting" "counting"
-                    [ BlockDemos.countWhere(); BlockDemos.countSince(); BlockDemos.countIn()
-                      BlockDemos.timeSince(); BlockDemos.rate() ]
-                cat "Windowing" "windowing"
-                    [ BlockDemos.windowedReduce(); BlockDemos.segment() ]
-                cat "DSP: Oscillators" "dsp-oscillators"
-                    [ BlockDemos.sineOsc(); BlockDemos.sawOsc(); BlockDemos.squareOsc()
-                      BlockDemos.triangleOsc(); BlockDemos.whiteNoise() ]
-                cat "DSP: Filters" "dsp-filters"
-                    [ BlockDemos.lowPass1(); BlockDemos.highPass1()
-                      BlockDemos.biquadLowPass(); BlockDemos.biquadHighPass(); BlockDemos.biquadBandPass()
-                      BlockDemos.dcBlock() ]
-                cat "DSP: Envelope" "dsp-envelope"
-                    [ BlockDemos.envFollow(); BlockDemos.adsr() ]
-                cat "DSP: Dynamics" "dsp-dynamics"
-                    [ BlockDemos.softClip(); BlockDemos.hardClip(); BlockDemos.gate() ]
-                cat "DSP: Modulation" "dsp-modulation"
-                    [ BlockDemos.ringMod(); BlockDemos.bitCrush(); BlockDemos.crossfade() ]
-                cat "DSP: Analysis" "dsp-analysis"
-                    [ BlockDemos.rms(); BlockDemos.zeroCrossRate(); BlockDemos.peakHold() ]
-            ]
-        )
-    member _.Categories = categories
+let categories =
+    let cat name slug blocks =
+        { Name = name; Slug = slug; Blocks = blocks }
+    [
+        cat "Generators" "generators"
+            [ BlockDemos.counter(); BlockDemos.fibonacci() ]
+        cat "Delay" "delay"
+            [ BlockDemos.delayBy1(); BlockDemos.delayByN() ]
+        cat "State" "state"
+            [ BlockDemos.hold(); BlockDemos.latch(); BlockDemos.edge(); BlockDemos.changed() ]
+        cat "Arithmetic" "arithmetic"
+            [ BlockDemos.diff(); BlockDemos.cumulativeSum(); BlockDemos.cumulativeProduct()
+              BlockDemos.clamp(); BlockDemos.rescale() ]
+        cat "Statistics" "statistics"
+            [ BlockDemos.movingAverage(); BlockDemos.ema(); BlockDemos.rollingStdDev()
+              BlockDemos.rollingMin(); BlockDemos.rollingMax()
+              BlockDemos.runningMin(); BlockDemos.runningMax() ]
+        cat "Detection" "detection"
+            [ BlockDemos.crossover(); BlockDemos.threshold() ]
+        cat "Logic" "logic"
+            [ BlockDemos.debounce(); BlockDemos.toggle() ]
+        cat "Counting" "counting"
+            [ BlockDemos.countWhere(); BlockDemos.countSince(); BlockDemos.countIn()
+              BlockDemos.timeSince(); BlockDemos.rate() ]
+        cat "Windowing" "windowing"
+            [ BlockDemos.windowedReduce(); BlockDemos.segment() ]
+        cat "DSP: Oscillators" "dsp-oscillators"
+            [ BlockDemos.sineOsc(); BlockDemos.sawOsc(); BlockDemos.squareOsc()
+              BlockDemos.triangleOsc(); BlockDemos.whiteNoise() ]
+        cat "DSP: Filters" "dsp-filters"
+            [ BlockDemos.lowPass1(); BlockDemos.highPass1()
+              BlockDemos.biquadLowPass(); BlockDemos.biquadHighPass(); BlockDemos.biquadBandPass()
+              BlockDemos.dcBlock() ]
+        cat "DSP: Envelope" "dsp-envelope"
+            [ BlockDemos.envFollow(); BlockDemos.adsr() ]
+        cat "DSP: Dynamics" "dsp-dynamics"
+            [ BlockDemos.softClip(); BlockDemos.hardClip(); BlockDemos.gate() ]
+        cat "DSP: Modulation" "dsp-modulation"
+            [ BlockDemos.ringMod(); BlockDemos.bitCrush(); BlockDemos.crossfade() ]
+        cat "DSP: Analysis" "dsp-analysis"
+            [ BlockDemos.rms(); BlockDemos.zeroCrossRate(); BlockDemos.peakHold() ]
+    ]
