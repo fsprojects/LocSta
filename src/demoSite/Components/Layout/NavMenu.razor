@@ -1,0 +1,15 @@
+@inject DemoSite.Data.BlockDataService DataService
+
+<div class="nav-menu">
+    <div class="nav-title">
+        <a href="/">LocSta2</a>
+    </div>
+    <nav>
+        @foreach (var category in DataService.Categories) {
+            <a class="nav-link" href="/category/@category.Slug">
+                <span class="nav-link-name">@category.Name</span>
+                <span class="nav-link-count">@category.Blocks.Count</span>
+            </a>
+        }
+    </nav>
+</div>

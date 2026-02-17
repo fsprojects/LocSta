@@ -1,0 +1,21 @@
+@using DemoSite.Data
+
+<div class="block-card">
+    <h3>@Block.Name</h3>
+    <p class="block-desc">@Block.Description</p>
+    <code class="block-snippet">@Block.CodeSnippet</code>
+    <SvgChart Series="AllSeries" />
+</div>
+
+@code {
+    [Parameter] public BlockDemo Block { get; set; } = default!;
+
+    private List<ChartSeries> AllSeries {
+        get {
+            var list = new List<ChartSeries>();
+            list.AddRange(Block.InputSeries);
+            list.AddRange(Block.OutputSeries);
+            return list;
+        }
+    }
+}

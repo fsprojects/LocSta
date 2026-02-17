@@ -1,0 +1,115 @@
+@using DemoSite.Data
+@using System.Globalization
+
+@{
+    const int width = 600;
+    const int height = 200;
+    const int margin = 40;
+    const int marginRight = 10;
+    const int marginTop = 10;
+    const int marginBottom = 25;
+
+    var plotW = width - margin - marginRight;
+    var plotH = height - marginTop - marginBottom;
+
+    double yMin = double.MaxValue;
+    double yMax = double.MinValue;
+    int maxLen = 0;
+
+    if (Series != null) {
+        foreach (var s in Series) {
+            if (s.Values.Count > maxLen) maxLen = s.Values.Count;
+            foreach (var v in s.Values) {
+                if (v < yMin) yMin = v;
+                if (v > yMax) yMax = v;
+            }
+        }
+    }
+
+    if (yMin == yMax) { yMin -= 1; yMax += 1; }
+    var yPad = (yMax - yMin) * 0.08;
+    yMin -= yPad;
+    yMax += yPad;
+    var yRange = yMax - yMin;
+
+    double MapX(int i) => margin + (maxLen <= 1 ? 0 : (double)i / (maxLen - 1) * plotW);
+    double MapY(double v) => marginTop + (1.0 - (v - yMin) / yRange) * plotH;
+
+    string F(double v) => v.ToString("F1", CultureInfo.InvariantCulture);
+
+    // Helper to emit SVG <text> without Razor <text> conflict
+    MarkupString SvgText(double x, double y, string anchor, string fontSize, string fill, string content)
+        => new($"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" font-size=\"{fontSize}\" fill=\"{fill}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+}
+
+<svg width="@width" height="@height" viewBox="0 0 @width @height"
+     xmlns="http://www.w3.org/2000/svg"
+     style="background:#fff; border:1px solid #e0e0e0; border-radius:6px; display:block;">
+
+    @* Grid lines *@
+    @{ var gridSteps = 4; }
+    @for (int g = 0; g <= gridSteps; g++) {
+        var gv = yMin + yRange * g / gridSteps;
+        var gy = MapY(gv);
+        <line x1="@F(margin)" y1="@F(gy)" x2="@F(width - marginRight)" y2="@F(gy)"
+              stroke="#eee" stroke-width="1" />
+        @(SvgText(margin - 4, gy + 3, "end", "9", "#999", gv.ToString("G3", CultureInfo.InvariantCulture)))
+    }
+
+    @* Zero line *@
+    @if (yMin < 0 && yMax > 0) {
+        var zy = MapY(0);
+        <line x1="@F(margin)" y1="@F(zy)" x2="@F(width - marginRight)" y2="@F(zy)"
+              stroke="#ccc" stroke-width="1" stroke-dasharray="4,3" />
+    }
+
+    @* Data series *@
+    @if (Series != null) {
+        foreach (var s in Series) {
+            if (s.Values.Count == 0) continue;
+
+            if (s.IsStep) {
+                @* Step function rendering *@
+                var stepPath = new System.Text.StringBuilder();
+                stepPath.Append($"M{F(MapX(0))},{F(MapY(s.Values[0]))}");
+                for (int i = 1; i < s.Values.Count; i++) {
+                    stepPath.Append($" H{F(MapX(i))} V{F(MapY(s.Values[i]))}");
+                }
+                <path d="@stepPath" fill="none" stroke="@s.Color" stroke-width="1.5" opacity="0.85" />
+            } else {
+                @* Line rendering *@
+                var points = new System.Text.StringBuilder();
+                for (int i = 0; i < s.Values.Count; i++) {
+                    if (i > 0) points.Append(" ");
+                    points.Append($"{F(MapX(i))},{F(MapY(s.Values[i]))}");
+                }
+                <polyline points="@points" fill="none" stroke="@s.Color" stroke-width="1.5" opacity="0.85" />
+            }
+        }
+    }
+
+    @* X axis ticks *@
+    @if (maxLen > 0) {
+        var xTicks = Math.Min(maxLen, 6);
+        for (int t = 0; t < xTicks; t++) {
+            var idx = maxLen <= 1 ? 0 : (int)((double)t / (xTicks - 1) * (maxLen - 1));
+            var tx = MapX(idx);
+            @(SvgText(tx, height - 4, "middle", "9", "#999", idx.ToString()))
+        }
+    }
+
+    @* Legend *@
+    @if (Series != null && Series.Count > 1) {
+        var ly = 8;
+        var lx = margin + 6;
+        foreach (var s in Series) {
+            <rect x="@F(lx)" y="@ly" width="12" height="3" fill="@s.Color" rx="1" />
+            @(SvgText(lx + 16, ly + 4, "start", "9", "#666", s.Label))
+            ly += 14;
+        }
+    }
+</svg>
+
+@code {
+    [Parameter] public List<ChartSeries>? Series { get; set; }
+}

@@ -1,0 +1,18 @@
+@page "/"
+@inject DemoSite.Data.BlockDataService DataService
+
+<h1>LocSta2 Demo</h1>
+<p class="intro">
+    Visual demos of all signal processing blocks in the LocSta2 library.
+    Each block is shown with its input signal (blue) and output signal (red).
+    Select a category from the sidebar to explore.
+</p>
+
+<div class="category-grid">
+    @foreach (var cat in DataService.Categories) {
+        <a class="category-card" href="/category/@cat.Slug">
+            <span class="category-card-name">@cat.Name</span>
+            <span class="category-card-count">@cat.Blocks.Count blocks</span>
+        </a>
+    }
+</div>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DemoSite.Data</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="BlockRegistry.fs" />
+    <Compile Include="BlockDataService.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LocSta2\LocSta2.fsproj" />
+  </ItemGroup>
+
+</Project>
