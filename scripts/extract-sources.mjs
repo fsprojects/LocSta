@@ -1,6 +1,6 @@
 // Reads all .fs block source files from src/LocSta2/ and generates
-// src/demoSite/BlockSources.generated.fs with a Map<string, string>
-// from block name to source code. Run before Fable compilation.
+// src/demoSite/BlockSources.generated.fs with Maps for source code
+// and descriptions. Run before Fable compilation.
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, basename, extname } from "node:path";
@@ -27,6 +27,24 @@ async function findFsFiles(dir) {
   return results;
 }
 
+function parseBlock(raw) {
+  const lines = raw.split("\n");
+  const docLines = [];
+  const codeLines = [];
+  for (const line of lines) {
+    if (line.startsWith("module ") || line.startsWith("open ")) continue;
+    if (line.startsWith("///")) {
+      docLines.push(line.replace(/^\/\/\/\s?/, ""));
+    } else {
+      codeLines.push(line);
+    }
+  }
+  return {
+    description: docLines.join(" ").trim(),
+    source: codeLines.join("\n").trim(),
+  };
+}
+
 function escapeFs(s) {
   return s
     .replace(/\\/g, "\\\\")
@@ -39,11 +57,25 @@ async function main() {
   const files = await findFsFiles(LIB_DIR);
   files.sort();
 
-  const entries = [];
+  const sourceEntries = [];
+  const descEntries = [];
   for (const file of files) {
     const name = basename(file, extname(file));
-    const content = await readFile(file, "utf-8");
-    entries.push(`          ("${name}", "${escapeFs(content)}")`);
+    const raw = await readFile(file, "utf-8");
+    const { description, source } = parseBlock(raw);
+    sourceEntries.push(`          ("${name}", "${escapeFs(source)}")`);
+    if (description) {
+      descEntries.push(`          ("${name}", "${escapeFs(description)}")`);
+    }
+  }
+
+  function renderMap(entries) {
+    if (entries.length === 0) return "    Map.empty";
+    return [
+      "    Map.ofList",
+      "        [",
+      ...entries.map((e, i) => e + (i < entries.length - 1 ? "" : " ]")),
+    ].join("\n");
   }
 
   const module = [
@@ -51,13 +83,15 @@ async function main() {
     "module DemoSite.BlockSources",
     "",
     "let sources =",
-    "    Map.ofList",
-    "        [" + (entries.length > 0 ? "" : " ]"),
-    ...entries.map((e, i) => e + (i < entries.length - 1 ? "" : " ]")),
-  ].join("\n") + "\n";
+    renderMap(sourceEntries),
+    "",
+    "let descriptions =",
+    renderMap(descEntries),
+    "",
+  ].join("\n");
 
   await writeFile(OUT_FILE, module, "utf-8");
-  console.log(`Generated ${OUT_FILE} with ${entries.length} block sources.`);
+  console.log(`Generated ${OUT_FILE} with ${sourceEntries.length} sources and ${descEntries.length} descriptions.`);
 }
 
 main();

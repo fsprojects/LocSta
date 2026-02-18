@@ -13,9 +13,13 @@ let private blockCard (block: BlockDemo) =
         match BlockSources.sources |> Map.tryFind block.Name with
         | Some code -> "<details class=\"block-source-details\"><summary>Source</summary><pre class=\"block-source\">" + esc code + "</pre></details>"
         | None -> ""
+    let desc =
+        BlockSources.descriptions
+        |> Map.tryFind block.Name
+        |> Option.defaultValue block.Description
     "<div class=\"block-card\">"
     + "<h3>" + esc block.Name + "</h3>"
-    + "<p class=\"block-desc\">" + esc block.Description + "</p>"
+    + "<p class=\"block-desc\">" + esc desc + "</p>"
     + "<code class=\"block-snippet\">" + esc block.CodeSnippet + "</code>"
     + chart
     + source
