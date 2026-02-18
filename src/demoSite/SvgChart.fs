@@ -99,3 +99,54 @@ let renderChart (allSeries: ChartSeries list) =
 %s
 %s
 </svg>""" width height width height gridLines zeroLine dataSeries xTicks legend
+
+let renderThumb (allSeries: ChartSeries list) =
+    let width = 140
+    let height = 40
+    let pad = 2
+    let plotW = float (width - pad * 2)
+    let plotH = float (height - pad * 2)
+
+    let allValues = allSeries |> List.collect (fun s -> s.Values)
+    if allValues.IsEmpty then "" else
+
+    let maxLen = allSeries |> List.map (fun s -> s.Values.Length) |> List.max
+    let yMin, yMax =
+        let mn = allValues |> List.min
+        let mx = allValues |> List.max
+        if mn = mx then mn - 1.0, mx + 1.0
+        else
+            let pad = (mx - mn) * 0.05
+            mn - pad, mx + pad
+    let yRange = yMax - yMin
+
+    let mapX i =
+        float pad + (if maxLen <= 1 then 0.0 else float i / float (maxLen - 1) * plotW)
+    let mapY v =
+        float pad + (1.0 - (v - yMin) / yRange) * plotH
+
+    let lines =
+        [ for s in allSeries do
+            if s.Values.Length > 0 then
+                if s.IsStep then
+                    let pathData =
+                        let start = sprintf "M%s,%s" (f (mapX 0)) (f (mapY s.Values.[0]))
+                        let steps =
+                            s.Values |> List.indexed |> List.tail
+                            |> List.map (fun (i, v) ->
+                                sprintf "H%s V%s" (f (mapX i)) (f (mapY v)))
+                        start :: steps |> String.concat " "
+                    yield sprintf """<path d="%s" fill="none" stroke="%s" stroke-width="1" opacity="0.8"/>"""
+                        pathData s.Color
+                else
+                    let points =
+                        s.Values |> List.mapi (fun i v ->
+                            sprintf "%s,%s" (f (mapX i)) (f (mapY v)))
+                        |> String.concat " "
+                    yield sprintf """<polyline points="%s" fill="none" stroke="%s" stroke-width="1" opacity="0.8"/>"""
+                        points s.Color ]
+        |> String.concat "\n"
+
+    sprintf """<svg width="%d" height="%d" viewBox="0 0 %d %d" xmlns="http://www.w3.org/2000/svg" class="nav-thumb">
+%s
+</svg>""" width height width height lines

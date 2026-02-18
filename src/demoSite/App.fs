@@ -4,9 +4,12 @@ open Browser.Dom
 open DemoSite.Render
 
 let private app = document.getElementById "app"
+app.innerHTML <- renderShell ()
+
+let private content = document.getElementById "content"
 
 let private render () =
-    app.innerHTML <- renderApp window.location.hash
+    content.innerHTML <- renderContent window.location.hash
 
 render ()
 

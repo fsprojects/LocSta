@@ -11,7 +11,7 @@ let private blockCard (block: BlockDemo) =
     let chart = renderChart (block.InputSeries @ block.OutputSeries)
     let source =
         match BlockSources.sources |> Map.tryFind block.Name with
-        | Some code -> "<details class=\"block-source-details\"><summary>Source</summary><pre class=\"block-source\">" + esc code + "</pre></details>"
+        | Some code -> "<details class=\"block-source-details\"><summary>Source for the " + esc block.Name + " block</summary><pre class=\"block-source\">" + esc code + "</pre></details>"
         | None -> ""
     let desc =
         BlockSources.descriptions
@@ -25,17 +25,25 @@ let private blockCard (block: BlockDemo) =
     + source
     + "</div>"
 
-let private navLink (cat: Category) =
-    "<a class=\"nav-link\" href=\"#/category/" + cat.Slug + "\">"
-    + "<span class=\"nav-link-name\">" + esc cat.Name + "</span>"
-    + "<span class=\"nav-link-count\">" + string cat.Blocks.Length + "</span>"
+let private navBlockLink (slug: string) (block: BlockDemo) =
+    let thumb = renderThumb (block.InputSeries @ block.OutputSeries)
+    "<a class=\"nav-block\" href=\"#/category/" + slug + "\">"
+    + "<span class=\"nav-block-name\">" + esc block.Name + "</span>"
+    + thumb
     + "</a>"
 
+let private navGroup (cat: Category) =
+    let blocks = cat.Blocks |> List.map (navBlockLink cat.Slug) |> String.concat ""
+    "<div class=\"nav-group\">"
+    + "<div class=\"nav-group-title\">" + esc cat.Name + "</div>"
+    + blocks
+    + "</div>"
+
 let private navMenu () =
-    let links = categories |> List.map navLink |> String.concat ""
+    let groups = categories |> List.map navGroup |> String.concat ""
     "<div class=\"nav-menu\">"
     + "<div class=\"nav-title\"><a href=\"#\">LocSta2</a></div>"
-    + "<nav>" + links + "</nav>"
+    + "<nav>" + groups + "</nav>"
     + "</div>"
 
 let private categoryCard (cat: Category) =
@@ -57,29 +65,74 @@ let private homePage () =
     + "It provides " + string totalBlocks + " composable blocks across " + string categories.Length + " categories &mdash; "
     + "from simple delays and filters to oscillators, envelope generators, and dynamics processors.</p>"
 
-    + "<h2>The Local State Pattern</h2>"
-    + "<p>Traditional stateful signal processing requires you to manually thread state through your code, "
-    + "allocate buffers, and manage lifecycles. LocSta2 eliminates this boilerplate.</p>"
-    + "<p>Each block is a function of type "
-    + "<code class=\"inline-code\">StateController&lt;'s&gt; &rarr; 'ctx &rarr; 'value &times; StateController&lt;'s&gt;</code>. "
-    + "The <code class=\"inline-code\">stream { }</code> computation expression threads state automatically. "
-    + "Blocks like <code class=\"inline-code\">useState</code>, <code class=\"inline-code\">useMemo</code>, and "
-    + "<code class=\"inline-code\">getCtx</code> let you declare local state inside the computation &mdash; "
-    + "state that persists across evaluations without any external bookkeeping.</p>"
-    + "<p>This means a low-pass filter, an EMA, or an ADSR envelope are each just a few lines of pure F#, "
-    + "and they compose freely:</p>"
+    + "<h2>Why Local State?</h2>"
+    + "<p>In traditional OOP, every stateful processor needs a class with fields, a constructor, "
+    + "and manual wiring. Composing them means instantiating each object upfront, then plumbing "
+    + "calls through in the right order. Here is a smoothing filter followed by a difference detector:</p>"
+
+    + "<div class=\"comparison\">"
+    + "<div class=\"comparison-col\">"
+    + "<div class=\"comparison-label comparison-label-bad\">C# &mdash; Traditional</div>"
+    + "<pre class=\"code-example\">"
+    + "public class Smoother {\n"
+    + "    private double _prev = 0.0;\n"
+    + "    public double Process(double input) {\n"
+    + "        var v = _prev * 0.9 + input * 0.1;\n"
+    + "        _prev = v;\n"
+    + "        return v;\n"
+    + "    }\n"
+    + "}\n"
+    + "\n"
+    + "public class Differ {\n"
+    + "    private double _prev;\n"
+    + "    public Differ(double init) =&gt; _prev = init;\n"
+    + "    public double Process(double input) {\n"
+    + "        var d = input - _prev;\n"
+    + "        _prev = input;\n"
+    + "        return d;\n"
+    + "    }\n"
+    + "}\n"
+    + "\n"
+    + "// Compose: instantiate, wire, call in order\n"
+    + "var smoother = new Smoother();\n"
+    + "var differ   = new Differ(0.0);\n"
+    + "\n"
+    + "var results = inputs\n"
+    + "    .Select(x =&gt; differ.Process(\n"
+    + "                    smoother.Process(x)))\n"
+    + "    .ToList();"
+    + "</pre>"
+    + "</div>"
+
+    + "<div class=\"comparison-col\">"
+    + "<div class=\"comparison-label comparison-label-good\">F# &mdash; LocSta2</div>"
     + "<pre class=\"code-example\">"
     + "let smoothed = stream {\n"
     + "    let! input = getCtx()\n"
     + "    let! prev  = useState 0.0\n"
-    + "    let  value  = prev.Value * 0.9 + input * 0.1\n"
-    + "    prev.Value &lt;- value\n"
-    + "    return value\n"
+    + "    let  v     = prev.Value * 0.9 + input * 0.1\n"
+    + "    prev.Value &lt;- v\n"
+    + "    return v\n"
     + "}\n"
     + "\n"
-    + "// Evaluate with a list of inputs:\n"
-    + "smoothed |&gt; Eval.runWith [1.0; 2.0; 3.0; ...]"
+    + "let smoothedDiff = stream {\n"
+    + "    let! v = smoothed\n"
+    + "    return! diff 0.0\n"
+    + "}\n"
+    + "\n"
+    + "// Compose: just bind. No objects.\n"
+    + "smoothedDiff |&gt; Eval.runWith inputs"
     + "</pre>"
+    + "</div>"
+    + "</div>"
+
+    + "<p>With LocSta2, each block declares its own local state via "
+    + "<code class=\"inline-code\">useState</code> inside a "
+    + "<code class=\"inline-code\">stream { }</code> computation expression. "
+    + "No classes, no constructors, no manual wiring. "
+    + "State is allocated on first use, retained across evaluations, and composed with "
+    + "<code class=\"inline-code\">let!</code> &mdash; "
+    + "the runtime threads it automatically.</p>"
 
     + "<h2>Explore the Blocks</h2>"
     + "<p>Each demo below shows input (blue) and output (red) signals. "
@@ -95,13 +148,14 @@ let private categoryPage (slug: string) =
     | None ->
         "<h1>Category not found</h1>"
 
-let renderApp (hash: string) =
-    let content =
-        let parts = hash.TrimStart('#').TrimStart('/').Split('/') |> Array.toList
-        match parts with
-        | [ "category"; slug ] -> categoryPage slug
-        | _ -> homePage ()
+let renderShell () =
     "<div class=\"page\">"
     + "<div class=\"sidebar\">" + navMenu () + "</div>"
-    + "<main class=\"main-content\">" + content + "</main>"
+    + "<main class=\"main-content\" id=\"content\"></main>"
     + "</div>"
+
+let renderContent (hash: string) =
+    let parts = hash.TrimStart('#').TrimStart('/').Split('/') |> Array.toList
+    match parts with
+    | [ "category"; slug ] -> categoryPage slug
+    | _ -> homePage ()

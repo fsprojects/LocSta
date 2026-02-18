@@ -24,7 +24,7 @@ h1 {
 
 /* Home page about section */
 .about {
-    max-width: 700px;
+    max-width: 900px;
     margin-bottom: 2rem;
     line-height: 1.6;
 }
@@ -55,11 +55,48 @@ h1 {
     color: #cdd6f4;
     padding: 1rem 1.25rem;
     border-radius: 8px;
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     line-height: 1.6;
     overflow-x: auto;
-    margin: 0.75rem 0 1.25rem;
+    margin: 0.5rem 0 0;
     font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    flex: 1;
+}
+
+/* Side-by-side comparison */
+.comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 0.75rem 0 1.25rem;
+}
+
+.comparison-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.comparison-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px 6px 0 0;
+    text-align: center;
+}
+
+.comparison-label-bad {
+    background: #3b1f1f;
+    color: #f38ba8;
+}
+
+.comparison-label-good {
+    background: #1f3b2a;
+    color: #a6e3a1;
+}
+
+.comparison .code-example {
+    border-radius: 0 0 8px 8px;
+    margin: 0;
 }
 
 /* Layout */
@@ -69,7 +106,7 @@ h1 {
 }
 
 .sidebar {
-    width: 260px;
+    width: 310px;
     flex-shrink: 0;
     background: #1e1e2e;
     color: #cdd6f4;
@@ -106,31 +143,52 @@ h1 {
 nav {
     display: flex;
     flex-direction: column;
-    gap: 1px;
 }
 
-.nav-link {
+.nav-group {
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #313244;
+}
+
+.nav-group:last-child {
+    border-bottom: none;
+}
+
+.nav-group-title {
+    padding: 0.75rem 1.25rem 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #7f849c;
+}
+
+.nav-block {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1.25rem;
+    gap: 0.5rem;
+    padding: 0.35rem 1.25rem;
     color: #a6adc8;
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: background 0.15s, color 0.15s;
 }
 
-.nav-link:hover {
+.nav-block:hover {
     background: #313244;
     color: #cdd6f4;
 }
 
-.nav-link-count {
-    font-size: 0.75rem;
-    background: #313244;
-    padding: 0.15rem 0.5rem;
-    border-radius: 10px;
-    color: #6c7086;
+.nav-block-name {
+    flex-shrink: 0;
+}
+
+.nav-thumb {
+    flex-shrink: 0;
+    border-radius: 3px;
+    background: #181825;
 }
 
 /* Home page category grid */
