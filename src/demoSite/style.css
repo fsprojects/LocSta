@@ -203,3 +203,33 @@ nav {
     max-width: 100%;
     height: auto;
 }
+
+/* Block source code */
+.block-source-details {
+    margin-top: 0.75rem;
+}
+
+.block-source-details summary {
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: #7c3aed;
+    font-weight: 600;
+    user-select: none;
+}
+
+.block-source-details summary:hover {
+    color: #6d28d9;
+}
+
+.block-source {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 0.5rem 0 0;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    white-space: pre;
+}

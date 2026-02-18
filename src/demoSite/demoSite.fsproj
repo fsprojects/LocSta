@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Types.fs" />
+    <Compile Include="BlockSources.generated.fs" />
     <Compile Include="BlockDemos.fs" />
     <Compile Include="SvgChart.fs" />
     <Compile Include="Render.fs" />

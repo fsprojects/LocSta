@@ -45,6 +45,9 @@ lcov.info
 
 # ---- Fable ----
 .fable/
+*.fs.js
+*.fs.js.map
+BlockSources.generated.fs
 
 # ---- Web / Node ----
 node_modules/
