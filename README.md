@@ -1,6 +1,18 @@
-# LocSta
+<p align="center">
+  <img src="LocSta_logo.png" alt="LocSta logo" width="200" />
+</p>
 
-**Loc**al **Sta**te — A stateful stream processing library for F#.
+<h1 align="center">LocSta</h1>
+
+<p align="center">
+  <strong>Loc</strong>al <strong>Sta</strong>te — A stateful stream processing library for F#.
+</p>
+
+<p align="center">
+  <a href="https://fsprojects.github.io/LocSta/">Live Demo</a>
+</p>
+
+---
 
 LocSta provides composable, stateful stream blocks using F# computation expressions. Each block is a pure function that threads state automatically, making it easy to build complex signal processing pipelines — from simple counters to full audio DSP chains.
 
@@ -40,147 +52,7 @@ let result = myCounter |> Eval.run 5 (fun _ -> ())
 | `Eval.runWith inputs stream` | Evaluate with an input sequence |
 | `Eval.toSeq getCtx stream` | Convert to an infinite `seq<'v>` |
 
-## Available Blocks
-
-### Generators
-
-| Block | Description |
-|---|---|
-| `counter start increment` | Incrementing counter |
-| `fibonacci` | Fibonacci sequence generator |
-
-### Delay
-
-| Block | Description |
-|---|---|
-| `delayBy1 seed` | Delay signal by 1 sample |
-| `delayByN n seed` | Delay signal by n samples |
-
-### State
-
-| Block | Description |
-|---|---|
-| `hold predicate defaultValue` | Hold last value satisfying predicate |
-| `latch gate` | Latch value when gate is true |
-| `edge` | Detect rising edges (false -> true) |
-| `changed` | Detect value changes |
-
-### Arithmetic
-
-| Block | Description |
-|---|---|
-| `diff` | Difference between consecutive samples |
-| `cumulativeSum` | Running cumulative sum |
-| `cumulativeProduct` | Running cumulative product |
-| `clamp lo hi` | Clamp to [lo, hi] range |
-| `rescale inMin inMax outMin outMax` | Linear rescaling between ranges |
-
-### Statistics
-
-| Block | Description |
-|---|---|
-| `movingAverage windowSize` | Simple moving average |
-| `ema alpha` | Exponential moving average |
-| `rollingStdDev windowSize` | Standard deviation over window |
-| `rollingMin windowSize` | Minimum over sliding window |
-| `rollingMax windowSize` | Maximum over sliding window |
-| `runningMin` | All-time running minimum |
-| `runningMax` | All-time running maximum |
-
-### Detection
-
-| Block | Description |
-|---|---|
-| `crossover threshold` | Detect threshold crossings |
-| `threshold lo hi` | Hysteresis threshold (Schmitt trigger) |
-
-### Logic
-
-| Block | Description |
-|---|---|
-| `debounce count` | Debounce boolean signal |
-| `toggle` | Toggle on each true input |
-
-### Counting
-
-| Block | Description |
-|---|---|
-| `countWhere predicate` | Count predicate satisfactions |
-| `countSince predicate` | Samples since predicate was last true |
-| `countIn windowSize` | Count true values in window |
-| `timeSince predicate dt` | Time elapsed since predicate |
-| `rate windowSize dt` | Event rate over window |
-
-### Windowing
-
-| Block | Description |
-|---|---|
-| `windowedReduce windowSize folder seed` | Fold over sliding window |
-| `segment predicate` | Segment stream by predicate |
-
-### Operators
-
-| Block | Description |
-|---|---|
-| `binOp op s1 s2` | Combine two streams with binary operator |
-| `s1 .+. s2` | Add two streams |
-| `s1 .-. s2` | Subtract two streams |
-| `s1 .*. s2` | Multiply two streams |
-| `s1 ./. s2` | Divide two streams |
-
-### DSP — Oscillators
-
-| Block | Description |
-|---|---|
-| `sineOsc sampleRate` | Sine wave oscillator. Input: frequency |
-| `sawOsc sampleRate` | Sawtooth oscillator. Input: frequency |
-| `squareOsc sampleRate` | Square wave with pulse width. Input: (freq, pulseWidth) |
-| `triangleOsc sampleRate` | Triangle wave oscillator. Input: frequency |
-| `whiteNoise seed` | Seeded white noise generator |
-
-### DSP — Filters
-
-| Block | Description |
-|---|---|
-| `lowPass1 sampleRate` | 1-pole RC low-pass. Input: (signal, cutoffHz) |
-| `highPass1 sampleRate` | 1-pole high-pass. Input: (signal, cutoffHz) |
-| `biquadLowPass sampleRate` | 2nd-order resonant low-pass. Input: (signal, cutoff, q) |
-| `biquadHighPass sampleRate` | 2nd-order resonant high-pass. Input: (signal, cutoff, q) |
-| `biquadBandPass sampleRate` | 2nd-order band-pass. Input: (signal, cutoff, q) |
-| `dcBlock r` | DC blocking filter with configurable R |
-
-### DSP — Envelope
-
-| Block | Description |
-|---|---|
-| `envFollow attackMs releaseMs sampleRate` | Envelope follower. Input: signal |
-| `adsr attackTime decayTime sustainLevel releaseTime` | ADSR envelope generator. Input: gate (bool) |
-
-### DSP — Dynamics
-
-| Block | Description |
-|---|---|
-| `softClip drive` | Soft clipper via tanh saturation. Input: signal |
-| `hardClip threshold` | Hard clipper/limiter. Input: signal |
-| `gate threshold` | Noise gate. Input: (signal, envelope) |
-
-### DSP — Modulation
-
-| Block | Description |
-|---|---|
-| `ringMod s1 s2` | Ring modulator (multiply two streams) |
-| `bitCrush bits` | Bit depth reducer. Input: signal |
-| `crossfade s1 s2 mix` | Crossfade between two streams |
-
-### DSP — Analysis
-
-| Block | Description |
-|---|---|
-| `rms windowSize` | RMS level over sliding window |
-| `zeroCrossRate windowSize` | Zero crossing rate over window |
-| `peakHold decayRate` | Peak hold with exponential decay |
-
-## Usage Examples
+## Examples
 
 ### Exponential Moving Average
 
@@ -235,37 +107,206 @@ let result = countWhere (fun x -> x > 4) |> Eval.runWith inputs
 // result = [0; 1; 1; 2; 2; 3]
 ```
 
-## Project Structure
+## Available Blocks
 
-```
-src/
-  Core.fs                 — Core types, computation expression, Eval module
-  Generators/             — Counter, Fibonacci
-  Delay/                  — DelayBy1, DelayByN
-  State/                  — Hold, Latch, Edge, Changed
-  Arithmetic/             — Diff, CumulativeSum, CumulativeProduct, Clamp, Rescale
-  Statistics/             — MovingAverage, Ema, RollingStdDev, RollingMin/Max, RunningMin/Max
-  Detection/              — Crossover, Threshold
-  Logic/                  — Debounce, Toggle
-  Counting/               — CountWhere, CountSince, CountIn, TimeSince, Rate
-  Windowing/              — WindowedReduce, Segment
-  Operators/              — Binary stream operators (.+. .-. .*. ./.)
-  Dsp/
-    Oscillators/          — SineOsc, SawOsc, SquareOsc, TriangleOsc, WhiteNoise
-    Filters/              — LowPass1, HighPass1, BiquadLowPass/HighPass/BandPass, DcBlock
-    Envelope/             — EnvFollow, Adsr
-    Dynamics/             — SoftClip, HardClip, Gate
-    Modulation/           — RingMod, BitCrush, Crossfade
-    Analysis/             — Rms, ZeroCrossRate, PeakHold
-tests/
-  (mirrors src/ — one test file per block)
-```
+<details>
+<summary><strong>Generators</strong></summary>
+
+| Block | Description |
+|---|---|
+| `counter start increment` | Incrementing counter |
+| `fibonacci` | Fibonacci sequence generator |
+
+</details>
+
+<details>
+<summary><strong>Delay</strong></summary>
+
+| Block | Description |
+|---|---|
+| `delayBy1 seed` | Delay signal by 1 sample |
+| `delayByN n seed` | Delay signal by n samples |
+
+</details>
+
+<details>
+<summary><strong>State</strong></summary>
+
+| Block | Description |
+|---|---|
+| `hold predicate defaultValue` | Hold last value satisfying predicate |
+| `latch gate` | Latch value when gate is true |
+| `edge` | Detect rising edges (false &rarr; true) |
+| `changed` | Detect value changes |
+
+</details>
+
+<details>
+<summary><strong>Arithmetic</strong></summary>
+
+| Block | Description |
+|---|---|
+| `diff` | Difference between consecutive samples |
+| `cumulativeSum` | Running cumulative sum |
+| `cumulativeProduct` | Running cumulative product |
+| `clamp lo hi` | Clamp to [lo, hi] range |
+| `rescale inMin inMax outMin outMax` | Linear rescaling between ranges |
+
+</details>
+
+<details>
+<summary><strong>Statistics</strong></summary>
+
+| Block | Description |
+|---|---|
+| `movingAverage windowSize` | Simple moving average |
+| `ema alpha` | Exponential moving average |
+| `rollingStdDev windowSize` | Standard deviation over window |
+| `rollingMin windowSize` | Minimum over sliding window |
+| `rollingMax windowSize` | Maximum over sliding window |
+| `runningMin` | All-time running minimum |
+| `runningMax` | All-time running maximum |
+
+</details>
+
+<details>
+<summary><strong>Detection</strong></summary>
+
+| Block | Description |
+|---|---|
+| `crossover threshold` | Detect threshold crossings |
+| `threshold lo hi` | Hysteresis threshold (Schmitt trigger) |
+
+</details>
+
+<details>
+<summary><strong>Logic</strong></summary>
+
+| Block | Description |
+|---|---|
+| `debounce count` | Debounce boolean signal |
+| `toggle` | Toggle on each true input |
+
+</details>
+
+<details>
+<summary><strong>Counting</strong></summary>
+
+| Block | Description |
+|---|---|
+| `countWhere predicate` | Count predicate satisfactions |
+| `countSince predicate` | Samples since predicate was last true |
+| `countIn windowSize` | Count true values in window |
+| `timeSince predicate dt` | Time elapsed since predicate |
+| `rate windowSize dt` | Event rate over window |
+
+</details>
+
+<details>
+<summary><strong>Windowing</strong></summary>
+
+| Block | Description |
+|---|---|
+| `windowedReduce windowSize folder seed` | Fold over sliding window |
+| `segment predicate` | Segment stream by predicate |
+
+</details>
+
+<details>
+<summary><strong>Operators</strong></summary>
+
+| Block | Description |
+|---|---|
+| `binOp op s1 s2` | Combine two streams with binary operator |
+| `s1 .+. s2` | Add two streams |
+| `s1 .-. s2` | Subtract two streams |
+| `s1 .*. s2` | Multiply two streams |
+| `s1 ./. s2` | Divide two streams |
+
+</details>
+
+<details>
+<summary><strong>DSP — Oscillators</strong></summary>
+
+| Block | Description |
+|---|---|
+| `sineOsc sampleRate` | Sine wave oscillator. Input: frequency |
+| `sawOsc sampleRate` | Sawtooth oscillator. Input: frequency |
+| `squareOsc sampleRate` | Square wave with pulse width. Input: (freq, pulseWidth) |
+| `triangleOsc sampleRate` | Triangle wave oscillator. Input: frequency |
+| `whiteNoise seed` | Seeded white noise generator |
+
+</details>
+
+<details>
+<summary><strong>DSP — Filters</strong></summary>
+
+| Block | Description |
+|---|---|
+| `lowPass1 sampleRate` | 1-pole RC low-pass. Input: (signal, cutoffHz) |
+| `highPass1 sampleRate` | 1-pole high-pass. Input: (signal, cutoffHz) |
+| `biquadLowPass sampleRate` | 2nd-order resonant low-pass. Input: (signal, cutoff, q) |
+| `biquadHighPass sampleRate` | 2nd-order resonant high-pass. Input: (signal, cutoff, q) |
+| `biquadBandPass sampleRate` | 2nd-order band-pass. Input: (signal, cutoff, q) |
+| `dcBlock r` | DC blocking filter with configurable R |
+
+</details>
+
+<details>
+<summary><strong>DSP — Envelope</strong></summary>
+
+| Block | Description |
+|---|---|
+| `envFollow attackMs releaseMs sampleRate` | Envelope follower. Input: signal |
+| `adsr attackTime decayTime sustainLevel releaseTime` | ADSR envelope generator. Input: gate (bool) |
+
+</details>
+
+<details>
+<summary><strong>DSP — Dynamics</strong></summary>
+
+| Block | Description |
+|---|---|
+| `softClip drive` | Soft clipper via tanh saturation. Input: signal |
+| `hardClip threshold` | Hard clipper/limiter. Input: signal |
+| `gate threshold` | Noise gate. Input: (signal, envelope) |
+
+</details>
+
+<details>
+<summary><strong>DSP — Modulation</strong></summary>
+
+| Block | Description |
+|---|---|
+| `ringMod s1 s2` | Ring modulator (multiply two streams) |
+| `bitCrush bits` | Bit depth reducer. Input: signal |
+| `crossfade s1 s2 mix` | Crossfade between two streams |
+
+</details>
+
+<details>
+<summary><strong>DSP — Analysis</strong></summary>
+
+| Block | Description |
+|---|---|
+| `rms windowSize` | RMS level over sliding window |
+| `zeroCrossRate windowSize` | Zero crossing rate over window |
+| `peakHold decayRate` | Peak hold with exponential decay |
+
+</details>
 
 ## Building & Testing
 
 ```bash
 dotnet build
 dotnet test
+```
+
+### Running the Demo Site
+
+```bash
+npm install
+npm start
 ```
 
 ## License
