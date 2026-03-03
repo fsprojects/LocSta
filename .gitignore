@@ -52,7 +52,6 @@ BlockSources.generated.fs
 # ---- Web / Node ----
 node_modules/
 dist/
-build/
 .next/
 .nuxt/
 .svelte-kit/

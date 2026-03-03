@@ -9,7 +9,7 @@ type StateController<'s>(initial) =
     member _.Reset() = state <- ValueNone
     override _.ToString() = state.ToString()
 
-type SigStream<'v,'c,'s> = StateController<'s> -> 'c -> 'v * StateController<'s>
+type SigStream<'v,'c,'s> = StateController<'s> -> 'c -> 'v seq * StateController<'s>
 
 type SigStreamBuilder() =
     member inline _.Bind
@@ -24,47 +24,37 @@ type SigStreamBuilder() =
                 match s.Value with
                 | ValueNone -> StateController(ValueNone), StateController(ValueNone)
                 | ValueSome (ms,fs) -> ms, fs
-            let mv,ms = m ms ctx
-            let f = f mv
-            let fv,fs = f fs ctx
-            do s.Set(ms, fs)
-            fv, s
+            let mvs,ms = m ms ctx
+            let results = ResizeArray()
+            let mutable currentFs = fs
+            for mv in mvs do
+                let fStream = f mv
+                let fvs, newFs = fStream currentFs ctx
+                for fv in fvs do results.Add(fv)
+                currentFs <- newFs
+            do s.Set(ms, currentFs)
+            results :> seq<_>, s
 
     member inline _.Return(x) : SigStream<_,_,unit> =
-        fun s ctx -> x, s
+        fun s _ -> Seq.singleton x, s
+
+    member inline _.Yield(x) : SigStream<_,_,unit> =
+        fun s _ -> Seq.singleton x, s
 
     member inline _.ReturnFrom(v) = v
 
-    member inline _.Zero() : SigStream<unit,_,unit> =
-        fun s ctx -> (), s
+    member inline _.YieldFrom(v) = v
 
-    member inline _.Combine(a: SigStream<unit,_,_>, b: SigStream<_,_,_>) : SigStream<_,_,_> =
+    member inline _.Zero() : SigStream<_,_,unit> =
+        fun s _ -> Seq.empty, s
+
+    member inline _.Combine(a: SigStream<_,_,_>, b: SigStream<_,_,_>) : SigStream<_,_,_> =
         fun s ctx ->
-            let _, s = a s ctx
-            b s ctx
+            let avs, s = a s ctx
+            let bvs, s = b s ctx
+            Seq.append avs bvs, s
 
     member inline _.Delay([<InlineIfLambda>] f) = f ()
-
-    member inline _.For(elems: seq<_>, [<InlineIfLambda>] body) : SigStream<_,_,_> =
-        fun s ctx ->
-            let mutable currMap =
-                match s.Value with
-                | ValueNone -> Map.empty
-                | ValueSome m -> m
-            let resValues, resStates =
-                [
-                    for i, elem in elems |> Seq.indexed do
-                        let elemState =
-                            match currMap.TryFind(i) with
-                            | Some st -> st
-                            | None -> StateController(ValueNone)
-                        let v, newState = body elem elemState ctx
-                        v, (i, newState)
-                ]
-                |> List.unzip
-            let newMap = resStates |> Map.ofList
-            s.Set(newMap)
-            resValues, s
 
 
 let stream = SigStreamBuilder()
@@ -79,7 +69,7 @@ let ofSeq (sequence: seq<_>) : SigStream<_,_,_> =
         match enumerator.MoveNext() with
         | true ->
             s.Set(enumerator)
-            enumerator.Current, s
+            Seq.singleton enumerator.Current, s
         | false ->
             failwith "Sequence contains no more elements"
 
@@ -92,12 +82,12 @@ let inline map ([<InlineIfLambda>] proj) ([<InlineIfLambda>] s1) =
 
 /// Get the context value
 let inline getCtx<'c> () : SigStream<'c,'c,unit> =
-    fun s ctx -> ctx, s
+    fun s ctx -> Seq.singleton ctx, s
 
 /// Get the state controller of this block
 let inline getState<'c,'s> () : SigStream<StateController<'s>,'c,'s> =
     fun state ctx ->
-        state,state
+        Seq.singleton state, state
 
 /// Use a memoized value (lazy initialization)
 let inline useMemoWith ([<InlineIfLambda>] initializer) : SigStream<'a,'c,'a> =
@@ -107,7 +97,7 @@ let inline useMemoWith ([<InlineIfLambda>] initializer) : SigStream<'a,'c,'a> =
             | ValueNone -> initializer()
             | ValueSome v -> v
         state.Set(value)
-        value, state
+        Seq.singleton value, state
 
 let useMemo (value: 'a) : SigStream<'a,'c,'a> =
     fun (state: StateController<'a>) ctx ->
@@ -116,7 +106,7 @@ let useMemo (value: 'a) : SigStream<'a,'c,'a> =
             | ValueNone -> value
             | ValueSome v -> v
         state.Set(v)
-        v, state
+        Seq.singleton v, state
 
 /// Mutable value for local state within streams
 type MutableValue<'s>(initValue: 's) =
@@ -134,7 +124,7 @@ let useState value =
     useMemo (MutableValue(value))
 
 module Eval =
-    /// Convert stream to infinite sequence with context generator
+    /// Convert stream to sequence with context generator (flattens multi-value emissions)
     let inline toSeq
         ([<InlineIfLambda>] getCtx: int -> _)
         ([<InlineIfLambda>] stream: SigStream<_,_,_>)
@@ -145,8 +135,8 @@ module Eval =
             while true do
                 let ctx = getCtx i
                 i <- i + 1
-                let v, _ = stream state ctx
-                yield v
+                let vs, _ = stream state ctx
+                yield! vs
         }
 
     /// Evaluate n samples
@@ -157,7 +147,7 @@ module Eval =
     let inline runWith (inputs: seq<_>) stream =
         let state = StateController(ValueNone)
         inputs
-        |> Seq.map (fun ctx ->
-            let v, _ = stream state ctx
-            v)
+        |> Seq.collect (fun ctx ->
+            let vs, _ = stream state ctx
+            vs)
         |> Seq.toList

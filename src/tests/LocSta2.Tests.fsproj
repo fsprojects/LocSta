@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Core -->
+    <Compile Include="Core/MultiEmitTests.fs" />
     <!-- Generators -->
     <Compile Include="Generators/CounterTests.fs" />
     <Compile Include="Generators/FibonacciTests.fs" />

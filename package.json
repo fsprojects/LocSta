@@ -2,9 +2,9 @@
   "private": true,
   "scripts": {
     "clean:fablejs": "find src/LocSta2 -name '*.fs.js' -delete -o -name '*.fs.js.map' -delete",
-    "start": "node scripts/extract-sources.mjs && dotnet fable watch src/demoSite -o src/demoSite/.fable --run vite",
+    "start": "node build/extract-sources.mjs && dotnet fable watch src/demoSite -o src/demoSite/.fable --run vite",
     "poststart": "npm run clean:fablejs",
-    "build": "node scripts/extract-sources.mjs && dotnet fable src/demoSite -o src/demoSite/.fable && npm run clean:fablejs && vite build"
+    "build": "node build/extract-sources.mjs && dotnet fable src/demoSite -o src/demoSite/.fable && npm run clean:fablejs && vite build"
   },
   "devDependencies": {
     "vite": "^6.0.0"

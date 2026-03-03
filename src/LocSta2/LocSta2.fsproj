@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Core.fs" />
+    <Compile Include="TimeSeries.fs" />
     <!-- Generators -->
     <Compile Include="Generators/Counter.fs" />
     <Compile Include="Generators/Fibonacci.fs" />
