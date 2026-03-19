@@ -291,3 +291,81 @@ nav {
     font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
     white-space: pre;
 }
+
+/* Hamburger toggle button (mobile only) */
+.hamburger {
+    display: none;
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 200;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
+    cursor: pointer;
+    font-size: 1.4rem;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Overlay that closes the sidebar when tapped */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 99;
+}
+
+/* ── Responsive: mobile ── */
+@media (max-width: 768px) {
+    .hamburger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .page {
+        display: block;
+    }
+
+    /* Sidebar slides in from the left */
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        width: 280px;
+        z-index: 100;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay.open {
+        display: block;
+    }
+
+    /* Give the content room for the hamburger button */
+    .main-content {
+        padding: 3.5rem 1rem 1.5rem;
+    }
+
+    /* Single-column comparison on mobile */
+    .comparison {
+        grid-template-columns: 1fr;
+    }
+
+    h1 {
+        font-size: 1.4rem;
+    }
+
+    .intro {
+        font-size: 1rem;
+    }
+}
