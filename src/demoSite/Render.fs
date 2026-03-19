@@ -149,8 +149,10 @@ let private categoryPage (slug: string) =
         "<h1>Category not found</h1>"
 
 let renderShell () =
-    "<div class=\"page\">"
-    + "<div class=\"sidebar\">" + navMenu () + "</div>"
+    "<button class=\"hamburger\" id=\"hamburger\" aria-label=\"Open navigation menu\">&#9776;</button>"
+    + "<div class=\"sidebar-overlay\" id=\"sidebar-overlay\"></div>"
+    + "<div class=\"page\">"
+    + "<div class=\"sidebar\" id=\"sidebar\">" + navMenu () + "</div>"
     + "<main class=\"main-content\" id=\"content\"></main>"
     + "</div>"
 
