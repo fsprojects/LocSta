@@ -6,10 +6,9 @@ open LocSta.Core
 let dcBlock r =
     stream {
         let! signal = getCtx()
-        let! prevInput = useStateWith (fun () -> signal)
-        let! prevOutput = useState 0.0
-        let output = signal - prevInput.Value + r * prevOutput.Value
-        prevInput.Value <- signal
-        prevOutput.Value <- output
+        let! st = useMemoWith (fun () -> MutableValue(signal, 0.0))
+        let (prevInput, prevOutput) = st.Value
+        let output = signal - prevInput + r * prevOutput
+        st.Value <- (signal, output)
         return output
     }
