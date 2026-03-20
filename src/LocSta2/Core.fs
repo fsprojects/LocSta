@@ -25,21 +25,29 @@ type SigStreamBuilder() =
                 | ValueNone -> StateController(ValueNone), StateController(ValueNone)
                 | ValueSome (ms,fs) -> ms, fs
             let mvs,ms = m ms ctx
-            let results = ResizeArray()
-            let mutable currentFs = fs
-            for mv in mvs do
-                let fStream = f mv
-                let fvs, newFs = fStream currentFs ctx
-                for fv in fvs do results.Add(fv)
-                currentFs <- newFs
-            do s.Set(ms, currentFs)
-            results :> seq<_>, s
+            // Fast path for single-element arrays (most common case)
+            match mvs with
+            | :? ('a array) as arr when arr.Length = 1 ->
+                let fStream = f arr[0]
+                let fvs, newFs = fStream fs ctx
+                do s.Set(ms, newFs)
+                fvs, s
+            | _ ->
+                let results = ResizeArray()
+                let mutable currentFs = fs
+                for mv in mvs do
+                    let fStream = f mv
+                    let fvs, newFs = fStream currentFs ctx
+                    for fv in fvs do results.Add(fv)
+                    currentFs <- newFs
+                do s.Set(ms, currentFs)
+                results :> seq<_>, s
 
     member inline _.Return(x) : SigStream<_,_,unit> =
-        fun s _ -> Seq.singleton x, s
+        fun s _ -> [| x |] :> seq<_>, s
 
     member inline _.Yield(x) : SigStream<_,_,unit> =
-        fun s _ -> Seq.singleton x, s
+        fun s _ -> [| x |] :> seq<_>, s
 
     member inline _.ReturnFrom(v) = v
 
@@ -69,7 +77,7 @@ let ofSeq (sequence: seq<_>) : SigStream<_,_,_> =
         match enumerator.MoveNext() with
         | true ->
             s.Set(enumerator)
-            Seq.singleton enumerator.Current, s
+            [| enumerator.Current |] :> seq<_>, s
         | false ->
             failwith "Sequence contains no more elements"
 
@@ -82,12 +90,12 @@ let inline map ([<InlineIfLambda>] proj) ([<InlineIfLambda>] s1) =
 
 /// Get the context value
 let inline getCtx<'c> () : SigStream<'c,'c,unit> =
-    fun s ctx -> Seq.singleton ctx, s
+    fun s ctx -> [| ctx |] :> seq<_>, s
 
 /// Get the state controller of this block
 let inline getState<'c,'s> () : SigStream<StateController<'s>,'c,'s> =
     fun state ctx ->
-        Seq.singleton state, state
+        [| state |] :> seq<_>, state
 
 /// Use a memoized value (lazy initialization)
 let inline useMemoWith ([<InlineIfLambda>] initializer) : SigStream<'a,'c,'a> =
@@ -97,7 +105,7 @@ let inline useMemoWith ([<InlineIfLambda>] initializer) : SigStream<'a,'c,'a> =
             | ValueNone -> initializer()
             | ValueSome v -> v
         state.Set(value)
-        Seq.singleton value, state
+        [| value |] :> seq<_>, state
 
 let useMemo (value: 'a) : SigStream<'a,'c,'a> =
     fun (state: StateController<'a>) ctx ->
@@ -106,7 +114,7 @@ let useMemo (value: 'a) : SigStream<'a,'c,'a> =
             | ValueNone -> value
             | ValueSome v -> v
         state.Set(v)
-        Seq.singleton v, state
+        [| v |] :> seq<_>, state
 
 /// Mutable value for local state within streams
 type MutableValue<'s>(initValue: 's) =
@@ -140,14 +148,23 @@ module Eval =
         }
 
     /// Evaluate n samples
-    let inline run n getCtx stream =
-        toSeq getCtx stream |> Seq.take n |> Seq.toList
+    let inline run (n: int) getCtx stream =
+        let state = StateController(ValueNone)
+        let results = ResizeArray<_>(n)
+        let mutable i = 0
+        while results.Count < n do
+            let ctx = getCtx i
+            i <- i + 1
+            let vs, _ = stream state ctx
+            for v in vs do
+                if results.Count < n then results.Add(v)
+        Seq.toList results
 
     /// Evaluate with input sequence
     let inline runWith (inputs: seq<_>) stream =
         let state = StateController(ValueNone)
-        inputs
-        |> Seq.collect (fun ctx ->
+        let results = ResizeArray<_>()
+        for ctx in inputs do
             let vs, _ = stream state ctx
-            vs)
-        |> Seq.toList
+            for v in vs do results.Add(v)
+        Seq.toList results
