@@ -4,13 +4,14 @@ open LocSta.Core
 
 /// Biquad band-pass filter (2nd order). Input: (signal, centerHz, q). Requires sampleRate.
 let biquadBandPass sampleRate =
+    let twoPiOverSr = 2.0 * System.Math.PI / sampleRate
     stream {
         let! (signal, center, q) = getCtx()
         let! x1 = useState 0.0
         let! x2 = useState 0.0
         let! y1 = useState 0.0
         let! y2 = useState 0.0
-        let w0 = 2.0 * System.Math.PI * center / sampleRate
+        let w0 = twoPiOverSr * center
         let sinW0 = sin w0
         let cosW0 = cos w0
         let alpha = sinW0 / (2.0 * q)

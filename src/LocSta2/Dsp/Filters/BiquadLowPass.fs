@@ -4,13 +4,14 @@ open LocSta.Core
 
 /// Biquad low-pass filter (2nd order, resonant). Input: (signal, cutoffHz, q). Requires sampleRate.
 let biquadLowPass sampleRate =
+    let twoPiOverSr = 2.0 * System.Math.PI / sampleRate
     stream {
         let! (signal, cutoff, q) = getCtx()
         let! x1 = useState 0.0
         let! x2 = useState 0.0
         let! y1 = useState 0.0
         let! y2 = useState 0.0
-        let w0 = 2.0 * System.Math.PI * cutoff / sampleRate
+        let w0 = twoPiOverSr * cutoff
         let cosW0 = cos w0
         let alpha = sin w0 / (2.0 * q)
         let a0inv = 1.0 / (1.0 + alpha)
