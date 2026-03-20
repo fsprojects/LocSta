@@ -12,16 +12,11 @@ let biquadLowPass sampleRate =
         let! y2 = useState 0.0
         let w0 = 2.0 * System.Math.PI * cutoff / sampleRate
         let cosW0 = cos w0
-        let sinW0 = sin w0
-        let alpha = sinW0 / (2.0 * q)
-        let b0 = (1.0 - cosW0) / 2.0
-        let b1 = 1.0 - cosW0
-        let b2 = (1.0 - cosW0) / 2.0
-        let a0 = 1.0 + alpha
-        let a1 = -2.0 * cosW0
-        let a2 = 1.0 - alpha
-        let output = (b0 / a0) * signal + (b1 / a0) * x1.Value + (b2 / a0) * x2.Value
-                     - (a1 / a0) * y1.Value - (a2 / a0) * y2.Value
+        let alpha = sin w0 / (2.0 * q)
+        let a0inv = 1.0 / (1.0 + alpha)
+        let halfOneMinusCos = (1.0 - cosW0) * 0.5
+        let output = (halfOneMinusCos * signal + (1.0 - cosW0) * x1.Value + halfOneMinusCos * x2.Value
+                     + 2.0 * cosW0 * y1.Value - (1.0 - alpha) * y2.Value) * a0inv
         x2.Value <- x1.Value
         x1.Value <- signal
         y2.Value <- y1.Value
