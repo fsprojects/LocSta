@@ -8,40 +8,41 @@ type AdsrPhase = Attack | Decay | Sustain | Release | Idle
 let adsr attackTime decayTime sustainLevel releaseTime =
     stream {
         let! gate = getCtx()
-        let! phase = useState Idle
-        let! level = useState 0.0
-        let! prevGate = useState false
+        let! st = useMemoWith (fun () -> MutableValue(Idle, 0.0, false))
+        let (phase, level, prevGate) = st.Value
 
         // Detect gate transitions
-        if gate && not prevGate.Value then
-            phase.Value <- Attack
-        elif not gate && prevGate.Value then
-            phase.Value <- Release
-        prevGate.Value <- gate
+        let mutable ph = phase
+        let mutable lv = level
+        if gate && not prevGate then
+            ph <- Attack
+        elif not gate && prevGate then
+            ph <- Release
 
-        match phase.Value with
+        match ph with
         | Attack ->
             let step = if attackTime > 0.0 then 1.0 / attackTime else 1.0
-            level.Value <- level.Value + step
-            if level.Value >= 1.0 then
-                level.Value <- 1.0
-                phase.Value <- Decay
+            lv <- lv + step
+            if lv >= 1.0 then
+                lv <- 1.0
+                ph <- Decay
         | Decay ->
             let step = if decayTime > 0.0 then (1.0 - sustainLevel) / decayTime else 1.0
-            level.Value <- level.Value - step
-            if level.Value <= sustainLevel then
-                level.Value <- sustainLevel
-                phase.Value <- Sustain
+            lv <- lv - step
+            if lv <= sustainLevel then
+                lv <- sustainLevel
+                ph <- Sustain
         | Sustain ->
-            level.Value <- sustainLevel
+            lv <- sustainLevel
         | Release ->
             let step = if releaseTime > 0.0 then sustainLevel / releaseTime else 1.0
-            level.Value <- level.Value - step
-            if level.Value <= 0.0 then
-                level.Value <- 0.0
-                phase.Value <- Idle
+            lv <- lv - step
+            if lv <= 0.0 then
+                lv <- 0.0
+                ph <- Idle
         | Idle ->
-            level.Value <- 0.0
+            lv <- 0.0
 
-        return level.Value
+        st.Value <- (ph, lv, gate)
+        return lv
     }

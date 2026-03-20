@@ -7,15 +7,14 @@ let crossover s1 s2 =
     stream {
         let! v1 = s1
         let! v2 = s2
-        let! prevDiff = useState ValueNone
+        let! st = useMemoWith (fun () -> MutableValue(0.0, false))
+        let (prevDiff, hasPrev) = st.Value
         let currDiff = v1 - v2
         let output =
-            match prevDiff.Value with
-            | ValueNone -> 0
-            | ValueSome pd ->
-                if pd <= 0.0 && currDiff > 0.0 then 1
-                elif pd >= 0.0 && currDiff < 0.0 then -1
-                else 0
-        prevDiff.Value <- ValueSome currDiff
+            if not hasPrev then 0
+            elif prevDiff <= 0.0 && currDiff > 0.0 then 1
+            elif prevDiff >= 0.0 && currDiff < 0.0 then -1
+            else 0
+        st.Value <- (currDiff, true)
         return output
     }

@@ -6,15 +6,15 @@ open LocSta.Core
 let delayByN n defaultValue =
     stream {
         let! ctx = getCtx()
-        let! buffer = useStateWith (fun () -> List.replicate n defaultValue)
+        let! state = useStateWith (fun () ->
+            let arr = Array.create (max 1 n) defaultValue
+            MutableValue(arr, 0))
+        let (arr, idx) = state.Value.Value
         let output =
-            match buffer.Value with
-            | [] -> ctx
-            | head :: _ -> head
-        if n > 0 then
-            buffer.Value <-
-                match buffer.Value with
-                | [] -> [ ctx ]
-                | _ :: tail -> tail @ [ ctx ]
+            if n > 0 then arr[idx]
+            else ctx
+        arr[idx] <- ctx
+        let nextIdx = (idx + 1) % (max 1 n)
+        state.Value.Value <- (arr, nextIdx)
         return output
     }
