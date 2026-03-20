@@ -2,6 +2,7 @@ module LocSta.Blocks.Dsp.Analysis.ZeroCrossRate
 
 open LocSta.Core
 
+/// Computes zero-crossing rate over 'count' elements in circular buffer starting at 'startIdx'.
 let private computeZeroCrossings (arr: float array) (count: int) (startIdx: int) (windowSize: int) =
     if count < 2 then 0.0
     else

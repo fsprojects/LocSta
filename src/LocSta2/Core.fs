@@ -25,7 +25,7 @@ type SigStreamBuilder() =
                 | ValueNone -> StateController(ValueNone), StateController(ValueNone)
                 | ValueSome (ms,fs) -> ms, fs
             let mvs,ms = m ms ctx
-            // Fast path for single-element arrays (most common case)
+            // Fast path: most streams emit exactly one value via [| x |], so skip ResizeArray
             match mvs with
             | :? ('a array) as arr when arr.Length = 1 ->
                 let fStream = f arr[0]

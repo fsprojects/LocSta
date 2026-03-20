@@ -2,6 +2,7 @@ module LocSta.Blocks.Statistics.RollingStdDev
 
 open LocSta.Core
 
+/// Computes population standard deviation over the first 'count' elements of 'arr'.
 let private computeStdDev (arr: float array) (count: int) =
     let n = float count
     let mutable sum = 0.0

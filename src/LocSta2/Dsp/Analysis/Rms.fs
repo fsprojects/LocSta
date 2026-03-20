@@ -2,6 +2,7 @@ module LocSta.Blocks.Dsp.Analysis.Rms
 
 open LocSta.Core
 
+/// Computes RMS over the first 'count' elements of 'arr'.
 let private computeRms (arr: float array) (count: int) =
     let mutable sumSq = 0.0
     for i = 0 to count - 1 do

@@ -2,6 +2,7 @@ module LocSta.Blocks.Windowing.WindowedReduce
 
 open LocSta.Core
 
+/// Folds over 'count' elements in a circular buffer, starting at 'startIdx'.
 let foldWindow (arr: 'a array) (count: int) (startIdx: int) (windowSize: int) folder seed =
     let mutable acc = seed
     for k = 0 to count - 1 do
