@@ -1,0 +1,34 @@
+name: Publish to NuGet
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'Directory.Build.props'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build src/LocSta2/LocSta2.fsproj -c Release
+
+      - name: Pack
+        run: dotnet pack src/LocSta2/LocSta2.fsproj -c Release -o .pack
+
+      - name: Push to NuGet
+        env:
+          nuget_locsta: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          for pkg in .pack/*.nupkg; do
+            dotnet nuget push "$pkg" -k "$nuget_locsta" -s https://api.nuget.org/v3/index.json --skip-duplicate
+          done

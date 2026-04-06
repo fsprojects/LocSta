@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Core.fs" />
     <Compile Include="TimeSeries/TimeSeries.fs" />
     <Compile Include="TimeSeries/LookBack.fs" />
