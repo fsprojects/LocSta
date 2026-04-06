@@ -4,8 +4,9 @@ open LocSta.Core
 
 /// Linearly maps the input from [inMin, inMax] to [outMin, outMax].
 let rescale (inMin: float) inMax outMin outMax =
+    let invRange = 1.0 / (inMax - inMin)
+    let outRange = outMax - outMin
     stream {
         let! ctx = getCtx()
-        let normalized = (ctx - inMin) / (inMax - inMin)
-        return outMin + normalized * (outMax - outMin)
+        return outMin + (ctx - inMin) * invRange * outRange
     }

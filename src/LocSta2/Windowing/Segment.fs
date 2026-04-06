@@ -6,11 +6,11 @@ open LocSta.Core
 let segment () =
     stream {
         let! (value, boundary) = getCtx()
-        let! buffer = useState []
-        buffer.Value <- value :: buffer.Value
+        let! buffer = useStateWith (fun () -> ResizeArray<_>())
+        buffer.Value.Add(value)
         if boundary then
-            let result = buffer.Value |> List.rev
-            buffer.Value <- []
+            let result = Seq.toList buffer.Value
+            buffer.Value.Clear()
             return Some result
         else
             return None

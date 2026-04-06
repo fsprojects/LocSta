@@ -6,11 +6,9 @@ open LocSta.Core
 let inline changed () =
     stream {
         let! ctx = getCtx()
-        let! prev = useState ValueNone
-        let output =
-            match prev.Value with
-            | ValueNone -> false
-            | ValueSome p -> p <> ctx
-        prev.Value <- ValueSome ctx
+        let! st = useMemoWith (fun () -> MutableValue(ctx, false))
+        let (prev, hasPrev) = st.Value
+        let output = hasPrev && prev <> ctx
+        st.Value <- (ctx, true)
         return output
     }

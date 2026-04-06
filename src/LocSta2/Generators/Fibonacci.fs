@@ -5,10 +5,9 @@ open LocSta.Core
 /// Generates the Fibonacci sequence (1, 2, 3, 5, 8, 13, ...).
 let fibonacci () =
     stream {
-        let! prev1 = useState 0
-        let! prev2 = useState 1
-        let current = prev1.Value + prev2.Value
-        prev1.Value <- prev2.Value
-        prev2.Value <- current
+        let! st = useMemoWith (fun () -> MutableValue(0, 1))
+        let (a, b) = st.Value
+        let current = a + b
+        st.Value <- (b, current)
         return current
     }

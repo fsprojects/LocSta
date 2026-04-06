@@ -6,14 +6,13 @@ open LocSta.Core
 let inline threshold level =
     stream {
         let! ctx = getCtx()
-        let! prev = useState ValueNone
+        let! st = useMemoWith (fun () -> MutableValue(ctx, false))
+        let (p, hasPrev) = st.Value
         let output =
-            match prev.Value with
-            | ValueNone -> 0
-            | ValueSome p ->
-                if p < level && ctx >= level then 1
-                elif p >= level && ctx < level then -1
-                else 0
-        prev.Value <- ValueSome ctx
+            if not hasPrev then 0
+            elif p < level && ctx >= level then 1
+            elif p >= level && ctx < level then -1
+            else 0
+        st.Value <- (ctx, true)
         return output
     }
