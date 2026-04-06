@@ -64,14 +64,17 @@ let ofSeq (sequence: seq<_>) : SigStream<_,_,_> =
     fun s ctx ->
         let enumerator =
             match s.Value with
-            | ValueNone -> sequence.GetEnumerator()
+            | ValueNone ->
+                let enumerator = sequence.GetEnumerator()
+                s.Set(enumerator)
+                enumerator
             | ValueSome e -> e
         match enumerator.MoveNext() with
         | true ->
-            s.Set(enumerator)
             Seq.singleton enumerator.Current, s
         | false ->
-            failwith "Sequence contains no more elements"
+            // failwith "Sequence contains no more elements"
+            Seq.empty, s
 
 /// Map over a stream
 let inline map ([<InlineIfLambda>] proj) ([<InlineIfLambda>] s1) =
@@ -124,20 +127,36 @@ let useState value =
     useMemo (MutableValue(value))
 
 module Eval =
-    /// Convert stream to sequence with context generator (flattens multi-value emissions)
-    let inline toSeq
+    /// Convert stream to sequence (flattens multi-value emissions).
+    /// Stops after maxSilentTicks consecutive ticks that produce no values.
+    let inline toSeqWith
+        maxSilentTicks
         ([<InlineIfLambda>] getCtx: int -> _)
         ([<InlineIfLambda>] stream: SigStream<_,_,_>)
         =
         let state = StateController(ValueNone)
         seq {
             let mutable i = 0
-            while true do
+            let mutable silent = 0
+            while silent < maxSilentTicks do
                 let ctx = getCtx i
                 i <- i + 1
                 let vs, _ = stream state ctx
-                yield! vs
+                let mutable hadValue = false
+                for v in vs do
+                    hadValue <- true
+                    yield v
+                if hadValue then silent <- 0
+                else silent <- silent + 1
         }
+
+    /// Convert stream to sequence (flattens multi-value emissions).
+    /// Stops after 1000 consecutive silent ticks.
+    let inline toSeq
+        ([<InlineIfLambda>] getCtx: int -> _)
+        ([<InlineIfLambda>] stream: SigStream<_,_,_>)
+        =
+        toSeqWith 1000 getCtx stream
 
     /// Evaluate n samples
     let inline run n getCtx stream =

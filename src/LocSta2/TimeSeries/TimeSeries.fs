@@ -18,63 +18,7 @@ type ResampleContext<'v> = {
 
 type Resampler<'v, 'r> = ResampleContext<'v> -> 'r
 
-module Resample =
-
-    let inline resample
-        (stepSize: TimeSpan)
-        (startTimestamp: DateTimeOffset option)
-        ([<InlineIfLambda>] resampler: Resampler<'v, 'r>)
-        (data: seq<DataPoint<'v>>)
-        : seq<DataPoint<'r>>
-        =
-        seq {
-            use e = data.GetEnumerator()
-
-            if e.MoveNext() then
-                let mutable current = e.Current
-                let mutable hasMore = true
-                let startTs = startTimestamp |> Option.defaultValue current.Timestamp
-                let mutable windowStart = startTs
-                let mutable before: DataPoint<'v> voption = ValueNone
-                let buffer = ResizeArray()
-
-                while hasMore && current.Timestamp < windowStart do
-                    before <- ValueSome current
-                    hasMore <- e.MoveNext()
-                    if hasMore then current <- e.Current
-
-                while hasMore do
-                    let windowEnd = windowStart + stepSize
-                    buffer.Clear()
-
-                    while hasMore && current.Timestamp < windowEnd do
-                        buffer.Add current
-                        hasMore <- e.MoveNext()
-                        if hasMore then current <- e.Current
-
-                    let window = buffer.ToArray()
-
-                    let after =
-                        if hasMore then ValueSome current else ValueNone
-
-                    yield {
-                        Value =
-                            resampler {
-                                Timestamp = windowStart
-                                Window = window
-                                Before = before
-                                After = after
-                            }
-                        Timestamp = windowStart
-                    }
-
-                    if window.Length > 0 then
-                        before <- ValueSome window[window.Length - 1]
-
-                    windowStart <- windowEnd
-        }
-
-module Aggregators =
+module Aggregate =
 
     let last : Resampler<'v, 'v option> =
         fun ctx ->
@@ -129,7 +73,7 @@ module Aggregators =
                     if w[i].Value > m then m <- w[i].Value
                 Some m
 
-module Interpolators =
+module Interpolate =
 
     let sampleAndHold : Resampler<'v, 'v option> =
         fun ctx ->

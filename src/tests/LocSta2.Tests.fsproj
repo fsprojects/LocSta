@@ -47,6 +47,12 @@
     <!-- Windowing -->
     <Compile Include="Windowing/WindowedReduceTests.fs" />
     <Compile Include="Windowing/SegmentTests.fs" />
+    <!-- TimeSeries -->
+    <Compile Include="TimeSeries/EvalSafeguardTests.fs" />
+    <Compile Include="TimeSeries/LookBackTests.fs" />
+    <Compile Include="TimeSeries/LookAheadTests.fs" />
+    <Compile Include="TimeSeries/WindowAggregateTests.fs" />
+    <Compile Include="TimeSeries/StreamInterpolateTests.fs" />
     <!-- DSP: Oscillators -->
     <Compile Include="Dsp/Oscillators/SineOscTests.fs" />
     <Compile Include="Dsp/Oscillators/SawOscTests.fs" />

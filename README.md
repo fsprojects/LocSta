@@ -18,7 +18,7 @@ LocSta provides composable, stateful stream blocks using F# computation expressi
 
 ## Core Concept
 
-A `SigStream<'v,'c,'s>` is a function that takes a `StateController` and a context value, and returns an output value along with the updated state. The `stream { }` computation expression composes these blocks, automatically managing state allocation and threading.
+A `SigStream<'v,'c,'s>` is a function that takes a `StateController` and a context value, and returns a **sequence of output values** along with the updated state. The `stream { }` computation expression composes these blocks, automatically managing state allocation and threading. Streams can emit zero, one, or multiple values per tick using `yield`.
 
 ```fsharp
 open LocSta.Core
@@ -42,15 +42,18 @@ let result = myCounter |> Eval.run 5 (fun _ -> ())
 | Primitive | Description |
 |---|---|
 | `stream { }` | Computation expression builder for composing streams |
+| `return` / `yield` | Emit a single value (`yield` allows multi-emit with `Combine`) |
+| `yield!` | Forward all values from a sub-stream |
 | `getCtx()` | Read the current input/context value |
 | `useState value` | Local mutable state, initialized once |
 | `useStateWith init` | Local mutable state with lazy initializer |
 | `useMemoWith init` | Memoized value (lazy, computed once) |
-| `ofSeq sequence` | Create a stream from a sequence |
+| `ofSeq sequence` | Create a stream from a sequence (emits empty when exhausted) |
 | `map proj stream` | Transform stream output |
-| `Eval.run n getCtx stream` | Evaluate n samples with a context generator |
+| `Eval.run n getCtx stream` | Evaluate n values with a context generator |
 | `Eval.runWith inputs stream` | Evaluate with an input sequence |
-| `Eval.toSeq getCtx stream` | Convert to an infinite `seq<'v>` |
+| `Eval.toSeq getCtx stream` | Convert to a lazy `seq<'v>` (stops after 1000 silent ticks) |
+| `Eval.toSeqWith max getCtx stream` | Same with custom silent-tick limit |
 
 ## Examples
 
@@ -209,6 +212,85 @@ let result = countWhere (fun x -> x > 4) |> Eval.runWith inputs
 |---|---|
 | `windowedReduce windowSize folder seed` | Fold over sliding window |
 | `segment predicate` | Segment stream by predicate |
+
+</details>
+
+<details>
+<summary><strong>TimeSeries — Types</strong></summary>
+
+| Type | Description |
+|---|---|
+| `DataPoint<'v>` | A value with a `DateTimeOffset` timestamp |
+| `ResampleContext<'v>` | Window of DataPoints with optional before/after neighbors |
+| `Resampler<'v,'r>` | `ResampleContext<'v> -> 'r` — aggregation or interpolation function |
+
+</details>
+
+<details>
+<summary><strong>TimeSeries — LookBack</strong></summary>
+
+| Block | Description |
+|---|---|
+| `lookBack1Opt ()` | Previous DataPoint as `voption` (ValueNone on first tick) |
+| `lookBack1 default` | Previous DataPoint, padded with default |
+| `lookBack2Opt ()` / `lookBack3Opt ()` | Previous 2/3 DataPoints as voption tuple |
+| `lookBack2 default` / `lookBack3 default` | Previous 2/3 DataPoints, padded with default |
+| `lookBackOpt n` | Previous N DataPoints as `voption list` |
+| `lookBack n default` | Previous N DataPoints as `list`, padded with default |
+
+</details>
+
+<details>
+<summary><strong>TimeSeries — LookAhead</strong></summary>
+
+| Block | Description |
+|---|---|
+| `lookAhead1Opt ()` | (current, next) as `voption` — delays 1 tick |
+| `lookAhead1 default` | (current, next) — uses default before buffer fills |
+| `lookAhead2Opt ()` / `lookAhead3Opt ()` | (current, next1, next2/3) as voption — delays 2/3 ticks |
+| `lookAhead2 default` / `lookAhead3 default` | (current, next1, next2/3) padded with default |
+| `lookAheadOpt n` | (current, ahead list) as `voption` — delays N ticks |
+| `lookAhead n default` | (current, ahead list) — padded with default |
+
+</details>
+
+<details>
+<summary><strong>TimeSeries — Window Aggregation</strong></summary>
+
+| Block | Description |
+|---|---|
+| `window n` | Sliding window of N DataPoints (raw buffer) |
+| `windowSum n` | Sum of values in sliding window. Input: `DataPoint<float>` |
+| `windowAvg n` | Average of values in sliding window |
+| `windowMin n` | Minimum value in sliding window |
+| `windowMax n` | Maximum value in sliding window |
+| `windowCount n` | Count of values in window (saturates at N) |
+| `cumulativeSum ()` | Running total over all values |
+| `intervalSum ()` | Cumulative sum that resets on boundary. Input: `(DataPoint<float> * bool)` |
+
+</details>
+
+<details>
+<summary><strong>TimeSeries — Interpolation</strong></summary>
+
+| Block | Description |
+|---|---|
+| `sampleAndHold ()` | Hold last known value at target timestamp. Input: `(DateTimeOffset * DataPoint<'v> voption)` |
+| `nearestNeighbor ()` | Pick closest point by timestamp. Input: `(DateTimeOffset * DataPoint<float> voption)` |
+| `linear ()` | Linear interpolation between surrounding points. Input: `(DateTimeOffset * DataPoint<float> voption)` |
+
+</details>
+
+<details>
+<summary><strong>TimeSeries — Standalone Resamplers</strong></summary>
+
+| Block | Description |
+|---|---|
+| `Aggregate.last` / `first` / `count` | Last/first value, count in window |
+| `Aggregate.sum` / `avg` / `min` / `max` | Numeric aggregations over `ResampleContext` |
+| `Interpolate.sampleAndHold` | Hold last known value |
+| `Interpolate.nearestNeighbor` | Pick nearest value by timestamp |
+| `Interpolate.linear` | Linear interpolation (float only) |
 
 </details>
 

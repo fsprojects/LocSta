@@ -76,3 +76,24 @@ let ``Eval.toSeq flattens multi-emit`` () =
     }
     let result = s |> Eval.toSeq (fun _ -> ()) |> Seq.take 6 |> Seq.toList
     Assert.Equal<int list>([1; 2; 1; 2; 1; 2], result)
+
+[<Fact>]
+let ``ofSeq emits elements one by one`` () =
+    let s = ofSeq [10; 20; 30; 40; 50]
+    let result = s |> Eval.run 5 (fun _ -> ())
+    Assert.Equal<int list>([10; 20; 30; 40; 50], result)
+
+[<Fact>]
+let ``ofSeq can be bound in stream`` () =
+    let s = stream {
+        let! x = ofSeq [1; 2; 3]
+        return x * 100
+    }
+    let result = s |> Eval.run 3 (fun _ -> ())
+    Assert.Equal<int list>([100; 200; 300], result)
+
+[<Fact>]
+let ``ofSeq emits empty when exhausted`` () =
+    let s = ofSeq [1; 2]
+    let result = s |> Eval.runWith [(); (); ()]
+    Assert.Equal<int list>([1; 2], result)

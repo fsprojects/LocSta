@@ -1,9 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-
+  <!--This is a temporary file used by Fable to restore dependencies.
+If you see this file in your project, you can delete it safely-->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Core.fs" />
     <Compile Include="TimeSeries/TimeSeries.fs" />
@@ -82,5 +83,4 @@
     <Compile Include="Dsp/Analysis/ZeroCrossRate.fs" />
     <Compile Include="Dsp/Analysis/PeakHold.fs" />
   </ItemGroup>
-
 </Project>
