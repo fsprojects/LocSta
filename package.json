@@ -7,6 +7,6 @@
     "build": "node build/extract-sources.mjs && dotnet fable src/demoSite -o src/demoSite/.fable && npm run clean:fablejs && vite build"
   },
   "devDependencies": {
-    "vite": "^6.4.2"
+    "vite": "^8.0.16"
   }
 }
